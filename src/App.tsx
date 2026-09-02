@@ -124,8 +124,17 @@ export default function Home() {
     <main className="game-shell">
       <header className="topbar">
         <div><p className="eyebrow">Fallen House Management Prototype</p><h1>没落令嬢の返済録</h1></div>
-        <div className="deadline"><span>第1章</span><strong>{game.day}<small> / 14日</small></strong></div>
-        <div className="debt-block"><span>返済額</span><strong>{game.debt.toLocaleString()}G</strong><div className="debt-track"><i style={{ width: `${Math.min(100, game.money / game.debt * 100)}%` }} /></div><small>手元 {game.money.toLocaleString()}G</small></div>
+        <div className="deadline">
+          <span>第1章</span>
+          <strong>{game.day}<small> / 14日</small></strong>
+          <span className="remain">期限まで残り{15 - game.day}日</span>
+        </div>
+        <div className="debt-block">
+          <span>返済額</span>
+          <strong>{game.debt.toLocaleString()}G</strong>
+          <div className="debt-track"><i style={{ width: `${Math.min(100, game.money / game.debt * 100)}%` }} /></div>
+          <div className="debt-foot"><span>手元 <b>{game.money.toLocaleString()}G</b></span><span>{Math.floor(game.money / game.debt * 100)}%</span></div>
+        </div>
         <Button variant="ghost" size="icon" aria-label="最初からやり直す" onClick={resetGame}><RotateCcw /></Button>
       </header>
 
@@ -133,18 +142,41 @@ export default function Home() {
         <aside className="character-panel">
           <div className="portrait-frame"><img src={`${import.meta.env.BASE_URL}lady-at-ledger.png`} alt="借金の帳簿に向き合う成人の没落貴族令嬢" /><div className="portrait-caption"><span>エレオノール・ラティエ</span><small>二十六歳／ラティエ家当主</small></div></div>
           <section className="status-section"><div className="section-heading"><span>現在の状態</span><strong>体力 {100 - game.fatigue}</strong></div><div className="meter"><i className="stamina" style={{ width: `${100 - game.fatigue}%` }} /></div>
-            {axes.map((axis) => <div className="axis-row" key={axis}><div><span>{axis}</span><small>{axisLabel(game.axes[axis])}</small></div><div className="meter"><i className={`axis-${axis}`} style={{ width: `${game.axes[axis]}%` }} /></div></div>)}
+            {axes.map((axis) => (
+              <div className="axis-row" key={axis}>
+                <div className="axis-head">
+                  <span className="axis-name">{axis}</span>
+                  <span className="axis-state">{axisLabel(game.axes[axis])}</span>
+                  <span className="axis-num">{game.axes[axis]}</span>
+                </div>
+                <div className="meter"><i className={`axis-${axis}`} style={{ width: `${game.axes[axis]}%` }} /></div>
+              </div>
+            ))}
           </section>
-          <section className="status-section"><div className="section-heading"><span>技能</span><small>最大5</small></div><div className="skills-grid">{skills.map((skill) => <div key={skill}><span>{skill}</span><strong>{game.skills[skill]}</strong></div>)}</div></section>
+          <section className="status-section"><div className="section-heading"><span>技能</span><small>最大5</small></div><div className="skills-grid">{skills.map((skill) => <div key={skill}><span>{skill}</span><strong>{game.skills[skill]}<small> /5</small></strong></div>)}</div></section>
         </aside>
 
         <section className="work-panel">
           <div className="panel-title"><div><p className="eyebrow">本日の依頼</p><h2>三通の依頼状</h2></div><Button variant="outline" onClick={() => setShowForecast((v) => !v)}><Eye />明日の気配</Button></div>
+          {game.log[0] && <p className="last-event"><Sparkles />{game.log[0]}</p>}
           {showForecast && <div className="forecast">明日は「{offersForDay(Math.min(14, game.day + 1))[0].client}」から、{offersForDay(Math.min(14, game.day + 1))[0].skill}を求める依頼が届きそうだ。</div>}
           <div className="job-list">{offers.map((job) => {
             const required = Math.max(0, job.required - Math.floor(game.relations[job.client] / 2));
             const short = Math.max(0, required - game.skills[job.skill]);
-            return <button key={job.id} className={`job-card ${selectedJob?.id === job.id ? 'selected' : ''}`} onClick={() => { setSelectedJob(job); setSelected([]); }}><div className="job-seal">{job.skill[0]}</div><div className="job-main"><div className="job-meta"><span>{job.client}・{relationLabel(game.relations[job.client])}</span><span>体力 −{job.fatigue}</span></div><h3>{job.title}</h3><p>{job.description}</p><div className="requirement"><span>{job.skill} {game.skills[job.skill]} / 必要{required}</span>{short === 0 ? <em>正攻法が可能</em> : <b>条件が{short}つ必要</b>}</div></div><strong className="job-pay">{job.pay + game.relations[job.client] * 25}G</strong></button>;
+            return (
+              <button key={job.id} className={`job-card ${selectedJob?.id === job.id ? 'selected' : ''}`} onClick={() => { setSelectedJob(job); setSelected([]); }}>
+                <div className="job-seal">{job.skill[0]}</div>
+                <div className="job-main">
+                  <div className="job-head">
+                    <h3>{job.title}</h3>
+                    <strong className="job-pay">{job.pay + game.relations[job.client] * 25}G</strong>
+                  </div>
+                  <div className="job-meta"><span>{job.client}・{relationLabel(game.relations[job.client])}</span><span>体力 −{job.fatigue}</span></div>
+                  <p>{job.description}</p>
+                  <div className="requirement"><span>{job.skill} {game.skills[job.skill]} / 必要{required}</span>{short === 0 ? <em>正攻法が可能</em> : <b>条件が{short}つ必要</b>}</div>
+                </div>
+              </button>
+            );
           })}</div>
           <div className="alternatives"><div className="panel-title compact"><div><p className="eyebrow">仕事を受けない</p><h2>今日を将来に使う</h2></div></div><div className="alternative-grid">
             <div className="alt-card"><BookOpen /><div><strong>学ぶ</strong><small>70G・体力−12</small></div>{skills.map((skill) => <Button key={skill} size="xs" variant="outline" disabled={game.money < 70 || game.fatigue > 85 || game.skills[skill] >= 5} onClick={() => train(skill)}>{skill}</Button>)}</div>
