@@ -304,7 +304,7 @@ export default function App() {
             const list0 = listPrice(job, game);
             const now = payWithRelation(job, game);
             return (
-              <button key={job.id} className={`jobcard2 ${blocked ? 'disabled' : ''}`} disabled={blocked}
+              <button key={job.id} className={`jobcard2 paper paper-${job.kind} ${blocked ? 'disabled' : ''}`} disabled={blocked}
                 onClick={() => setView({ kind: 'contract', job, from: 'jobs' })}>
                 <div className="jc-head">
                   <span className="avatar sm">
