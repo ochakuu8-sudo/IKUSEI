@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit -p tsconfig.app.json && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "bash scripts/deploy.sh"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
