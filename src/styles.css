@@ -70,6 +70,7 @@ img { display: block; max-width: 100%; }
 }
 .backdrop {
   position: absolute; inset: 0; overflow: hidden;
+  z-index: 0; pointer-events: none;
   /* 背景画像が未実装のあいだの下地 */
   background:
     radial-gradient(90% 70% at 22% 30%, #1b2740 0%, #0d1421 55%, #070b12 100%),
@@ -95,12 +96,13 @@ img { display: block; max-width: 100%; }
 
 /* ================= HUD ================= */
 .hud {
-  position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+  position: relative; z-index: 5; flex: 0 0 auto;
   display: grid; grid-template-columns: auto 1fr auto auto;
   align-items: center; gap: clamp(10px, 2vw, 22px);
   padding: 8px clamp(10px, 2vw, 22px);
   background: linear-gradient(180deg, #05080df2 0%, #05080dcc 70%, #05080d00 100%);
 }
+.home .hud, .result-screen .hud { position: absolute; top: 0; left: 0; right: 0; }
 .hud-debt { display: flex; align-items: baseline; gap: 8px; }
 .hud-debt span { color: var(--ink-3); font-size: var(--fs-xs); }
 .hud-debt strong {
@@ -162,11 +164,11 @@ img { display: block; max-width: 100%; }
 .tone-威厳 { background: linear-gradient(90deg, #8a6a22, var(--axis-威厳)); }
 .tone-stamina { background: linear-gradient(90deg, #2f7d63, var(--stamina)); }
 
-/* ================= コマンド（本日の依頼） ================= */
+/* ================= 自室：今日をどう使うか ================= */
 .command {
   position: absolute; z-index: 4; right: 0; top: 0; bottom: 0;
   width: clamp(310px, 52%, 560px);
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex; flex-direction: column; gap: 9px;
   padding: calc(var(--pad) + 34px) clamp(12px, 2vw, 22px) var(--pad);
   background: linear-gradient(90deg, #05080d00, #05080dcc 14%, #05080de8 100%);
 }
@@ -176,22 +178,129 @@ img { display: block; max-width: 100%; }
   font-size: var(--fs-xl);
 }
 .command-title small { color: var(--ink-3); font-size: var(--fs-xs); font-weight: 400; }
-.offers { display: flex; flex-direction: column; gap: 7px; }
-.offer {
-  display: block; width: 100%; padding: 9px 12px; text-align: left;
-  background: var(--card); border: 1px solid var(--line);
-  border-left: 3px solid var(--line-strong); border-radius: 8px;
-  cursor: pointer; transition: .14s ease;
+.ticker {
+  padding: 7px 11px; color: var(--ink-2); font-size: var(--fs-xs);
+  background: #ffffff0a; border-left: 2px solid var(--line-strong); border-radius: 0 5px 5px 0;
 }
-.offer:hover:not(:disabled) { background: #263346f2; border-left-color: var(--gold); transform: translateX(-2px); }
-.offer:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.offer:disabled { cursor: not-allowed; opacity: .45; }
-.offer-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.offer-line h3 { font-size: var(--fs-lg); }
-.offer-line strong { font-family: var(--font-serif-jp); font-size: var(--fs-2xl); color: var(--gold); line-height: 1.1; }
-.offer-line strong small { font-size: var(--fs-sm); }
-.offer-line.sub { margin-top: 2px; color: var(--ink-3); font-size: var(--fs-xs); }
-.offer-tags { display: flex; gap: 6px; }
+.commands { display: flex; flex-direction: column; gap: 7px; }
+.cmd {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 11px 14px; text-align: left; color: inherit;
+  background: var(--card); border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong); border-radius: 9px;
+  cursor: pointer; transition: .15s ease;
+}
+.cmd:hover:not(:disabled) { background: #263346f2; border-left-color: var(--gold); transform: translateX(-2px); }
+.cmd:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.cmd:disabled { opacity: .38; cursor: not-allowed; }
+.cmd svg { width: 21px; height: 21px; color: var(--gold); flex-shrink: 0; }
+.cmd b { display: block; font-family: var(--font-serif-jp); font-size: var(--fs-lg); }
+.cmd i { font-style: normal; font-size: var(--fs-xs); color: var(--ink-3); }
+.cmd.primary {
+  background: linear-gradient(90deg, #3c3018f2, #1d2836f2);
+  border-color: #a8813c66; border-left-color: var(--gold);
+}
+.cmd.primary b { color: #f0d79b; }
+.skillbar {
+  display: flex; gap: 14px; margin-top: auto;
+  padding-top: 8px; border-top: 1px solid var(--line);
+  color: var(--ink-3); font-size: var(--fs-xs);
+}
+.skillbar b { margin-left: 5px; color: var(--ink); font-size: var(--fs-sm); }
+
+/* ================= 上部バー（マップ・場所） ================= */
+.screen.map, .screen.place { display: flex; flex-direction: column; }
+.screen.place { padding-inline: clamp(10px, 2vw, 22px); }
+.screen.place > .hud, .screen.place > .topbar { margin-inline: calc(-1 * clamp(10px, 2vw, 22px)); }
+.topbar {
+  position: relative; z-index: 5; flex: 0 0 auto;
+  display: flex; align-items: center; gap: 12px;
+  padding: 4px clamp(10px, 2vw, 22px) 8px;
+}
+.topbar h2 { font-size: var(--fs-xl); }
+.topbar-title span { display: block; color: var(--ink-3); font-size: var(--fs-xs); }
+.topbar-sub { margin-left: auto; color: var(--ink-3); font-size: var(--fs-xs); }
+
+/* ================= マップ ================= */
+.map-field { position: relative; z-index: 1; flex: 1; min-height: 0; }
+/* 街路。地図の素材が無い間も「地図」として読め、素材が来ても成立する */
+.map-routes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.map-routes polygon {
+  fill: #d9b76a0a;
+  stroke: #d9b76a3d; stroke-width: 1.5px;
+  stroke-dasharray: 6 5; stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.marker {
+  position: absolute; z-index: 1; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 0; background: none; border: 0; cursor: pointer;
+  transition: .16s ease;
+}
+.marker:hover { transform: translate(-50%, calc(-50% - 3px)); }
+.marker:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; border-radius: 8px; }
+.marker-pin {
+  position: relative; display: grid; place-items: center;
+  width: 42px; height: 42px; border-radius: 50%;
+  color: #f0d79b;
+  background: linear-gradient(180deg, #1d2a3d, #101825);
+  border: 2px solid var(--line-strong);
+  box-shadow: 0 6px 16px #000000aa, inset 0 1px 0 #ffffff1f;
+  transition: .16s ease;
+}
+.marker:hover .marker-pin { border-color: var(--gold); box-shadow: 0 8px 20px #000000aa, 0 0 0 4px #d9b76a1f; }
+.marker-pin::before {
+  content: ''; position: absolute; width: 78px; height: 78px; border-radius: 50%;
+  background: radial-gradient(circle, #d9b76a1f 0%, #d9b76a00 70%);
+}
+.marker-pin svg { position: relative; width: 20px; height: 20px; }
+.marker-body {
+  padding: 3px 11px; border-radius: 6px; text-align: center;
+  background: #060a11e6; border: 1px solid var(--line);
+}
+.marker-body b { display: block; font-family: var(--font-serif-jp); font-size: var(--fs-sm); line-height: 1.3; }
+.marker-body i { font-style: normal; font-size: var(--fs-xs); color: var(--ink-3); }
+.marker-flags { display: flex; gap: 4px; }
+.flag { padding: 1px 6px; border-radius: 3px; font-style: normal; font-size: 10px; font-weight: 700; }
+.flag.rel { color: var(--gold); background: #d9b76a26; }
+.flag.down { color: var(--bad); background: #e0808c26; }
+.marker.shut { opacity: .5; }
+.marker.shut .marker-pin { color: var(--ink-3); }
+
+/* ================= 場所：常設の依頼 ================= */
+.notice {
+  position: relative; z-index: 1;
+  flex: 0 0 auto; width: min(960px, 100%); margin: 0 auto 8px;
+  padding: 7px 11px; color: var(--ink-2); font-size: var(--fs-xs);
+  background: #e0808c14; border-left: 3px solid var(--bad); border-radius: 0 6px 6px 0;
+}
+.notice b { color: var(--bad); }
+.joblist {
+  position: relative; z-index: 1;
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 8px;
+  width: min(960px, 100%); margin: 0 auto;
+}
+.jobcard {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+  width: 100%; padding: 11px 14px; text-align: left; color: inherit;
+  background: var(--card); border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong); border-radius: 9px;
+  cursor: pointer; transition: .15s ease;
+}
+.jobcard:hover:not(:disabled):not(.closed) { background: #263346f2; border-left-color: var(--gold); transform: translateX(2px); }
+.jobcard:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.jobcard:disabled { opacity: .45; cursor: not-allowed; }
+.jobcard-main h3 { font-size: var(--fs-lg); }
+.jobcard-main p { margin-top: 3px; color: var(--ink-3); font-size: var(--fs-xs); }
+.jobcard-side { text-align: right; flex-shrink: 0; }
+.jobcard-side strong {
+  display: block; font-family: var(--font-serif-jp);
+  font-size: var(--fs-2xl); line-height: 1.1; color: var(--gold);
+}
+.jobcard-side strong small { font-size: var(--fs-sm); }
+.jobcard-side strong s { display: block; color: var(--ink-3); font-size: var(--fs-xs); font-family: var(--font-sans-jp); }
+.jobcard-tags { display: flex; gap: 5px; justify-content: flex-end; margin-top: 4px; }
 .tag {
   display: inline-flex; align-items: center; gap: 3px;
   padding: 1px 7px; border-radius: 4px;
@@ -201,11 +310,35 @@ img { display: block; max-width: 100%; }
 .tag.ok { color: var(--good); background: #63c39a1f; }
 .tag.need { color: var(--bad); background: #e0808c1f; }
 .tag.bad { color: var(--bad); background: #e0808c1f; }
-.decline { width: 100%; }
-.retired-note {
-  color: var(--ink-3); font-size: var(--fs-xs); line-height: 1.5;
-  padding-top: 6px; border-top: 1px dashed var(--line);
+.jobcard.closed {
+  display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
+  color: var(--ink-3); background: #ffffff08;
+  border-style: dashed; border-left-color: var(--line); cursor: default;
 }
+.jobcard.closed s { font-family: var(--font-serif-jp); font-size: var(--fs-sm); }
+.jobcard.closed span { font-size: var(--fs-xs); }
+.empty-note { color: var(--ink-3); font-size: var(--fs-sm); padding: 10px 2px; }
+.place-foot {
+  position: relative; z-index: 1;
+  flex: 0 0 auto; display: flex; justify-content: flex-end;
+  width: min(960px, 100%); margin: 0 auto;
+  padding: 8px 0 var(--pad);
+}
+.inline-warn { color: var(--bad); font-style: normal; }
+
+/* 学ぶシートの選択 */
+.pickrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.pick {
+  padding: 12px 10px; text-align: center; color: inherit;
+  background: var(--card); border: 1px solid var(--line); border-radius: 9px;
+  cursor: pointer; transition: .15s ease;
+}
+.pick:hover:not(:disabled) { background: var(--card-active); border-color: var(--gold); }
+.pick:disabled { opacity: .38; cursor: not-allowed; }
+.pick b { display: block; font-family: var(--font-serif-jp); font-size: var(--fs-lg); }
+.pips { display: flex; gap: 3px; justify-content: center; margin-top: 6px; }
+.pips i { width: 10px; height: 10px; background: #ffffff1a; border-radius: 2px; }
+.pips i.on { background: linear-gradient(180deg, #e2c37c, #a8813c); }
 
 /* ================= シート（契約・休養） ================= */
 .sheet-wrap { position: absolute; inset: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
@@ -369,8 +502,21 @@ img { display: block; max-width: 100%; }
   .btn.icon { width: 34px; height: 34px; }
   .command { padding-top: 42px; gap: 6px; }
   .command-title { padding-bottom: 4px; }
-  .offers { gap: 5px; }
-  .offer { padding: 7px 10px; }
+  .commands { gap: 5px; }
+  .cmd { padding: 8px 11px; gap: 9px; }
+  .cmd svg { width: 18px; height: 18px; }
+  .ticker { padding: 5px 9px; }
+  .skillbar { padding-top: 6px; gap: 11px; }
+  .topbar { padding: 2px 10px 6px; }
+  .marker-pin { width: 34px; height: 34px; }
+  .marker-pin svg { width: 16px; height: 16px; }
+  .marker-body { padding: 2px 8px; }
+  .joblist { gap: 6px; }
+  .jobcard { padding: 8px 11px; }
+  .notice { padding: 5px 9px; margin-bottom: 6px; }
+  .place-foot { padding-top: 6px; }
+  .pickrow { gap: 6px; }
+  .pick { padding: 9px 8px; }
   .figure-status { padding: 8px 10px; }
   .figure-name { margin-bottom: 5px; }
   .sheet { padding: 11px 14px; }
@@ -390,6 +536,7 @@ img { display: block; max-width: 100%; }
   .figure-status { width: 152px; padding: 7px 9px; }
   .command { width: 56%; }
   .term p { display: none; }
+  .marker-flags .flag.rel { display: none; }
 }
 
 /* ================= 縦持ち：立ち絵を上、コマンドを下に積む ================= */
@@ -402,7 +549,7 @@ img { display: block; max-width: 100%; }
     background: linear-gradient(180deg, #05080d00, #05080de6 12%, #05080df7 100%);
     overflow-y: auto;
   }
-  .terms, .alts { grid-template-columns: 1fr; }
+  .terms, .pickrow { grid-template-columns: 1fr; }
   .result-cols { grid-template-columns: 1fr; }
   .ending-stats { grid-template-columns: repeat(2, 1fr); }
   .textbox { min-height: 32dvh; }

@@ -3,11 +3,33 @@
 
 export type Skill = '礼法' | '学識' | '商才';
 export type Axis = '貞操' | '品位' | '威厳';
-export type Client = 'アルノー商会' | '王立学院' | 'ヴァレール伯爵家' | '街の組合';
+export type PlaceId = 'estate' | 'arnaud' | 'academy' | 'valere' | 'guild';
 
 export const skills: Skill[] = ['礼法', '学識', '商才'];
 export const axes: Axis[] = ['貞操', '品位', '威厳'];
-export const clients: Client[] = ['アルノー商会', '王立学院', 'ヴァレール伯爵家', '街の組合'];
+
+/** 場所。マップ上の位置は背景画像に対する割合で持つ（実素材が来ても合う）。 */
+export type Place = {
+  id: PlaceId;
+  name: string;
+  short: string;
+  tagline: string;
+  kind: 'home' | 'work';
+  map: { x: number; y: number };
+};
+
+export const places: Place[] = [
+  { id: 'estate',  name: 'ラティエ邸',       short: '屋敷',   kind: 'home', tagline: '帰る場所。休み、学ぶ。',         map: { x: 14, y: 70 } },
+  { id: 'arnaud',  name: 'アルノー商会',     short: '商会',   kind: 'work', tagline: '金の話が早い。実務の仕事。',     map: { x: 26, y: 62 } },
+  { id: 'academy', name: '王立学院',         short: '学院',   kind: 'work', tagline: 'まともな道の入口。',             map: { x: 48, y: 26 } },
+  { id: 'valere',  name: 'ヴァレール伯爵家', short: '伯爵家', kind: 'work', tagline: 'かつての同格。最も気が重い。',   map: { x: 76, y: 44 } },
+  { id: 'guild',   name: '街の組合',         short: '組合',   kind: 'work', tagline: '下世話だが、公平ではある。',     map: { x: 58, y: 76 } },
+];
+
+export const workPlaces = places.filter((p) => p.kind === 'work');
+export function placeOf(id: PlaceId): Place {
+  return places.find((p) => p.id === id) ?? places[0];
+}
 
 export const CHAPTER_DAYS = 14;
 export const MAX_STAMINA = 100;
@@ -23,7 +45,7 @@ export type Concession = {
 export type Job = {
   id: string;
   title: string;
-  client: Client;
+  place: PlaceId;
   skill: Skill;
   required: number;
   pay: number;
@@ -43,7 +65,9 @@ export type GameState = {
   dignityCap: number;
   skills: Record<Skill, number>;
   axes: Record<Axis, number>;
-  relations: Record<Client, number>;
+  relations: Record<PlaceId, number>;
+  /** 直近に働いた場所（新しい順）。同じ所に通い詰めると買い叩かれる。 */
+  recent: PlaceId[];
   log: string[];
   ended: boolean;
 };
@@ -70,11 +94,11 @@ const terms: Record<Axis, [string, string]> = {
 };
 
 function makeJob(
-  id: string, title: string, client: Client, skill: Skill,
+  id: string, title: string, place: PlaceId, skill: Skill,
   required: number, pay: number, stamina: number, dignityFloor: number, description: string,
 ): Job {
   return {
-    id, title, client, skill, required, pay, stamina, dignityFloor, description,
+    id, title, place, skill, required, pay, stamina, dignityFloor, description,
     concessions: axes.map((axis, index) => ({
       axis,
       title: terms[axis][0],
@@ -87,15 +111,15 @@ function makeJob(
 
 // dignityFloor が高い依頼ほど「軽い/まともな」依頼で、品位が落ちると先に消える。
 export const jobs: Job[] = [
-  makeJob('tutor', '商家の娘の家庭教師', '王立学院', '学識', 2, 210, 26, 70, '静かな仕事だが、学院の推薦に応える知識が必要だ。'),
-  makeJob('copyist', '学院文書の筆耕', '王立学院', '学識', 2, 175, 20, 62, '報酬は控えめだが、継続雇用につながる。'),
-  makeJob('secretary', '伯爵家の臨時秘書', 'ヴァレール伯爵家', '礼法', 3, 300, 34, 55, '社交界の手紙と来客を一日で捌く高額依頼。'),
-  makeJob('ledger', '商会の帳簿整理', 'アルノー商会', '学識', 1, 130, 24, 40, '数字は多いが、日が暮れるまでに終えれば約束の額になる。'),
-  makeJob('market', '市場の仕入れ交渉', '街の組合', '商才', 2, 220, 28, 34, '相場を読み、複数の店を回って条件をまとめる。'),
-  makeJob('auction', '旧家財の競売補佐', '街の組合', '商才', 1, 160, 22, 28, '品物の来歴を語り、少しでも高く売る。'),
-  makeJob('banquet', '商家の晩餐で給仕', 'アルノー商会', '礼法', 2, 190, 30, 20, '客は作法に厳しい。かつての身分を面白がる者もいる。'),
-  makeJob('escort', '夜会への同伴', 'ヴァレール伯爵家', '礼法', 2, 240, 24, 12, '昔の知人と顔を合わせる可能性がある。'),
-  makeJob('packing', '商会倉庫の荷造り', '街の組合', '商才', 0, 95, 38, 0, '誰でもできる安全な仕事。ただしひどく疲れる。'),
+  makeJob('tutor', '商家の娘の家庭教師', 'academy', '学識', 2, 210, 26, 70, '静かな仕事だが、学院の推薦に応える知識が必要だ。'),
+  makeJob('copyist', '学院文書の筆耕', 'academy', '学識', 2, 175, 20, 62, '報酬は控えめだが、継続雇用につながる。'),
+  makeJob('secretary', '伯爵家の臨時秘書', 'valere', '礼法', 3, 300, 34, 55, '社交界の手紙と来客を一日で捌く高額依頼。'),
+  makeJob('ledger', '商会の帳簿整理', 'arnaud', '学識', 1, 130, 24, 40, '数字は多いが、日が暮れるまでに終えれば約束の額になる。'),
+  makeJob('market', '市場の仕入れ交渉', 'guild', '商才', 2, 220, 28, 34, '相場を読み、複数の店を回って条件をまとめる。'),
+  makeJob('auction', '旧家財の競売補佐', 'guild', '商才', 1, 160, 22, 28, '品物の来歴を語り、少しでも高く売る。'),
+  makeJob('banquet', '商家の晩餐で給仕', 'arnaud', '礼法', 2, 190, 30, 20, '客は作法に厳しい。かつての身分を面白がる者もいる。'),
+  makeJob('escort', '夜会への同伴', 'valere', '礼法', 2, 240, 24, 12, '昔の知人と顔を合わせる可能性がある。'),
+  makeJob('packing', '商会倉庫の荷造り', 'guild', '商才', 0, 95, 38, 0, '誰でもできる安全な仕事。ただしひどく疲れる。'),
 ];
 
 export const initialState: GameState = {
@@ -106,8 +130,9 @@ export const initialState: GameState = {
   dignityCap: 100,
   skills: { 礼法: 1, 学識: 1, 商才: 0 },
   axes: { 貞操: 100, 品位: 100, 威厳: 100 },
-  relations: { アルノー商会: 0, 王立学院: 0, ヴァレール伯爵家: 0, 街の組合: 0 },
-  log: ['返済期限まで、あと14日。机には三通の依頼状が届いている。'],
+  relations: { estate: 0, arnaud: 0, academy: 0, valere: 0, guild: 0 },
+  recent: [],
+  log: ['返済期限まで、あと14日。まだ、どこへでも行ける。'],
   ended: false,
 };
 
@@ -120,32 +145,44 @@ export const midGameState: GameState = {
   dignityCap: 74,
   skills: { 礼法: 2, 学識: 2, 商才: 1 },
   axes: { 貞操: 62, 品位: 51, 威厳: 47 },
-  relations: { アルノー商会: 1, 王立学院: 0, ヴァレール伯爵家: 2, 街の組合: 1 },
+  relations: { estate: 0, arnaud: 1, academy: 0, valere: 2, guild: 1 },
+  recent: ['valere', 'arnaud'],
   log: ['五日が過ぎた。差し出したものは、もう帳簿には戻らない。'],
 };
 
-/** 日で決まる並び替え。同じ日は必ず同じ顔ぶれになる(セーブと再訪で揺れない)。 */
-function seededOrder(count: number, seed: number): number[] {
-  const order = Array.from({ length: count }, (_, index) => index);
-  let state = (seed * 9301 + 49297) % 233280;
-  for (let i = count - 1; i > 0; i -= 1) {
-    state = (state * 9301 + 49297) % 233280;
-    const j = state % (i + 1);
-    [order[i], order[j]] = [order[j], order[i]];
-  }
-  return order;
+/** その場所にある依頼。常設なので、開いているものはいつでも受けられる。 */
+export function jobsAt(place: PlaceId): Job[] {
+  return jobs.filter((job) => job.place === place);
 }
 
-/** その日に紹介される3件。品位が落ちるほど「軽い依頼」が母集団から消える(§5)。 */
-export function offersForDay(day: number, dignity: number): Job[] {
-  const pool = jobs.filter((job) => dignity >= job.dignityFloor);
-  if (pool.length <= 3) return pool;
-  return seededOrder(pool.length, day).slice(0, 3).map((index) => pool[index]);
+/** まだ紹介してもらえるか。品位が落ちると、軽い依頼から順に閉じる(§5)。 */
+export function isOpen(job: Job, state: GameState): boolean {
+  return state.axes.品位 >= job.dignityFloor;
+}
+
+/** その場所で、いま受けられる依頼の数。マップの表示に使う。 */
+export function openCountAt(place: PlaceId, state: GameState): number {
+  return jobsAt(place).filter((job) => isOpen(job, state)).length;
 }
 
 /** 紹介されなくなった依頼。消さずに跡として残す(§5)。 */
-export function retiredJobs(dignity: number): Job[] {
-  return jobs.filter((job) => dignity < job.dignityFloor);
+export function closedJobsAt(place: PlaceId, state: GameState): Job[] {
+  return jobsAt(place).filter((job) => !isOpen(job, state));
+}
+
+/* --- 常設リストの単調さを防ぐ：同じ場所に通い詰めると買い叩かれる --- */
+
+export const RECENT_WINDOW = 3;
+const FATIGUE_RATE = [1, 0.82, 0.68, 0.58];
+
+/** 直近 RECENT_WINDOW 日のうち、その場所で働いた回数。 */
+export function placeFatigue(place: PlaceId, state: GameState): number {
+  return state.recent.slice(0, RECENT_WINDOW).filter((id) => id === place).length;
+}
+
+/** 通い詰めによる相場の下落率（1 = 定価）。 */
+export function fatigueRate(place: PlaceId, state: GameState): number {
+  return FATIGUE_RATE[Math.min(placeFatigue(place, state), FATIGUE_RATE.length - 1)];
 }
 
 export function axisStage(axis: Axis, value: number): string {
@@ -167,7 +204,7 @@ export function relationLabel(value: number): string {
 
 /** 人脈が深いほど求められる技能が下がる。 */
 export function requiredSkillFor(job: Job, state: GameState): number {
-  return Math.max(0, job.required - Math.floor(state.relations[job.client] / 2));
+  return Math.max(0, job.required - Math.floor(state.relations[job.place] / 2));
 }
 
 /** 技能の不足分。この数だけ上乗せを受け入れないと依頼を受けられない。 */
@@ -175,8 +212,14 @@ export function shortageFor(job: Job, state: GameState): number {
   return Math.max(0, requiredSkillFor(job, state) - state.skills[job.skill]);
 }
 
+/** 定価＋人脈。相場の下落はまだ掛けない。 */
+export function listPrice(job: Job, state: GameState): number {
+  return job.pay + state.relations[job.place] * 25;
+}
+
+/** 実際に提示される額。通い詰めていると下がる。 */
 export function payWithRelation(job: Job, state: GameState): number {
-  return job.pay + state.relations[job.client] * 25;
+  return Math.round(listPrice(job, state) * fatigueRate(job.place, state));
 }
 
 /** スタミナが足りない依頼は選べない(§1-5)。 */
@@ -228,7 +271,7 @@ const plainScript: SceneLine[] = [
 
 /** 受けた依頼と、払った軸から台本を組む。払った軸が複数なら重い順に繋ぐ。 */
 export function sceneScript(job: Job, paidAxes: Axis[]): SceneLine[] {
-  const opening: SceneLine = { text: `${job.client}／${job.title}。` };
+  const opening: SceneLine = { text: `${placeOf(job.place).name}／${job.title}。` };
   if (paidAxes.length === 0) return [opening, ...plainScript];
   const ordered = axes.filter((axis) => paidAxes.includes(axis));
   return [opening, ...ordered.flatMap((axis) => scriptByAxis[axis])];

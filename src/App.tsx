@@ -1,19 +1,26 @@
 import { useEffect, useState, type ButtonHTMLAttributes } from 'react';
 import {
-  BookOpen, ChevronDown, Coins, Moon, RotateCcw, Users, Zap,
+  BookOpen, ChevronDown, ChevronLeft, Coins, Handshake, Landmark, Map as MapIcon,
+  Moon, RotateCcw, Scale, Store, Zap,
 } from 'lucide-react';
 import {
   CHAPTER_DAYS, MAX_STAMINA, NETWORK_COST, NETWORK_STAMINA, REST_RECOVERY,
-  TRAIN_COST, TRAIN_STAMINA, axes, axisStage, clients, hasStaminaFor, initialState,
-  midGameState, offersForDay, payWithRelation, primaryAxis, relationLabel,
-  requiredSkillFor, retiredJobs, sceneScript, shortageFor, skills,
-  type Axis, type Client, type DayResult, type GameState, type Job, type SceneLine, type Skill,
+  TRAIN_COST, TRAIN_STAMINA, axes, axisStage, closedJobsAt, fatigueRate, hasStaminaFor,
+  initialState, isOpen, jobsAt, listPrice, midGameState, openCountAt, payWithRelation,
+  placeFatigue, placeOf, primaryAxis, relationLabel, requiredSkillFor, sceneScript,
+  shortageFor, skills, workPlaces,
+  type Axis, type DayResult, type GameState, type Job, type PlaceId, type SceneLine, type Skill,
 } from './game';
 import {
-  PLACEHOLDER, backgroundSrc, portraitSrc, portraitStage, sceneFallbackSrc, sceneSrc,
+  PLACEHOLDER, backgroundSrc, mapSrc, placeSrc, portraitSrc, portraitStage,
+  sceneFallbackSrc, sceneSrc,
 } from './art';
 
-const SAVE_KEY = 'ikusei-prototype-save-v2';
+const SAVE_KEY = 'ikusei-prototype-save-v3';
+
+const PLACE_ICON: Record<PlaceId, typeof Store> = {
+  estate: Landmark, arnaud: Store, academy: BookOpen, valere: Landmark, guild: Scale,
+};
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'outline' | 'ghost';
@@ -24,9 +31,7 @@ function Button({ variant = 'primary', size = 'default', className = '', ...prop
   return <button className={`btn ${variant} ${size} ${className}`} {...props} />;
 }
 
-/** 素材が無ければ次の候補へ落ちる。描けたぶんから1枚ずつ差し込める。
-    hideIfMissing を付けたものは、全部無ければ何も描かない（背景など、
-    仮画像で代用すると別の絵と二重に見えてしまうもの）。 */
+/** 素材が無ければ次の候補へ。hideIfMissing は全滅時に何も描かない。 */
 function Art({ sources, alt, className, hideIfMissing = false }: {
   sources: string[]; alt: string; className?: string; hideIfMissing?: boolean;
 }) {
@@ -35,12 +40,8 @@ function Art({ sources, alt, className, hideIfMissing = false }: {
   useEffect(() => setStep(0), [key]);
   if (hideIfMissing && step >= sources.length) return null;
   return (
-    <img
-      className={className}
-      src={sources[Math.min(step, sources.length - 1)]}
-      alt={alt}
-      onError={() => setStep((n) => (n < sources.length ? n + 1 : n))}
-    />
+    <img className={className} src={sources[Math.min(step, sources.length - 1)]} alt={alt}
+      onError={() => setStep((n) => (n < sources.length ? n + 1 : n))} />
   );
 }
 
@@ -55,24 +56,42 @@ function Gauge({ value, max = 100, cap, tone }: { value: number; max?: number; c
   );
 }
 
-/* 画面の状態機械。1画面につき1つの仕事だけをさせる。 */
+/** 全画面で共通のHUD。残債を最も大きい数字に置く。 */
+function Hud({ game, onReset }: { game: GameState; onReset: () => void }) {
+  const left = Math.max(0, game.debt - game.money);
+  return (
+    <header className="hud">
+      <div className="hud-debt">
+        <span>残債</span>
+        <strong>{left.toLocaleString()}<small>G</small></strong>
+      </div>
+      <div className="hud-track"><i style={{ width: `${Math.min(100, (game.money / game.debt) * 100)}%` }} /></div>
+      <div className="hud-chips">
+        <span className="chip"><b>{CHAPTER_DAYS - game.day + 1}</b>日</span>
+        <span className={`chip ${game.stamina < 30 ? 'low' : ''}`}><Zap /><b>{game.stamina}</b></span>
+        <span className="chip"><Coins /><b>{game.money.toLocaleString()}</b></span>
+      </div>
+      <Button variant="ghost" size="icon" aria-label="最初からやり直す" onClick={onReset}><RotateCcw /></Button>
+    </header>
+  );
+}
+
+/* 画面の状態機械。1画面につき仕事は1つ。 */
 type View =
   | { kind: 'home' }
+  | { kind: 'study' }
+  | { kind: 'map' }
+  | { kind: 'place'; place: PlaceId }
   | { kind: 'contract'; job: Job }
-  | { kind: 'rest' }
   | { kind: 'scene'; job: Job; paid: Axis[]; script: SceneLine[]; line: number; result: DayResult }
-  | { kind: 'result'; result: DayResult }
+  | { kind: 'result'; result: DayResult; back: View }
   | { kind: 'ending' };
 
 function loadGame(): GameState | null {
   if (typeof window === 'undefined') return null;
   const saved = localStorage.getItem(SAVE_KEY);
   if (!saved) return null;
-  try {
-    return JSON.parse(saved) as GameState;
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(saved) as GameState; } catch { return null; }
 }
 
 export default function App() {
@@ -86,19 +105,17 @@ export default function App() {
   }, [game]);
 
   if (!game) {
-    return <TitleScreen onStart={(state) => { setGame(state); setView({ kind: 'home' }); setPicked([]); }} />;
+    return <TitleScreen onStart={(s) => { setGame(s); setView({ kind: 'home' }); setPicked([]); }} />;
   }
   if (view.kind === 'ending') {
     return <EndingScreen game={game} onRestart={() => { setGame(null); setView({ kind: 'home' }); }} />;
   }
 
-  const dignity = game.axes.品位;
-  const offers = offersForDay(game.day, dignity);
-  const retired = retiredJobs(dignity);
   const stage = portraitStage(game.axes);
+  const reset = () => setGame(null);
 
-  /** 状態を1日ぶん進める。演出はこのあと View 側で見せる。 */
-  function commit(patch: Partial<GameState>, narrative: string, publicWork = false) {
+  /** 1日を消費する。演出は呼び出し側が View で見せる。 */
+  function commit(patch: Partial<GameState>, narrative: string, worked: PlaceId, publicWork = false) {
     setGame((current) => {
       if (!current) return current;
       const nextAxes = { ...current.axes, ...patch.axes };
@@ -107,9 +124,9 @@ export default function App() {
       nextAxes.品位 = Math.min(nextAxes.品位, nextCap);
       const lastDay = current.day >= CHAPTER_DAYS;
       return {
-        ...current,
-        ...patch,
+        ...current, ...patch,
         axes: nextAxes,
+        recent: [worked, ...current.recent].slice(0, 6),
         day: lastDay ? CHAPTER_DAYS : current.day + 1,
         ended: lastDay,
         log: [narrative, ...current.log].slice(0, 8),
@@ -119,33 +136,33 @@ export default function App() {
 
   function acceptJob(job: Job, chosen: number[]) {
     if (!game) return;
-    const terms = chosen.map((index) => job.concessions[index]);
-    const relationBonus = game.relations[job.client] * 25;
-    const total = job.pay + relationBonus + terms.reduce((sum, t) => sum + t.bonus, 0);
+    const terms = chosen.map((i) => job.concessions[i]);
+    const offered = payWithRelation(job, game);
+    const total = offered + terms.reduce((a, t) => a + t.bonus, 0);
     const nextAxes = { ...game.axes };
-    const axisDrops: { axis: Axis; amount: number }[] = [];
+    const drops: { axis: Axis; amount: number }[] = [];
     let capDrop = 0;
     terms.forEach((t) => {
       nextAxes[t.axis] = Math.max(0, nextAxes[t.axis] - t.cost);
-      axisDrops.push({ axis: t.axis, amount: t.cost });
+      drops.push({ axis: t.axis, amount: t.cost });
       if (t.axis === '品位') capDrop += Math.ceil(t.cost / 2);
     });
     const paid = terms.map((t) => t.axis);
     const result: DayResult = {
       kind: 'job', title: job.title,
       narrative: `${job.title}。${terms.length ? '条件を受け入れ、' : '正攻法で勤め、'}${total}Gを得た。`,
-      basePay: job.pay, relationBonus,
+      basePay: offered, relationBonus: 0,
       paidTerms: terms.map((t) => ({ axis: t.axis, title: t.title, bonus: t.bonus, cost: t.cost })),
       moneyDelta: total, staminaDelta: -job.stamina,
-      axisDrops, axisGains: [], dignityCapDrop: capDrop,
+      axisDrops: drops, axisGains: [], dignityCapDrop: capDrop,
     };
     commit({
       money: game.money + total,
       stamina: game.stamina - job.stamina,
       axes: nextAxes,
       dignityCap: Math.max(0, game.dignityCap - capDrop),
-      relations: { ...game.relations, [job.client]: Math.min(3, game.relations[job.client] + 1) },
-    }, result.narrative, paid.includes('威厳'));
+      relations: { ...game.relations, [job.place]: Math.min(3, game.relations[job.place] + 1) },
+    }, result.narrative, job.place, paid.includes('威厳'));
     setPicked([]);
     setView({ kind: 'scene', job, paid, script: sceneScript(job, paid), line: 0, result });
   }
@@ -154,16 +171,16 @@ export default function App() {
     if (!game) return;
     const before = game.axes.品位;
     const after = Math.min(game.dignityCap, before + 6);
-    const nextStamina = Math.min(MAX_STAMINA, game.stamina + REST_RECOVERY);
+    const next = Math.min(MAX_STAMINA, game.stamina + REST_RECOVERY);
     const result: DayResult = {
       kind: 'rest', title: '休養', narrative: '屋敷で静かに休み、身なりを整えた。',
       basePay: 0, relationBonus: 0, paidTerms: [], moneyDelta: 0,
-      staminaDelta: nextStamina - game.stamina, axisDrops: [],
+      staminaDelta: next - game.stamina, axisDrops: [],
       axisGains: after > before ? [{ axis: '品位' as Axis, amount: after - before }] : [],
       dignityCapDrop: 0,
     };
-    commit({ stamina: nextStamina, axes: { ...game.axes, 品位: after } }, result.narrative);
-    setView({ kind: 'result', result });
+    commit({ stamina: next, axes: { ...game.axes, 品位: after } }, result.narrative, 'estate');
+    setView({ kind: 'result', result, back: { kind: 'home' } });
   }
 
   function train(skill: Skill) {
@@ -176,50 +193,41 @@ export default function App() {
     commit({
       money: game.money - TRAIN_COST, stamina: game.stamina - TRAIN_STAMINA,
       skills: { ...game.skills, [skill]: Math.min(5, game.skills[skill] + 1) },
-    }, result.narrative);
-    setView({ kind: 'result', result });
+    }, result.narrative, 'estate');
+    setView({ kind: 'result', result, back: { kind: 'home' } });
   }
 
-  function network(client: Client) {
+  function network(place: PlaceId) {
     if (!game || game.money < NETWORK_COST || game.stamina < NETWORK_STAMINA) return;
+    const name = placeOf(place).name;
     const result: DayResult = {
-      kind: 'network', title: `${client}を訪ねる`, narrative: `${client}を訪ね、次の仕事につながる話をした。`,
+      kind: 'network', title: `${name}に顔を出す`, narrative: `${name}に顔を出し、次の仕事につながる話をした。`,
       basePay: 0, relationBonus: 0, paidTerms: [], moneyDelta: -NETWORK_COST,
       staminaDelta: -NETWORK_STAMINA, axisDrops: [], axisGains: [], dignityCapDrop: 0,
     };
     commit({
       money: game.money - NETWORK_COST, stamina: game.stamina - NETWORK_STAMINA,
-      relations: { ...game.relations, [client]: Math.min(3, game.relations[client] + 1) },
-    }, result.narrative);
-    setView({ kind: 'result', result });
+      relations: { ...game.relations, [place]: Math.min(3, game.relations[place] + 1) },
+    }, result.narrative, 'estate');
+    setView({ kind: 'result', result, back: { kind: 'place', place } });
   }
 
-  function closeResult() {
-    setView(game && game.ended ? { kind: 'ending' } : { kind: 'home' });
-  }
-
-  /* ---- イベントシーン：絵とテキストだけの全画面。タップで送る ---- */
+  /* ---- イベントシーン ---- */
   if (view.kind === 'scene') {
     const axis = primaryAxis(view.paid);
     const last = view.line >= view.script.length - 1;
-    const current = view.script[view.line];
+    const line = view.script[view.line];
     return (
-      <button
-        className="screen scene"
+      <button className="screen scene" aria-label="タップして次へ"
         onClick={() => (last
-          ? setView({ kind: 'result', result: view.result })
-          : setView({ ...view, line: view.line + 1 }))}
-        aria-label="タップして次へ"
-      >
-        <Art
-          className="scene-art"
-          sources={[sceneSrc(view.job, axis), sceneFallbackSrc(view.job), PLACEHOLDER]}
-          alt={`${view.job.title}の情景`}
-        />
+          ? setView({ kind: 'result', result: view.result, back: { kind: 'home' } })
+          : setView({ ...view, line: view.line + 1 }))}>
+        <Art className="scene-art" alt={`${view.job.title}の情景`}
+          sources={[sceneSrc(view.job, axis), sceneFallbackSrc(view.job), PLACEHOLDER]} />
         <div className="scene-veil" />
         <div className="textbox">
-          {current.speaker && <span className="textbox-name">{current.speaker}</span>}
-          <p>{current.text}</p>
+          {line.speaker && <span className="textbox-name">{line.speaker}</span>}
+          <p>{line.text}</p>
           <span className="textbox-next"><ChevronDown /></span>
         </div>
         <span className="scene-progress">{view.line + 1} / {view.script.length}</span>
@@ -227,12 +235,136 @@ export default function App() {
     );
   }
 
-  /* ---- 結果 ---- */
   if (view.kind === 'result') {
-    return <ResultScreen result={view.result} stage={stage} onClose={closeResult} />;
+    return <ResultScreen result={view.result} stage={stage}
+      onClose={() => setView(game.ended ? { kind: 'ending' } : view.back)} />;
   }
 
-  /* ---- 日常パート：立ち絵が主役、コマンドは右に寄せる ---- */
+  /* ---- マップ：どこへ行くかを選ぶ ---- */
+  if (view.kind === 'map') {
+    return (
+      <div className="screen map">
+        <div className="backdrop">
+          <Art className="bg" sources={[mapSrc()]} alt="" hideIfMissing />
+          <div className="bg-veil" />
+        </div>
+        <Hud game={game} onReset={reset} />
+        <div className="topbar">
+          <Button variant="ghost" size="sm" onClick={() => setView({ kind: 'home' })}>
+            <ChevronLeft />戻る
+          </Button>
+          <h2>どこへ行く</h2>
+          <span className="topbar-sub">{game.day}日目</span>
+        </div>
+        <div className="map-field">
+          <svg className="map-routes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <polygon points={workPlaces.map((p) => `${p.map.x},${p.map.y}`).join(' ')} />
+          </svg>
+          {workPlaces.map((place) => {
+            const Icon = PLACE_ICON[place.id];
+            const open = openCountAt(place.id, game);
+            const shut = closedJobsAt(place.id, game).length;
+            const rate = fatigueRate(place.id, game);
+            const rel = game.relations[place.id];
+            return (
+              <button key={place.id} className={`marker ${open === 0 ? 'shut' : ''}`}
+                style={{ left: `${place.map.x}%`, top: `${place.map.y}%` }}
+                onClick={() => setView({ kind: 'place', place: place.id })}>
+                <span className="marker-pin"><Icon /></span>
+                <span className="marker-body">
+                  <b>{place.short}</b>
+                  <i>{open > 0 ? `依頼 ${open}件` : shut > 0 ? 'もう紹介されない' : '依頼なし'}</i>
+                </span>
+                <span className="marker-flags">
+                  {rel > 0 && <em className="flag rel">{relationLabel(rel)}</em>}
+                  {rate < 1 && <em className="flag down">相場 −{Math.round((1 - rate) * 100)}%</em>}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  /* ---- 場所：その場所の常設依頼 ---- */
+  if (view.kind === 'place') {
+    const place = placeOf(view.place);
+    const open = jobsAt(place.id).filter((j) => isOpen(j, game));
+    const closed = closedJobsAt(place.id, game);
+    const rate = fatigueRate(place.id, game);
+    const rel = game.relations[place.id];
+    return (
+      <div className="screen place">
+        <div className="backdrop">
+          <Art className="bg" sources={[placeSrc(place.id)]} alt="" hideIfMissing />
+          <div className="bg-veil" />
+        </div>
+        <Hud game={game} onReset={reset} />
+        <div className="topbar">
+          <Button variant="ghost" size="sm" onClick={() => setView({ kind: 'map' })}>
+            <ChevronLeft />地図
+          </Button>
+          <div className="topbar-title">
+            <h2>{place.name}</h2>
+            <span>{place.tagline}</span>
+          </div>
+          <span className="topbar-sub">{relationLabel(rel)}</span>
+        </div>
+
+        {rate < 1 && (
+          <p className="notice">
+            続けて通ったので相場が下がっている（<b>報酬 −{Math.round((1 - rate) * 100)}%</b>）。
+            何日か空ければ戻る。
+          </p>
+        )}
+
+        <div className="joblist">
+          {open.map((job) => {
+            const short = shortageFor(job, game);
+            const tired = !hasStaminaFor(job, game);
+            const list = listPrice(job, game);
+            const now = payWithRelation(job, game);
+            return (
+              <button key={job.id} className={`jobcard ${tired ? 'disabled' : ''}`} disabled={tired}
+                onClick={() => { setPicked([]); setView({ kind: 'contract', job }); }}>
+                <div className="jobcard-main">
+                  <h3>{job.title}</h3>
+                  <p>{job.description}</p>
+                </div>
+                <div className="jobcard-side">
+                  <strong>
+                    {now.toLocaleString()}<small>G</small>
+                    {now < list && <s>{list.toLocaleString()}</s>}
+                  </strong>
+                  <span className="jobcard-tags">
+                    <i className={tired ? 'tag bad' : 'tag'}><Zap />{job.stamina}</i>
+                    {short > 0 ? <i className="tag need">要 上乗せ{short}</i> : <i className="tag ok">そのまま可</i>}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+          {open.length === 0 && <p className="empty-note">ここで受けられる依頼はもう無い。</p>}
+          {closed.map((job) => (
+            <div className="jobcard closed" key={job.id}>
+              <s>{job.title}</s><span>── もう貴女には紹介できません</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="place-foot">
+          <Button variant="outline"
+            disabled={game.money < NETWORK_COST || game.stamina < NETWORK_STAMINA || rel >= 3}
+            onClick={() => network(place.id)}>
+            <Handshake />顔を出すだけ（{NETWORK_COST}G・1日）
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---- 自室：立ち絵が主役。今日どうするかを決める ---- */
   return (
     <div className="screen home">
       <div className="backdrop">
@@ -240,22 +372,7 @@ export default function App() {
         <div className="bg-veil" />
         <Art className="figure" sources={[portraitSrc(stage), PLACEHOLDER]} alt="エレオノール・ラティエの立ち絵" />
       </div>
-
-      <header className="hud">
-        <div className="hud-debt">
-          <span>残債</span>
-          <strong>{Math.max(0, game.debt - game.money).toLocaleString()}<small>G</small></strong>
-        </div>
-        <div className="hud-track"><i style={{ width: `${Math.min(100, (game.money / game.debt) * 100)}%` }} /></div>
-        <div className="hud-chips">
-          <span className="chip"><b>{CHAPTER_DAYS - game.day + 1}</b>日</span>
-          <span className={`chip ${game.stamina < 30 ? 'low' : ''}`}><Zap /><b>{game.stamina}</b></span>
-          <span className="chip"><Coins /><b>{game.money.toLocaleString()}</b></span>
-        </div>
-        <Button variant="ghost" size="icon" aria-label="最初からやり直す" onClick={() => setGame(null)}>
-          <RotateCcw />
-        </Button>
-      </header>
+      <Hud game={game} onReset={reset} />
 
       <div className="figure-status">
         <p className="figure-name"><span>エレオノール・ラティエ</span></p>
@@ -278,69 +395,83 @@ export default function App() {
       </div>
 
       <section className="command">
-        <h2 className="command-title">本日の依頼<small>三通の依頼状</small></h2>
-        <div className="offers">
-          {offers.map((job) => {
-            const short = shortageFor(job, game);
-            const tired = !hasStaminaFor(job, game);
-            return (
-              <button key={job.id} className={`offer ${tired ? 'disabled' : ''}`} disabled={tired}
-                onClick={() => { setPicked([]); setView({ kind: 'contract', job }); }}>
-                <div className="offer-line">
-                  <h3>{job.title}</h3>
-                  <strong>{payWithRelation(job, game)}<small>G</small></strong>
-                </div>
-                <div className="offer-line sub">
-                  <span>{job.client}</span>
-                  <span className="offer-tags">
-                    <i className={tired ? 'tag bad' : 'tag'}><Zap />{job.stamina}</i>
-                    {short > 0
-                      ? <i className="tag need">要 上乗せ{short}</i>
-                      : <i className="tag ok">そのまま可</i>}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
+        <h2 className="command-title">今日をどう使う<small>1日 ＝ 1行動</small></h2>
+        {game.log[0] && <p className="ticker">{game.log[0]}</p>}
+        <div className="commands">
+          <button className="cmd primary" onClick={() => setView({ kind: 'map' })}>
+            <MapIcon />
+            <span><b>出かける</b><i>街へ出て、依頼を受ける</i></span>
+          </button>
+          <button className="cmd" onClick={rest}>
+            <Moon />
+            <span><b>休む</b><i>スタミナ+{REST_RECOVERY}・品位が上限まで戻る</i></span>
+          </button>
+          <button className="cmd" disabled={game.money < TRAIN_COST || game.stamina < TRAIN_STAMINA}
+            onClick={() => setView({ kind: 'study' })}>
+            <BookOpen />
+            <span><b>学ぶ</b><i>{TRAIN_COST}G・スタミナ−{TRAIN_STAMINA}</i></span>
+          </button>
         </div>
-        <Button variant="outline" className="decline" onClick={() => setView({ kind: 'rest' })}>
-          今日は受けない
-        </Button>
-        {retired.length > 0 && (
-          <p className="retired-note">
-            紹介されなくなった依頼 {retired.length}件：{retired.map((j) => j.title).join('、')}
-          </p>
-        )}
+        <div className="skillbar">
+          {skills.map((skill) => (
+            <span key={skill}>{skill}<b>{game.skills[skill]}</b></span>
+          ))}
+        </div>
       </section>
 
-      {view.kind === 'contract' && (
-        <ContractSheet
-          job={view.job} game={game} picked={picked} setPicked={setPicked}
-          onCancel={() => { setPicked([]); setView({ kind: 'home' }); }}
-          onAccept={() => acceptJob(view.job, picked)}
-        />
+      {view.kind === 'study' && (
+        <Sheet title="何を学ぶ" sub={`${TRAIN_COST}G・スタミナ−${TRAIN_STAMINA}・1日`}
+          onClose={() => setView({ kind: 'home' })}>
+          <div className="pickrow">
+            {skills.map((skill) => (
+              <button key={skill} className="pick" disabled={game.skills[skill] >= 5}
+                onClick={() => train(skill)}>
+                <b>{skill}</b>
+                <span className="pips">
+                  {[0, 1, 2, 3, 4].map((i) => <i key={i} className={i < game.skills[skill] ? 'on' : ''} />)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </Sheet>
       )}
-      {view.kind === 'rest' && (
-        <RestSheet
-          game={game} onCancel={() => setView({ kind: 'home' })}
-          onRest={rest} onTrain={train} onNetwork={network}
-        />
+
+      {view.kind === 'contract' && (
+        <ContractSheet job={view.job} game={game} picked={picked} setPicked={setPicked}
+          onCancel={() => { setPicked([]); setView({ kind: 'place', place: view.job.place }); }}
+          onAccept={() => acceptJob(view.job, picked)} />
       )}
     </div>
   );
 }
 
-/** 契約シート。3つの上乗せを必ず横に並べ、どれを払うか比べられるようにする。 */
+/* 契約シートは place の上にも出せるよう、App の返り値の外に置く */
+function Sheet({ title, sub, children, onClose }: {
+  title: string; sub?: string; children: React.ReactNode; onClose: () => void;
+}) {
+  return (
+    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label={title}>
+      <button className="sheet-backdrop" onClick={onClose} aria-label="閉じる" />
+      <section className="sheet">
+        <div className="sheet-head"><div><h2>{title}</h2>{sub && <span>{sub}</span>}</div></div>
+        {children}
+        <div className="sheet-foot"><Button variant="outline" onClick={onClose}>戻る</Button></div>
+      </section>
+    </div>
+  );
+}
+
 function ContractSheet({ job, game, picked, setPicked, onCancel, onAccept }: {
   job: Job; game: GameState; picked: number[];
-  setPicked: (fn: (current: number[]) => number[]) => void;
+  setPicked: (fn: (c: number[]) => number[]) => void;
   onCancel: () => void; onAccept: () => void;
 }) {
-  const terms = picked.map((index) => job.concessions[index]);
-  const relationBonus = game.relations[job.client] * 25;
+  const terms = picked.map((i) => job.concessions[i]);
+  const offered = payWithRelation(job, game);
   const shortage = shortageFor(job, game);
-  const total = job.pay + relationBonus + terms.reduce((sum, t) => sum + t.bonus, 0);
+  const total = offered + terms.reduce((a, t) => a + t.bonus, 0);
   const ready = picked.length >= shortage;
+  const fatigue = placeFatigue(job.place, game);
   return (
     <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label="契約内容">
       <button className="sheet-backdrop" onClick={onCancel} aria-label="閉じる" />
@@ -348,15 +479,18 @@ function ContractSheet({ job, game, picked, setPicked, onCancel, onAccept }: {
         <div className="sheet-head">
           <div>
             <h2>{job.title}</h2>
-            <span>{job.client}・{relationLabel(game.relations[job.client])}／{job.skill} 必要{requiredSkillFor(job, game)}（現在{game.skills[job.skill]}）</span>
+            <span>
+              {placeOf(job.place).name}・{relationLabel(game.relations[job.place])}
+              ／{job.skill} 必要{requiredSkillFor(job, game)}（現在{game.skills[job.skill]}）
+              {fatigue > 0 && <em className="inline-warn">／相場 −{Math.round((1 - fatigueRate(job.place, game)) * 100)}%</em>}
+            </span>
           </div>
           <div className="sheet-pay">
-            <b>{job.pay + relationBonus}<small>G</small></b>
+            <b>{offered}<small>G</small></b>
             <i><Zap />{job.stamina}</i>
           </div>
         </div>
         <p className="sheet-desc">{job.description}</p>
-
         <div className="terms">
           {job.concessions.map((item, index) => {
             const active = picked.includes(index);
@@ -375,61 +509,12 @@ function ContractSheet({ job, game, picked, setPicked, onCancel, onAccept }: {
             );
           })}
         </div>
-
         <div className="sheet-foot">
-          <div className="sheet-total">
-            <span>受取額</span><strong>{total.toLocaleString()}<small>G</small></strong>
-          </div>
+          <div className="sheet-total"><span>受取額</span><strong>{total.toLocaleString()}<small>G</small></strong></div>
           {!ready && <p className="warn">上乗せをあと {shortage - picked.length} つ</p>}
           <Button variant="outline" onClick={onCancel}>戻る</Button>
           <Button size="lg" disabled={!ready} onClick={onAccept}>この依頼を受ける</Button>
         </div>
-      </section>
-    </div>
-  );
-}
-
-function RestSheet({ game, onCancel, onRest, onTrain, onNetwork }: {
-  game: GameState; onCancel: () => void;
-  onRest: () => void; onTrain: (skill: Skill) => void; onNetwork: (client: Client) => void;
-}) {
-  return (
-    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label="今日は受けない">
-      <button className="sheet-backdrop" onClick={onCancel} aria-label="閉じる" />
-      <section className="sheet">
-        <div className="sheet-head">
-          <div><h2>今日は受けない</h2><span>1日を使って、明日以降に備える</span></div>
-        </div>
-        <div className="alts">
-          <div className="alt">
-            <Moon /><strong>休養</strong>
-            <small>スタミナ+{REST_RECOVERY}／品位が上限まで戻る</small>
-            <Button onClick={onRest}>休む</Button>
-          </div>
-          <div className="alt">
-            <BookOpen /><strong>学ぶ</strong>
-            <small>{TRAIN_COST}G・スタミナ−{TRAIN_STAMINA}</small>
-            <div className="alt-row">
-              {skills.map((skill) => (
-                <Button key={skill} size="xs" variant="outline"
-                  disabled={game.money < TRAIN_COST || game.stamina < TRAIN_STAMINA || game.skills[skill] >= 5}
-                  onClick={() => onTrain(skill)}>{skill}</Button>
-              ))}
-            </div>
-          </div>
-          <div className="alt">
-            <Users /><strong>営業</strong>
-            <small>{NETWORK_COST}G・スタミナ−{NETWORK_STAMINA}</small>
-            <div className="alt-row">
-              {clients.map((client) => (
-                <Button key={client} size="xs" variant="outline"
-                  disabled={game.money < NETWORK_COST || game.stamina < NETWORK_STAMINA || game.relations[client] >= 3}
-                  onClick={() => onNetwork(client)}>{client.replace('ヴァレール', '').replace('家', '')}</Button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="sheet-foot"><Button variant="outline" onClick={onCancel}>戻る</Button></div>
       </section>
     </div>
   );
@@ -452,8 +537,7 @@ function ResultScreen({ result, stage, onClose }: { result: DayResult; stage: st
             <h3>{result.kind === 'job' ? '報酬の内訳' : '収支'}</h3>
             {result.kind === 'job' ? (
               <>
-                <div className="row"><span>基本報酬</span><b>{result.basePay}G</b></div>
-                {result.relationBonus > 0 && <div className="row"><span>人脈</span><b>+{result.relationBonus}G</b></div>}
+                <div className="row"><span>提示額</span><b>{result.basePay}G</b></div>
                 {result.paidTerms.map((t) => (
                   <div className="row" key={t.axis}><span>{t.title}</span><b>+{t.bonus}G</b></div>
                 ))}
