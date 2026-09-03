@@ -117,13 +117,8 @@ export function placeOf(id: PlaceId): Place {
 export const CHAPTER_DAYS = 14;
 export const MAX_STAMINA = 100;
 
-export type Concession = {
-  axis: Axis;
-  title: string;
-  detail: string;
-  bonus: number;
-  cost: number;
-};
+/** その依頼を受けると必ず削られるもの。選ばせない。 */
+export type JobCost = { axis: Axis; amount: number };
 
 export type Job = {
   id: string;
@@ -136,7 +131,8 @@ export type Job = {
   description: string;
   /** 品位がこの値を下回ると紹介されなくなる（§5「軽い依頼が母集団から消える」）。 */
   dignityFloor: number;
-  concessions: Concession[];
+  /** 空なら「何も差し出さずに済む仕事」。 */
+  costs: JobCost[];
 };
 
 export type GameState = {
@@ -172,39 +168,36 @@ export type DayResult = {
   relationUp?: { name: string; stage: string };
 };
 
-const terms: Record<Axis, [string, string]> = {
-  貞操: ['個人的な要求も受ける', '仕事の後、依頼人の私室まで付き添う。'],
-  品位: ['扱いへの異議を捨てる', '役目も呼び方も、相手の決めたものを受け入れる。'],
-  威厳: ['人目のある条件を呑む', '没落した家名ごと、客寄せとして使わせる。'],
-};
-
 function makeJob(
   id: string, title: string, person: PersonId, skill: Skill,
-  required: number, pay: number, stamina: number, dignityFloor: number, description: string,
+  required: number, pay: number, stamina: number, dignityFloor: number,
+  costs: JobCost[], description: string,
 ): Job {
-  return {
-    id, title, person, skill, required, pay, stamina, dignityFloor, description,
-    concessions: axes.map((axis, index) => ({
-      axis,
-      title: terms[axis][0],
-      detail: terms[axis][1],
-      bonus: 105 + required * 25 + index * 20,
-      cost: 9 + required + index,
-    })),
-  };
+  return { id, title, person, skill, required, pay, stamina, dignityFloor, costs, description };
 }
 
 // dignityFloor が高い依頼ほど「軽い/まともな」依頼で、品位が落ちると先に消える。
+// costs が空の依頼が「何も差し出さずに済む道」。報酬は低い。
 export const jobs: Job[] = [
-  makeJob('tutor', '商家の娘の家庭教師', 'claire', '学識', 2, 210, 26, 70, '静かな仕事だが、学院の推薦に応える知識が必要だ。'),
-  makeJob('copyist', '学院文書の筆耕', 'claire', '学識', 2, 175, 20, 62, '報酬は控えめだが、継続雇用につながる。'),
-  makeJob('secretary', '伯爵家の臨時秘書', 'guillaume', '礼法', 3, 300, 34, 55, '社交界の手紙と来客を一日で捌く高額依頼。'),
-  makeJob('ledger', '商会の帳簿整理', 'vernet', '学識', 1, 130, 24, 40, '数字は多いが、日が暮れるまでに終えれば約束の額になる。'),
-  makeJob('market', '市場の仕入れ交渉', 'marc', '商才', 2, 220, 28, 34, '相場を読み、複数の店を回って条件をまとめる。'),
-  makeJob('auction', '旧家財の競売補佐', 'marc', '商才', 1, 160, 22, 28, '品物の来歴を語り、少しでも高く売る。'),
-  makeJob('banquet', '商家の晩餐で給仕', 'jean', '礼法', 2, 190, 30, 20, '客は作法に厳しい。かつての身分を面白がる者もいる。'),
-  makeJob('escort', '夜会への同伴', 'count', '礼法', 2, 240, 24, 12, '昔の知人と顔を合わせる可能性がある。'),
-  makeJob('packing', '商会倉庫の荷造り', 'marc', '商才', 0, 95, 38, 0, '誰でもできる安全な仕事。ただしひどく疲れる。'),
+  makeJob('copyist', '学院文書の筆耕', 'claire', '学識', 1, 175, 20, 62,
+    [], '筆写するだけの静かな仕事。誰も彼女の素性を訊かない。'),
+  makeJob('ledger', '商会の帳簿整理', 'vernet', '学識', 1, 130, 24, 40,
+    [], '数字は多いが、日が暮れるまでに終えれば約束の額になる。'),
+  makeJob('tutor', '商家の娘の家庭教師', 'claire', '学識', 2, 225, 26, 70,
+    [{ axis: '品位', amount: 6 }], '教える相手は、かつて挨拶にも来られなかった家の娘。'),
+  makeJob('auction', '旧家財の競売補佐', 'marc', '商才', 0, 165, 22, 28,
+    [{ axis: '威厳', amount: 8 }], '誰かの家財に値をつける。明日は自分の番かもしれない。'),
+  makeJob('market', '市場の仕入れ交渉', 'marc', '商才', 2, 245, 28, 34,
+    [{ axis: '威厳', amount: 9 }], '往来で声を張って値を争う。見物人は貴族の令嬢を面白がる。'),
+  makeJob('packing', '商会倉庫の荷造り', 'marc', '商才', 0, 95, 38, 0,
+    [{ axis: '品位', amount: 10 }], '誰でもできる安全な仕事。荷を担ぐ令嬢を、皆が見ている。'),
+  makeJob('banquet', '商家の晩餐で給仕', 'jean', '礼法', 1, 215, 30, 20,
+    [{ axis: '品位', amount: 14 }], '客の中に、かつて彼女に頭を下げた者が混じっている。'),
+  makeJob('escort', '夜会への同伴', 'count', '礼法', 1, 265, 24, 12,
+    [{ axis: '威厳', amount: 12 }, { axis: '貞操', amount: 8 }],
+    '伯爵の連れとして立つ。何の連れかは、誰も口に出さない。'),
+  makeJob('secretary', '伯爵家の臨時秘書', 'guillaume', '礼法', 3, 340, 34, 55,
+    [{ axis: '貞操', amount: 16 }], '手紙と来客を捌く。夜まで屋敷に留め置かれる日もある。'),
 ];
 
 export const initialState: GameState = {
@@ -308,9 +301,20 @@ export function requiredSkillFor(job: Job, state: GameState): number {
   return Math.max(0, job.required - Math.floor(state.relations[job.person] / 2));
 }
 
-/** 技能の不足分。この数だけ上乗せを受け入れないと依頼を受けられない。 */
-export function shortageFor(job: Job, state: GameState): number {
+/** 技能が足りているか。足りない依頼は受けられない（肩代わりする手段は無い）。 */
+export function hasSkillFor(job: Job, state: GameState): boolean {
+  return state.skills[job.skill] >= requiredSkillFor(job, state);
+}
+
+/** 技能の不足分。表示用。 */
+export function skillShortage(job: Job, state: GameState): number {
   return Math.max(0, requiredSkillFor(job, state) - state.skills[job.skill]);
+}
+
+/** その依頼で下がる品位の上限。品位を払う依頼だけ発生する。 */
+export function capDropOf(job: Job): number {
+  const dignity = job.costs.find((c) => c.axis === '品位');
+  return dignity ? Math.ceil(dignity.amount / 2) : 0;
 }
 
 /** 定価＋人脈。相場の下落はまだ掛けない。 */
@@ -370,18 +374,18 @@ const plainScript: SceneLine[] = [
   { text: 'それが、今日いちばんの収穫だった。' },
 ];
 
-/** 受けた依頼と、払った軸から台本を組む。払った軸が複数なら重い順に繋ぐ。 */
-export function sceneScript(job: Job, paidAxes: Axis[]): SceneLine[] {
+/** 受けた依頼の台本。削る軸で決まる。複数なら軸の順に繋ぐ。 */
+export function sceneScript(job: Job): SceneLine[] {
   const person = personOf(job.person);
   const opening: SceneLine = { text: `${placeOf(person.place).name}／${job.title}。` };
-  if (paidAxes.length === 0) return [opening, ...plainScript];
-  const ordered = axes.filter((axis) => paidAxes.includes(axis));
+  if (job.costs.length === 0) return [opening, ...plainScript];
+  const ordered = axes.filter((axis) => job.costs.some((c) => c.axis === axis));
   return [opening, ...ordered.flatMap((axis) => scriptByAxis[axis])];
 }
 
-/** 台本のうち、絵を決める主軸。 */
-export function primaryAxis(paidAxes: Axis[]): Axis | null {
-  return axes.find((axis) => paidAxes.includes(axis)) ?? null;
+/** 絵を決める主軸。 */
+export function primaryAxis(job: Job): Axis | null {
+  return axes.find((axis) => job.costs.some((c) => c.axis === axis)) ?? null;
 }
 
 /** 関係が新しい段階に入った日の一言。上がっていなければ空。 */

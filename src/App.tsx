@@ -7,8 +7,8 @@ import {
   CHAPTER_DAYS, MAX_STAMINA, NETWORK_COST, NETWORK_STAMINA, REST_RECOVERY,
   TRAIN_COST, TRAIN_STAMINA, axes, axisStage, closedJobsAt, fatigueRate, hasStaminaFor,
   initialState, isOpen, jobsBy, listPrice, midGameState, openCountAt, payWithRelation,
-  openJobs, peopleAt, personFatigue, personOf, placeOf, primaryAxis, relationStage,
-  requiredSkillFor, sceneScript, shortageFor, skills, stageUpLine, workPlaces,
+  capDropOf, hasSkillFor, openJobs, peopleAt, personFatigue, personOf, placeOf, primaryAxis,
+  relationStage, requiredSkillFor, sceneScript, skillShortage, skills, stageUpLine, workPlaces,
   type Axis, type DayResult, type GameState, type Job, type PersonId, type PlaceId,
   type SceneLine, type Skill,
 } from './game';
@@ -88,7 +88,7 @@ type View =
   | { kind: 'map' }
   | { kind: 'place'; place: PlaceId }
   | { kind: 'contract'; job: Job; from: 'jobs' | 'place' }
-  | { kind: 'scene'; job: Job; paid: Axis[]; script: SceneLine[]; line: number; result: DayResult }
+  | { kind: 'scene'; job: Job; script: SceneLine[]; line: number; result: DayResult }
   | { kind: 'result'; result: DayResult; back: View }
   | { kind: 'ending' };
 
@@ -102,7 +102,6 @@ function loadGame(): GameState | null {
 export default function App() {
   const [game, setGame] = useState<GameState | null>(loadGame);
   const [view, setView] = useState<View>({ kind: 'home' });
-  const [picked, setPicked] = useState<number[]>([]);
 
   useEffect(() => {
     if (game) localStorage.setItem(SAVE_KEY, JSON.stringify(game));
@@ -110,7 +109,7 @@ export default function App() {
   }, [game]);
 
   if (!game) {
-    return <TitleScreen onStart={(s) => { setGame(s); setView({ kind: 'home' }); setPicked([]); }} />;
+    return <TitleScreen onStart={(s) => { setGame(s); setView({ kind: 'home' }); }} />;
   }
   if (view.kind === 'ending') {
     return <EndingScreen game={game} onRestart={() => { setGame(null); setView({ kind: 'home' }); }} />;
@@ -139,27 +138,24 @@ export default function App() {
     });
   }
 
-  function acceptJob(job: Job, chosen: number[]) {
+  function acceptJob(job: Job) {
     if (!game) return;
-    const terms = chosen.map((i) => job.concessions[i]);
-    const offered = payWithRelation(job, game);
-    const total = offered + terms.reduce((a, t) => a + t.bonus, 0);
+    const total = payWithRelation(job, game);
     const nextAxes = { ...game.axes };
     const drops: { axis: Axis; amount: number }[] = [];
-    let capDrop = 0;
-    terms.forEach((t) => {
-      nextAxes[t.axis] = Math.max(0, nextAxes[t.axis] - t.cost);
-      drops.push({ axis: t.axis, amount: t.cost });
-      if (t.axis === '品位') capDrop += Math.ceil(t.cost / 2);
+    job.costs.forEach((c) => {
+      nextAxes[c.axis] = Math.max(0, nextAxes[c.axis] - c.amount);
+      drops.push({ axis: c.axis, amount: c.amount });
     });
-    const paid = terms.map((t) => t.axis);
+    const capDrop = capDropOf(job);
     const relBefore = game.relations[job.person];
     const relAfter = Math.min(3, relBefore + 1);
     const result: DayResult = {
       kind: 'job', title: job.title,
-      narrative: `${job.title}。${terms.length ? '条件を受け入れ、' : '正攻法で勤め、'}${total}Gを得た。`,
-      basePay: offered, relationBonus: 0,
-      paidTerms: terms.map((t) => ({ axis: t.axis, title: t.title, bonus: t.bonus, cost: t.cost })),
+      narrative: job.costs.length
+        ? `${job.title}。差し出すものを差し出して、${total}Gを得た。`
+        : `${job.title}。何も失わずに、${total}Gを得た。`,
+      basePay: total, relationBonus: 0, paidTerms: [],
       moneyDelta: total, staminaDelta: -job.stamina,
       axisDrops: drops, axisGains: [], dignityCapDrop: capDrop,
       relationUp: relAfter > relBefore
@@ -172,11 +168,10 @@ export default function App() {
       axes: nextAxes,
       dignityCap: Math.max(0, game.dignityCap - capDrop),
       relations: { ...game.relations, [job.person]: relAfter },
-    }, result.narrative, job.person, paid.includes('威厳'));
-    setPicked([]);
+    }, result.narrative, job.person, job.costs.some((c) => c.axis === '威厳'));
     setView({
-      kind: 'scene', job, paid, line: 0, result,
-      script: [...sceneScript(job, paid), ...stageUpLine(job.person, relBefore, relAfter)],
+      kind: 'scene', job, line: 0, result,
+      script: [...sceneScript(job), ...stageUpLine(job.person, relBefore, relAfter)],
     });
   }
 
@@ -231,7 +226,7 @@ export default function App() {
 
   /* ---- イベントシーン ---- */
   if (view.kind === 'scene') {
-    const axis = primaryAxis(view.paid);
+    const axis = primaryAxis(view.job);
     const last = view.line >= view.script.length - 1;
     const line = view.script[view.line];
     return (
@@ -279,14 +274,14 @@ export default function App() {
         <div className="jobgrid">
           {list.map((job) => {
             const person = personOf(job.person);
-            const short = shortageFor(job, game);
+            const lack = skillShortage(job, game);
             const tired = !hasStaminaFor(job, game);
+            const blocked = lack > 0 || tired;
             const list0 = listPrice(job, game);
             const now = payWithRelation(job, game);
-            const most = now + Math.max(...job.concessions.map((c) => c.bonus));
             return (
-              <button key={job.id} className={`jobcard2 ${tired ? 'disabled' : ''}`} disabled={tired}
-                onClick={() => { setPicked([]); setView({ kind: 'contract', job, from: 'jobs' }); }}>
+              <button key={job.id} className={`jobcard2 ${blocked ? 'disabled' : ''}`} disabled={blocked}
+                onClick={() => setView({ kind: 'contract', job, from: 'jobs' })}>
                 <div className="jc-head">
                   <span className="avatar sm">
                     <b>{person.name.slice(0, 1)}</b>
@@ -304,29 +299,34 @@ export default function App() {
 
                 <div className="jc-req">
                   <i className={tired ? 'tag bad' : 'tag'}><Zap />{job.stamina}</i>
-                  <i className={short > 0 ? 'tag flat short' : 'tag flat'}>
+                  <i className={lack > 0 ? 'tag flat short' : 'tag flat'}>
                     {job.skill} {game.skills[job.skill]}/{requiredSkillFor(job, game)}
                   </i>
-                  {short > 0 ? <i className="tag need">上乗せ {short}つ必須</i> : <i className="tag ok">そのまま可</i>}
-                  <span className="jc-max">上乗せ次第で <b>{most.toLocaleString()}G</b></span>
+                  {lack > 0 && <i className="tag need">技能が {lack} 足りない</i>}
+                  {tired && <i className="tag need">スタミナ不足</i>}
                 </div>
 
-                {/* このゲームの本体は「何を払うか」なので、比べる画面に必ず出す */}
-                <div className="jc-costs">
-                  {job.concessions.map((c) => {
-                    const after = Math.max(0, game.axes[c.axis] - c.cost);
+                {/* この依頼を受けると何が減るか。選ばせないので、断言して出す */}
+                <div className={`jc-costs n${job.costs.length}`}>
+                  {job.costs.length === 0 ? (
+                    <span className="cost cost-none">
+                      <em>差し出すものは無い</em>
+                      <u>体力だけで済む仕事</u>
+                    </span>
+                  ) : job.costs.map((c) => {
+                    const after = Math.max(0, game.axes[c.axis] - c.amount);
                     return (
                       <span key={c.axis} className={`cost cost-cell-${c.axis}`}>
                         <em>{c.axis}</em>
-                        <b>−{c.cost}</b>
+                        <b>−{c.amount}</b>
                         <u>{game.axes[c.axis]}→{after}</u>
-                        <i>+{c.bonus}G</i>
                       </span>
                     );
                   })}
+                  {capDropOf(job) > 0 && (
+                    <span className="cost cost-cap"><em>品位の上限</em><b>−{capDropOf(job)}</b><u>戻らない</u></span>
+                  )}
                 </div>
-
-                {tired && <p className="jc-block">スタミナが足りない</p>}
               </button>
             );
           })}
@@ -532,14 +532,11 @@ export default function App() {
       )}
 
       {view.kind === 'contract' && (
-        <ContractSheet job={view.job} game={game} picked={picked} setPicked={setPicked}
-          onCancel={() => {
-            setPicked([]);
-            setView(view.from === 'jobs'
-              ? { kind: 'jobs' }
-              : { kind: 'place', place: personOf(view.job.person).place });
-          }}
-          onAccept={() => acceptJob(view.job, picked)} />
+        <ContractSheet job={view.job} game={game}
+          onCancel={() => setView(view.from === 'jobs'
+            ? { kind: 'jobs' }
+            : { kind: 'place', place: personOf(view.job.person).place })}
+          onAccept={() => acceptJob(view.job)} />
       )}
     </div>
   );
@@ -561,59 +558,62 @@ function Sheet({ title, sub, children, onClose }: {
   );
 }
 
-function ContractSheet({ job, game, picked, setPicked, onCancel, onAccept }: {
-  job: Job; game: GameState; picked: number[];
-  setPicked: (fn: (c: number[]) => number[]) => void;
-  onCancel: () => void; onAccept: () => void;
+/** 受けるかどうかを決める最後の画面。何を差し出すかを断言して見せる。 */
+function ContractSheet({ job, game, onCancel, onAccept }: {
+  job: Job; game: GameState; onCancel: () => void; onAccept: () => void;
 }) {
-  const terms = picked.map((i) => job.concessions[i]);
-  const offered = payWithRelation(job, game);
-  const shortage = shortageFor(job, game);
-  const total = offered + terms.reduce((a, t) => a + t.bonus, 0);
-  const ready = picked.length >= shortage;
+  const person = personOf(job.person);
+  const pay = payWithRelation(job, game);
   const fatigue = personFatigue(job.person, game);
+  const cap = capDropOf(job);
   return (
-    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label="契約内容">
+    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label="依頼の確認">
       <button className="sheet-backdrop" onClick={onCancel} aria-label="閉じる" />
       <section className="sheet">
         <div className="sheet-head">
           <div>
             <h2>{job.title}</h2>
             <span>
-              {personOf(job.person).name}・{relationStage(game.relations[job.person])}
+              {person.name}・{relationStage(game.relations[job.person])}
               ／{job.skill} 必要{requiredSkillFor(job, game)}（現在{game.skills[job.skill]}）
               {fatigue > 0 && <em className="inline-warn">／相場 −{Math.round((1 - fatigueRate(job.person, game)) * 100)}%</em>}
             </span>
           </div>
           <div className="sheet-pay">
-            <b>{offered}<small>G</small></b>
+            <b>{pay.toLocaleString()}<small>G</small></b>
             <i><Zap />{job.stamina}</i>
           </div>
         </div>
         <p className="sheet-desc">{job.description}</p>
-        <div className="terms">
-          {job.concessions.map((item, index) => {
-            const active = picked.includes(index);
+
+        <div className="confirm">
+          <h3>{job.costs.length ? 'この仕事で差し出すもの' : '差し出すもの'}</h3>
+          {job.costs.length === 0 && (
+            <p className="confirm-none">何も無い。体力だけで済む。</p>
+          )}
+          {job.costs.map((c) => {
+            const before = game.axes[c.axis];
+            const after = Math.max(0, before - c.amount);
             return (
-              <button key={item.axis} className={`term ${active ? 'active' : ''}`} aria-pressed={active}
-                onClick={() => setPicked((c) => (active ? c.filter((v) => v !== index) : [...c, index]))}>
-                <span className={`term-dot dot-${item.axis}`} />
-                <strong>{item.title}</strong>
-                <p>{item.detail}</p>
-                <span className="term-price">
-                  <i className={`cost-${item.axis}`}>{item.axis} −{item.cost}</i>
-                  {item.axis === '品位' && <i className="cost-品位">上限 −{Math.ceil(item.cost / 2)}</i>}
-                  <b>+{item.bonus}G</b>
+              <div className="confirm-row" key={c.axis}>
+                <span className={`confirm-axis axis-${c.axis}`}>{c.axis}</span>
+                <span className="lossbar">
+                  <i className={`keep tone-${c.axis}`} style={{ width: `${after}%` }} />
+                  <i className="lose" style={{ width: `${Math.min(before, c.amount)}%` }} />
                 </span>
-              </button>
+                <b>{before}<span>→</span>{after}</b>
+              </div>
             );
           })}
+          {cap > 0 && (
+            <p className="confirm-cap">品位の<strong>上限</strong>も {cap} 下がる。休んでも、ここまでしか戻らない。</p>
+          )}
         </div>
+
         <div className="sheet-foot">
-          <div className="sheet-total"><span>受取額</span><strong>{total.toLocaleString()}<small>G</small></strong></div>
-          {!ready && <p className="warn">上乗せをあと {shortage - picked.length} つ</p>}
+          <div className="sheet-total"><span>受取額</span><strong>{pay.toLocaleString()}<small>G</small></strong></div>
           <Button variant="outline" onClick={onCancel}>戻る</Button>
-          <Button size="lg" disabled={!ready} onClick={onAccept}>この依頼を受ける</Button>
+          <Button size="lg" onClick={onAccept}>この依頼を受ける</Button>
         </div>
       </section>
     </div>

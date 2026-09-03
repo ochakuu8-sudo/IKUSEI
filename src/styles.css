@@ -314,7 +314,7 @@ img { display: block; max-width: 100%; }
 .jc-max b { color: var(--gold); }
 
 /* 3つの代償。色と「今→こうなる」で、払った後が想像できるようにする */
-.jc-costs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.jc-costs { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 4px; }
 .cost {
   display: block; padding: 4px 6px; border-radius: 5px;
   border: 1px solid transparent; line-height: 1.35;
@@ -329,6 +329,10 @@ img { display: block; max-width: 100%; }
 .cost-cell-品位 em, .cost-cell-品位 b { color: var(--axis-品位); }
 .cost-cell-威厳 { background: #d5a44e1a; border-color: #d5a44e33; }
 .cost-cell-威厳 em, .cost-cell-威厳 b { color: var(--axis-威厳); }
+.cost-none { background: #63c39a12; border-color: #63c39a2e; }
+.cost-none em { color: var(--good); }
+.cost-cap { background: #9d8ad41a; border-color: #9d8ad433; }
+.cost-cap em, .cost-cap b { color: var(--axis-品位); }
 .jc-block { color: var(--bad); font-size: var(--fs-xs); font-weight: 700; }
 
 /* ---- 依頼人 ---- */
@@ -449,28 +453,35 @@ img { display: block; max-width: 100%; }
 .sheet-pay i svg { width: 11px; height: 11px; }
 .sheet-desc { margin: 6px 0 10px; color: var(--ink-2); font-size: var(--fs-sm); }
 
-/* 上乗せ3つは必ず横に並べる。比べられなければ選択にならない */
-.terms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.term {
-  padding: 10px 11px; text-align: left;
+/* 受ける前に、何がどれだけ減るかを見せる */
+.confirm {
+  padding: 10px 12px; margin-top: 4px;
   background: var(--card); border: 1px solid var(--line); border-radius: 9px;
-  cursor: pointer; transition: .14s ease;
 }
-.term:hover { border-color: var(--line-strong); }
-.term:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.term.active { background: var(--card-active); border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
-.term-dot { display: block; width: 9px; height: 9px; margin-bottom: 6px; border-radius: 50%; }
-.dot-貞操 { background: var(--axis-貞操); }
-.dot-品位 { background: var(--axis-品位); }
-.dot-威厳 { background: var(--axis-威厳); }
-.term strong { display: block; font-size: var(--fs-sm); }
-.term p { margin: 3px 0 7px; color: var(--ink-3); font-size: var(--fs-xs); line-height: 1.55; }
-.term-price { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
-.term-price i { padding: 1px 6px; border-radius: 3px; font-style: normal; font-size: var(--fs-xs); font-weight: 700; }
-.cost-貞操 { color: var(--axis-貞操); background: #d4738a24; }
-.cost-品位 { color: var(--axis-品位); background: #9d8ad424; }
-.cost-威厳 { color: var(--axis-威厳); background: #d5a44e24; }
-.term-price b { padding: 1px 6px; border-radius: 3px; color: var(--good); background: #63c39a1f; font-size: var(--fs-xs); }
+.confirm h3 { margin-bottom: 7px; color: var(--gold); font-size: var(--fs-sm); }
+.confirm-none { color: var(--good); font-size: var(--fs-sm); }
+.confirm-row { display: flex; align-items: center; gap: 10px; }
+.confirm-row + .confirm-row { margin-top: 7px; }
+.confirm-axis { width: 34px; flex-shrink: 0; font-size: var(--fs-sm); font-weight: 700; }
+.lossbar {
+  display: flex; flex: 1; height: 9px;
+  background: #ffffff14; border-radius: 5px; overflow: hidden;
+}
+.lossbar .keep { display: block; height: 100%; }
+.lossbar .lose {
+  display: block; height: 100%;
+  background: repeating-linear-gradient(135deg, #e0808c 0 4px, #b45f6b 4px 8px);
+}
+.confirm-row b {
+  flex-shrink: 0; min-width: 74px; text-align: right;
+  font-size: var(--fs-sm); font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.confirm-row b span { margin: 0 4px; color: var(--bad); }
+.confirm-cap {
+  margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line);
+  color: var(--ink-2); font-size: var(--fs-xs);
+}
+.confirm-cap strong { color: var(--axis-品位); }
 
 .sheet-foot {
   display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
@@ -649,7 +660,7 @@ img { display: block; max-width: 100%; }
     background: linear-gradient(180deg, #05080d00, #05080de6 12%, #05080df7 100%);
     overflow-y: auto;
   }
-  .terms, .pickrow { grid-template-columns: 1fr; }
+  .pickrow { grid-template-columns: 1fr; }
   .jobgrid { grid-template-columns: 1fr; }
   .result-cols { grid-template-columns: 1fr; }
   .ending-stats { grid-template-columns: repeat(2, 1fr); }
