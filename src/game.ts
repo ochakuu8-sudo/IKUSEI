@@ -250,7 +250,12 @@ export function isOpen(job: Job, state: GameState): boolean {
   return state.axes.品位 >= job.dignityFloor;
 }
 
-/** その場所で、いま受けられる依頼の数。マップの表示に使う。 */
+/** いま受けられる依頼すべて。仕事メニューはここから作る。 */
+export function openJobs(state: GameState): Job[] {
+  return jobs.filter((job) => isOpen(job, state));
+}
+
+/** その場所で、いま受けられる依頼の数。 */
 export function openCountAt(place: PlaceId, state: GameState): number {
   return jobsAt(place).filter((job) => isOpen(job, state)).length;
 }
