@@ -306,49 +306,52 @@ export default function App() {
             return (
               <button key={job.id} className={`jobcard2 paper paper-${job.kind} ${blocked ? 'disabled' : ''}`} disabled={blocked}
                 onClick={() => setView({ kind: 'contract', job, from: 'jobs' })}>
+                <span className={`stamp stamp-${job.kind}`} aria-hidden="true">{job.kind}</span>
+
                 <div className="jc-head">
-                  <span className="avatar sm">
-                    <b>{person.name.slice(0, 1)}</b>
-                    <Art className="avatar-img" sources={[personSrc(person.id)]} alt="" hideIfMissing />
-                  </span>
                   <span className="jc-name">
                     <b>{job.title}</b>
-                    <i><em className={`kindtag k-${job.kind}`}>{job.kind}</em>{person.name}・{placeOf(person.place).short}</i>
-                  </span>
-                  <span className="jc-pay">
-                    <b>{now.toLocaleString()}<small>G</small></b>
-                    {now < list0 && <s>{list0.toLocaleString()}</s>}
+                    <i>{person.name}・{placeOf(person.place).short}　様</i>
                   </span>
                 </div>
 
                 <div className="jc-req">
-                  <i className={tired ? 'tag bad' : 'tag'}><Zap />{job.stamina}</i>
+                  <span className={tired ? 'req-note bad' : 'req-note'}>要 体力 {job.stamina}</span>
                   {axes.filter((a) => job.needs[a] !== undefined).map((a) => (
-                    <i key={a} className="tag flat">{a} {job.needs[a]}以上</i>
+                    <span key={a} className="req-note">{a} {job.needs[a]}以上</span>
                   ))}
-                  {tired && <i className="tag need">スタミナ不足</i>}
+                  {tired && <span className="req-note bad">（いまは動けない）</span>}
                 </div>
 
-                {/* この依頼を受けると何が減るか。選ばせないので、断言して出す */}
-                <div className={`jc-costs n${job.costs.length}`}>
+                {/* この依頼を受けると何が減るか。選ばせないので、帳簿のように断言して並べる */}
+                <div className="jc-ledger">
                   {job.costs.length === 0 ? (
-                    <span className="cost cost-none">
-                      <em>差し出すものは無い</em>
-                      <u>{job.bond && job.bond > 1 ? `関係が ${job.bond} 進む席` : '体力だけで済む仕事'}</u>
-                    </span>
+                    <div className="ledger-row ledger-none">
+                      <span>差し出すもの</span><span className="leader" />
+                      <span>無し{job.bond && job.bond > 1 ? `・関係が${job.bond}進む` : ''}</span>
+                    </div>
                   ) : job.costs.map((c) => {
                     const after = Math.max(0, game.axes[c.axis] - c.amount);
                     return (
-                      <span key={c.axis} className={`cost cost-cell-${c.axis}`}>
-                        <em>{c.axis}</em>
-                        <b>−{c.amount}</b>
-                        <u>{game.axes[c.axis]}→{after}</u>
-                      </span>
+                      <div className={`ledger-row axis-${c.axis}`} key={c.axis}>
+                        <span>{c.axis}</span><span className="leader" />
+                        <span className="ledger-num">−{c.amount}　（{game.axes[c.axis]}→{after}）</span>
+                      </div>
                     );
                   })}
                   {capDropOf(job) > 0 && (
-                    <span className="cost cost-cap"><em>品位の上限</em><b>−{capDropOf(job)}</b><u>戻らない</u></span>
+                    <div className="ledger-row ledger-cap">
+                      <span>品位の上限</span><span className="leader" />
+                      <span className="ledger-num">−{capDropOf(job)}　（戻らない）</span>
+                    </div>
                   )}
+                </div>
+
+                <div className="jc-foot">
+                  <span className="jc-pay">
+                    {now < list0 && <s>{list0.toLocaleString()}G</s>}
+                    <b>{now.toLocaleString()}<small>G</small></b>
+                  </span>
                 </div>
               </button>
             );

@@ -312,56 +312,90 @@ img { display: block; max-width: 100%; }
 }
 .jobcard2 {
   position: relative;
-  display: flex; flex-direction: column; gap: 7px;
-  padding: 10px 12px; text-align: left; color: inherit;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 14px 16px 12px; text-align: left; color: inherit;
   background: var(--card); border: 1px solid var(--line);
-  border-left: 3px solid var(--line-strong); border-radius: 10px;
-  cursor: pointer; transition: .14s ease;
+  cursor: pointer; transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+  /* 手紙が机に置かれた形。四辺すべてを角丸にしない ── アプリのカードにしない */
+  border-radius: 1px;
+  clip-path: polygon(
+    0% 1.5%, 1.2% 0%, 98.4% 0.4%, 100% 2.1%,
+    99.6% 97.8%, 98.3% 100%, 1.6% 99.5%, 0% 98%
+  );
 }
 .jobcard2:hover:not(:disabled) {
-  background-color: #263346f2; border-left-color: var(--gold);
-  transform: translateY(-2px); box-shadow: 0 8px 20px #00000066;
+  transform: translateY(-3px) rotate(-.3deg);
+  box-shadow: 0 12px 26px #00000073;
+  filter: brightness(1.04);
 }
-.jobcard2:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.jobcard2:disabled { opacity: .44; cursor: not-allowed; }
-
-.jc-head { display: flex; align-items: center; gap: 9px; }
-.avatar.sm { width: 30px; height: 30px; }
-.avatar.sm b { font-size: var(--fs-sm); }
-.jc-name { min-width: 0; flex: 1; }
-.jc-name b { display: block; font-family: var(--font-serif-jp); font-size: var(--fs-lg); line-height: 1.25; }
-.jc-name i { font-style: normal; font-size: var(--fs-xs); color: var(--ink-3); }
-.jc-pay { text-align: right; flex-shrink: 0; }
-.jc-pay b { display: block; font-family: var(--font-serif-jp); font-size: var(--fs-2xl); line-height: 1.05; color: var(--gold); }
-.jc-pay b small { font-size: var(--fs-sm); margin-left: 1px; }
-.jc-pay s { color: var(--ink-3); font-size: var(--fs-xs); }
-
-.jc-req { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
-.tag.flat { color: var(--ink-2); }
-.jc-max { margin-left: auto; color: var(--ink-3); font-size: var(--fs-xs); white-space: nowrap; }
-.jc-max b { color: var(--gold); }
-
-/* 3つの代償。色と「今→こうなる」で、払った後が想像できるようにする */
-.jc-costs { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 4px; }
-.cost {
-  display: block; padding: 4px 6px; border-radius: 5px;
-  border: 1px solid transparent; line-height: 1.35;
+.jobcard2:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.jobcard2:disabled { opacity: .5; cursor: not-allowed; filter: grayscale(.3); }
+/* 束から1枚だけ、わずかに傾いて置かれている */
+.jobgrid .jobcard2:nth-child(3n) { transform: rotate(.5deg); }
+.jobgrid .jobcard2:nth-child(3n+1) { transform: rotate(-.4deg); }
+.jobgrid .jobcard2:nth-child(3n+2) { transform: rotate(.15deg); }
+.jobgrid .jobcard2:hover:not(:disabled) { transform: translateY(-3px) rotate(-.3deg); }
+/* 右下の折れ */
+.jobcard2::after {
+  content: ''; position: absolute; right: 0; bottom: 0;
+  width: 16px; height: 16px;
+  background: linear-gradient(135deg, transparent 50%, #00000024 50%);
+  clip-path: polygon(100% 0, 0 100%, 100% 100%);
+  pointer-events: none;
 }
-.cost em { font-style: normal; font-size: 10px; font-weight: 700; }
-.cost b { margin-left: 4px; font-size: var(--fs-xs); }
-.cost u { display: block; text-decoration: none; color: var(--ink-3); font-size: 10px; font-variant-numeric: tabular-nums; }
-.cost i { font-style: normal; font-size: 10px; font-weight: 700; color: var(--good); }
-.cost-cell-貞操 { background: #d4738a1a; border-color: #d4738a33; }
-.cost-cell-貞操 em, .cost-cell-貞操 b { color: var(--axis-貞操); }
-.cost-cell-品位 { background: #9d8ad41a; border-color: #9d8ad433; }
-.cost-cell-品位 em, .cost-cell-品位 b { color: var(--axis-品位); }
-.cost-cell-威厳 { background: #d5a44e1a; border-color: #d5a44e33; }
-.cost-cell-威厳 em, .cost-cell-威厳 b { color: var(--axis-威厳); }
-.cost-none { background: #63c39a12; border-color: #63c39a2e; }
-.cost-none em { color: var(--good); }
-.cost-cap { background: #9d8ad41a; border-color: #9d8ad433; }
-.cost-cap em, .cost-cap b { color: var(--axis-品位); }
-.jc-block { color: var(--bad); font-size: var(--fs-xs); font-weight: 700; }
+
+/* 印判。人物のアイコンではなく、依頼状に押された種別の判 */
+.stamp {
+  position: absolute; top: 10px; right: 12px;
+  padding: 2px 7px; font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  border: 1.5px solid currentColor; border-radius: 2px;
+  transform: rotate(-6deg);
+  opacity: .82;
+}
+
+.jc-head { padding-right: 46px; }
+.jc-name { min-width: 0; }
+.jc-name b { display: block; font-family: var(--font-serif-jp); font-size: var(--fs-lg); line-height: 1.3; }
+.jc-name i {
+  display: block; margin-top: 2px;
+  font-style: normal; font-size: var(--fs-xs); color: var(--ink-3);
+}
+
+/* 余白に書かれた注記。バッジにしない ── 下線だけの文字 */
+.jc-req { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: var(--fs-xs); }
+.req-note { color: var(--ink-3); border-bottom: 1px dotted var(--ink-3); padding-bottom: 1px; }
+.req-note.bad { color: var(--bad); border-bottom-color: var(--bad); font-weight: 700; }
+
+/* 代償を帳簿のように箇条書きにする。色付きの箱にしない */
+.jc-ledger { display: flex; flex-direction: column; gap: 3px; }
+.ledger-row {
+  display: flex; align-items: baseline; gap: 6px;
+  font-size: var(--fs-sm); line-height: 1.5;
+}
+.ledger-row > span:first-child { flex-shrink: 0; font-weight: 700; }
+.ledger-row .leader {
+  flex: 1; border-bottom: 1px dotted currentColor; opacity: .35;
+  margin-bottom: 4px;
+}
+.ledger-num { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.ledger-row.axis-貞操 { color: var(--axis-貞操); }
+.ledger-row.axis-品位 { color: var(--axis-品位); }
+.ledger-row.axis-威厳 { color: var(--axis-威厳); }
+.ledger-cap { color: var(--axis-品位); font-weight: 700; }
+.ledger-cap .ledger-num { text-decoration: underline; text-decoration-style: double; }
+.ledger-none { color: var(--good); }
+.ledger-none > span:first-child { font-weight: 400; color: var(--ink-3); }
+
+/* 金額は手紙の末尾、署名のように右下へ */
+.jc-foot { margin-top: 2px; display: flex; justify-content: flex-end; align-items: baseline; }
+.jc-pay { text-align: right; }
+.jc-pay s { margin-right: 8px; color: var(--ink-3); font-size: var(--fs-xs); }
+.jc-pay b {
+  font-family: var(--font-serif-jp); font-size: var(--fs-2xl); font-weight: 700;
+  line-height: 1; color: var(--gold);
+  border-bottom: 2px solid currentColor; padding-bottom: 1px;
+}
+.jc-pay b small { font-size: var(--fs-sm); font-weight: 500; margin-left: 1px; }
 
 /* ================= 依頼状の紙質（仮置き・素材なし） =================
    VISUAL_PLAN.md の背骨：紙の質が、彼女がどう扱われているかを表す。
@@ -393,18 +427,18 @@ img { display: block; max-width: 100%; }
   filter: brightness(1.05);
 }
 .jobcard2.paper .jc-pay b { color: var(--gold); }
-.jobcard2.paper .tag { background: #00000012; color: var(--ink-2); }
-.jobcard2.paper .tag.ok { color: #2d6a49; background: #2d6a491f; }
-.jobcard2.paper .tag.need, .jobcard2.paper .tag.bad { color: #98323f; background: #98323f1f; }
-.jobcard2.paper .cost { border-color: #00000024; }
-.jobcard2.paper .cost-cell-貞操 { background: #96354c26; }
-.jobcard2.paper .cost-cell-品位 { background: #56458c26; }
-.jobcard2.paper .cost-cell-威厳 { background: #7f5a1226; }
-.jobcard2.paper .cost-none { background: #2d6a4922; border-color: #2d6a4947; }
-.jobcard2.paper .cost-cap { background: #56458c26; border-color: #56458c4d; }
-.jobcard2.paper .avatar { background: #00000014; border-color: #00000038; }
-.jobcard2.paper .avatar b { color: #6b4f18; }
-.jobcard2.paper .kindtag { border: 1px solid currentColor; }
+.jobcard2.paper .req-note { color: var(--ink-3); border-bottom-color: #00000030; }
+.jobcard2.paper .req-note.bad { color: var(--bad); border-bottom-color: var(--bad); }
+.jobcard2.paper .stamp { color: var(--ink-2); }
+.jobcard2.paper .ledger-none { color: #2d6a49; }
+
+/* 印判の色。種別バーの k-* はガラスのタブ用なので、紙の上には別の色を使う */
+.stamp-親交 { color: #8a6a1f; }
+.stamp-社交 { color: #364a6e; }
+.stamp-実務 { color: #33302a; }
+.stamp-人前 { color: #8a4a1f; }
+.stamp-労務 { color: #55503f; }
+.stamp-裏   { color: #6e2430; }
 
 /* 親交 ── 上質紙。招かれている、ということが形で分かる */
 .paper-親交 {
