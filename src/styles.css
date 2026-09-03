@@ -276,6 +276,32 @@ img { display: block; max-width: 100%; }
 .marker.shut .marker-pin { color: var(--ink-3); }
 
 /* ================= 場所：常設の依頼 ================= */
+/* ---- 種別。尊厳の状態で「何が回ってくるか」そのものが入れ替わる ---- */
+.kindbar {
+  position: relative; z-index: 1; flex: 0 0 auto;
+  display: flex; flex-wrap: wrap; gap: 5px;
+  width: min(1120px, 100%); margin: 0 auto 8px;
+}
+.kindchip {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  padding: 2px 9px; border-radius: 20px;
+  border: 1px solid var(--line); background: #ffffff0a;
+  font-size: var(--fs-xs); font-weight: 600;
+}
+.kindchip b { font-size: var(--fs-sm); }
+.kindchip.gone { opacity: .32; }
+.kindchip.gone b { color: var(--ink-3); }
+.kindtag {
+  display: inline-block; margin-right: 6px; padding: 0 6px;
+  border-radius: 3px; font-style: normal; font-size: 10px; font-weight: 700;
+}
+.k-親交 { color: #e7c98a; border-color: #d9b76a4d; background: #d9b76a1f; }
+.k-社交 { color: #a9bde4; border-color: #a9bde44d; background: #a9bde41f; }
+.k-実務 { color: #8fc7b4; border-color: #8fc7b44d; background: #8fc7b41f; }
+.k-人前 { color: #dfa96e; border-color: #dfa96e4d; background: #dfa96e1f; }
+.k-労務 { color: #a8a496; border-color: #a8a4964d; background: #a8a4961f; }
+.k-裏   { color: #d97f8e; border-color: #d97f8e4d; background: #d97f8e1f; }
+
 /* ---- 仕事一覧：横幅を使って並べ、払うものまで見せて比べる ---- */
 .jobgrid {
   position: relative; z-index: 1;
@@ -621,6 +647,8 @@ img { display: block; max-width: 100%; }
   .marker-body { padding: 2px 8px; }
   .joblist { gap: 6px; }
   .jobcard { padding: 8px 11px; }
+  .kindbar { margin-bottom: 5px; gap: 4px; }
+  .kindchip { padding: 1px 7px; }
   .jobgrid { gap: 6px; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); }
   .jobcard2 { padding: 7px 9px; gap: 4px; }
   .avatar.sm { width: 26px; height: 26px; }

@@ -145,15 +145,34 @@ export function quotaOf(state: GameState): number {
 /** その依頼を受けると必ず削られるもの。選ばせない。 */
 export type JobCost = { axis: Axis; amount: number };
 
+/** 依頼の種別。尊厳の状態で、受けられる「種類」そのものが入れ替わる。 */
+export type JobKind = '親交' | '社交' | '実務' | '人前' | '労務' | '裏';
+
+export const jobKinds: JobKind[] = ['親交', '社交', '実務', '人前', '労務', '裏'];
+
+export const kindNote: Record<JobKind, string> = {
+  親交: '人と親しくなるための席。まともに扱われているうちしか呼ばれない',
+  社交: '家名と作法で立つ仕事',
+  実務: '手を動かす仕事。誰にも見られない',
+  人前: '人目のある場所に立つ仕事',
+  労務: '身体だけで足りる仕事',
+  裏: '落ちた者にしか回ってこない仕事',
+};
+
 export type Job = {
   id: string;
   title: string;
+  kind: JobKind;
   person: PersonId;
   pay: number;
   stamina: number;
   description: string;
   /** これを下回ると紹介されなくなる尊厳の下限。軸ごとに持つ。 */
   needs: Partial<Record<Axis, number>>;
+  /** これ以下まで落ちて、初めて回ってくる依頼。 */
+  opensBelow?: Partial<Record<Axis, number>>;
+  /** 関係の進み方。親交の席は普通の仕事より速い。 */
+  bond?: number;
   /** 空なら「何も差し出さずに済む仕事」。 */
   costs: JobCost[];
 };
@@ -196,51 +215,72 @@ export type DayResult = {
 };
 
 function makeJob(
-  id: string, title: string, person: PersonId,
+  id: string, title: string, kind: JobKind, person: PersonId,
   pay: number, stamina: number,
   needs: Partial<Record<Axis, number>>, costs: JobCost[], description: string,
+  extra: { opensBelow?: Partial<Record<Axis, number>>; bond?: number } = {},
 ): Job {
-  return { id, title, person, pay, stamina, needs, costs, description };
+  return { id, title, kind, person, pay, stamina, needs, costs, description, ...extra };
 }
 
 // needs が「まだ紹介してもらえる線」。尊厳が下がるほど上から順に閉じ、
 // 最後には底辺の仕事しか残らない。
 // costs が空の依頼が「何も差し出さずに済む道」。報酬は低い。
 export const jobs: Job[] = [
-  // 上から順に「まともな仕事」。尊厳が削れるほど、上から閉じていく。
-  makeJob('copyist', '学院文書の筆耕', 'claire', 175, 20,
-    { 品位: 70, 貞操: 60 }, [],
-    '筆写するだけの静かな仕事。誰も彼女の素性を訊かない。'),
-  makeJob('tutor', '商家の娘の家庭教師', 'claire', 225, 26,
-    { 品位: 62, 貞操: 50 }, [{ axis: '品位', amount: 6 }],
-    '教える相手は、かつて挨拶にも来られなかった家の娘。'),
-  makeJob('ledger', '商会の帳簿整理', 'vernet', 130, 24,
-    { 品位: 40, 貞操: 25 }, [],
-    '数字は多いが、日が暮れるまでに終えれば約束の額になる。'),
+  // 親交 ── まともに扱われているうちしか呼ばれない。実入りは薄いが、関係が速く進む。
+  makeJob('salon', '学院の読書会に招かれる', '親交', 'claire', 120, 16,
+    { 品位: 72, 貞操: 65 }, [],
+    '仕事ではない。ただ、招かれるうちは、まだ令嬢として扱われている。',
+    { bond: 2 }),
+  makeJob('tea', '伯爵家の茶会に同席する', '親交', 'count', 155, 20,
+    { 品位: 66, 威厳: 68, 貞操: 40 }, [],
+    'かつては主催する側だった席に、呼ばれる側として座る。',
+    { bond: 2 }),
 
-  // 名前と体面で稼ぐ仕事。威厳が落ちると声が掛からなくなる。
-  makeJob('secretary', '伯爵家の臨時秘書', 'guillaume', 340, 34,
+  // 社交 ── 家名と作法で立つ仕事。
+  makeJob('secretary', '伯爵家の臨時秘書', '社交', 'guillaume', 340, 34,
     { 品位: 48, 威厳: 46, 貞操: 20 }, [{ axis: '貞操', amount: 16 }],
     '手紙と来客を捌く。夜まで屋敷に留め置かれる日もある。'),
-  makeJob('escort', '夜会への同伴', 'count', 265, 24,
+  makeJob('tutor', '商家の娘の家庭教師', '社交', 'claire', 225, 26,
+    { 品位: 62, 貞操: 50 }, [{ axis: '品位', amount: 6 }],
+    '教える相手は、かつて挨拶にも来られなかった家の娘。'),
+  makeJob('escort', '夜会への同伴', '社交', 'count', 265, 24,
     { 威厳: 34, 貞操: 12 }, [{ axis: '威厳', amount: 12 }, { axis: '貞操', amount: 8 }],
     '伯爵の連れとして立つ。何の連れかは、誰も口に出さない。'),
 
-  // 人前に出る仕事。品位が落ちるほど、条件が悪くなっていく。
-  makeJob('market', '市場の仕入れ交渉', 'marc', 245, 28,
+  // 実務 ── 誰にも見られない仕事。差し出すものは無いが、安い。
+  makeJob('copyist', '学院文書の筆耕', '実務', 'claire', 175, 20,
+    { 品位: 70, 貞操: 60 }, [],
+    '筆写するだけの静かな仕事。誰も彼女の素性を訊かない。'),
+  makeJob('ledger', '商会の帳簿整理', '実務', 'vernet', 130, 24,
+    { 品位: 40, 貞操: 25 }, [],
+    '数字は多いが、日が暮れるまでに終えれば約束の額になる。'),
+
+  // 人前 ── 見られる仕事。品位が落ちるほど、条件が悪くなる。
+  makeJob('market', '市場の仕入れ交渉', '人前', 'marc', 245, 28,
     { 品位: 28 }, [{ axis: '威厳', amount: 9 }],
     '往来で声を張って値を争う。見物人は貴族の令嬢を面白がる。'),
-  makeJob('banquet', '商家の晩餐で給仕', 'jean', 215, 30,
+  makeJob('banquet', '商家の晩餐で給仕', '人前', 'jean', 215, 30,
     { 品位: 18 }, [{ axis: '品位', amount: 14 }],
     '客の中に、かつて彼女に頭を下げた者が混じっている。'),
-  makeJob('auction', '旧家財の競売補佐', 'marc', 165, 22,
+  makeJob('auction', '旧家財の競売補佐', '人前', 'marc', 165, 22,
     { 威厳: 14 }, [{ axis: '威厳', amount: 8 }],
     '誰かの家財に値をつける。明日は自分の番かもしれない。'),
 
-  // 何も残っていなくても受けられる、最後の一段。
-  makeJob('packing', '商会倉庫の荷造り', 'marc', 95, 38,
+  // 労務 ── 何も残っていなくても受けられる、最後の一段。
+  makeJob('packing', '商会倉庫の荷造り', '労務', 'marc', 95, 38,
     {}, [{ axis: '品位', amount: 10 }],
     '誰でもできる安全な仕事。荷を担ぐ令嬢を、皆が見ている。'),
+
+  // 裏 ── 落ちて初めて回ってくる。実入りはいいが、戻り道を塞ぐ。
+  makeJob('private', '個室での接待', '裏', 'jean', 300, 26,
+    {}, [{ axis: '貞操', amount: 18 }],
+    'そういう話が来るようになった、ということだった。',
+    { opensBelow: { 貞操: 45 } }),
+  makeJob('show', '見世物小屋の客寄せ', '裏', 'marc', 205, 30,
+    {}, [{ axis: '威厳', amount: 10 }, { axis: '品位', amount: 6 }],
+    '「元・貴族の令嬢」と書いた札が、彼女の横に立てられる。',
+    { opensBelow: { 威厳: 28 } }),
 ];
 
 export const initialState: GameState = {
@@ -283,14 +323,35 @@ export function jobsBy(person: PersonId): Job[] {
   return jobs.filter((job) => job.person === person);
 }
 
-/** まだ紹介してもらえるか。尊厳が下がるほど、上の仕事から順に閉じる。 */
-export function isOpen(job: Job, state: GameState): boolean {
+/** 尊厳が足りていて紹介してもらえるか。 */
+function meetsNeeds(job: Job, state: GameState): boolean {
   return axes.every((axis) => state.axes[axis] >= (job.needs[axis] ?? 0));
 }
 
-/** その依頼が閉じている理由。跡の表示に使う。 */
+/** まだ落ちきっておらず、回ってこない依頼か。 */
+export function notYetFallen(job: Job, state: GameState): boolean {
+  if (!job.opensBelow) return false;
+  return axes.some((axis) => {
+    const line = job.opensBelow?.[axis];
+    return line !== undefined && state.axes[axis] > line;
+  });
+}
+
+/** いま受けられるか。上の仕事は尊厳で閉じ、裏の仕事は落ちて初めて開く。 */
+export function isOpen(job: Job, state: GameState): boolean {
+  return meetsNeeds(job, state) && !notYetFallen(job, state);
+}
+
+/** 尊厳が足りずに閉じた軸。跡の表示に使う（まだ現れていない依頼は跡ではない）。 */
 export function closedBy(job: Job, state: GameState): Axis[] {
   return axes.filter((axis) => state.axes[axis] < (job.needs[axis] ?? 0));
+}
+
+/** 種別ごとに、いま受けられる件数。「何が回ってこなくなったか」を出すのに使う。 */
+export function countsByKind(state: GameState): Record<JobKind, number> {
+  const out = Object.fromEntries(jobKinds.map((k) => [k, 0])) as Record<JobKind, number>;
+  jobs.forEach((job) => { if (isOpen(job, state)) out[job.kind] += 1; });
+  return out;
 }
 
 /** いま受けられる依頼すべて。仕事メニューはここから作る。 */
@@ -305,7 +366,8 @@ export function openCountAt(place: PlaceId, state: GameState): number {
 
 /** 紹介されなくなった依頼。消さずに跡として残す(§5)。 */
 export function closedJobsAt(place: PlaceId, state: GameState): Job[] {
-  return jobsAt(place).filter((job) => !isOpen(job, state));
+  // まだ現れていない依頼は「跡」ではないので除く
+  return jobsAt(place).filter((job) => !isOpen(job, state) && !notYetFallen(job, state));
 }
 
 /* --- 常設リストの単調さを防ぐ：同じ場所に通い詰めると買い叩かれる --- */

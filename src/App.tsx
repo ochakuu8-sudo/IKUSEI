@@ -8,7 +8,8 @@ import {
   TOTAL_DEBT, applySettlement, axes, axisStage, capDropOf, closedBy, closedJobsAt,
   fatigueRate, hasStaminaFor, initialState, isOpen, jobsBy, listPrice, midGameState,
   openCountAt, openJobs, payWithRelation, peopleAt, personFatigue, personOf, placeOf,
-  primaryAxis, quotaOf, relationStage, sceneScript, settlementOf, stageUpLine, workPlaces,
+  countsByKind, jobKinds, kindNote, primaryAxis, quotaOf, relationStage, sceneScript,
+  settlementOf, stageUpLine, workPlaces,
   type Axis, type DayResult, type GameState, type Job, type PersonId, type PlaceId,
   type SceneLine, type Settlement,
 } from './game';
@@ -160,7 +161,7 @@ export default function App() {
     });
     const capDrop = capDropOf(job);
     const relBefore = game.relations[job.person];
-    const relAfter = Math.min(3, relBefore + 1);
+    const relAfter = Math.min(3, relBefore + (job.bond ?? 1));
     const result: DayResult = {
       kind: 'job', title: job.title,
       narrative: job.costs.length
@@ -267,10 +268,14 @@ export default function App() {
 
   /* ---- 仕事メニュー：受けられる依頼を一画面で比べる ---- */
   if (view.kind === 'jobs') {
+    const counts = countsByKind(game);
     const list = openJobs(game).sort((a, b) => {
       const ka = hasStaminaFor(a, game) ? 0 : 1;
       const kb = hasStaminaFor(b, game) ? 0 : 1;
       if (ka !== kb) return ka - kb;
+      const oa = jobKinds.indexOf(a.kind);
+      const ob = jobKinds.indexOf(b.kind);
+      if (oa !== ob) return oa - ob;
       return payWithRelation(b, game) - payWithRelation(a, game);
     });
     return (
@@ -282,7 +287,14 @@ export default function App() {
             <ChevronLeft />戻る
           </Button>
           <h2>仕事を受ける</h2>
-          <span className="topbar-sub">{list.length}件 ／ 報酬の高い順</span>
+          <span className="topbar-sub">{list.length}件</span>
+        </div>
+        <div className="kindbar">
+          {jobKinds.map((k) => (
+            <span key={k} className={`kindchip k-${k} ${counts[k] === 0 ? 'gone' : ''}`} title={kindNote[k]}>
+              {k}<b>{counts[k]}</b>
+            </span>
+          ))}
         </div>
         <div className="jobgrid">
           {list.map((job) => {
@@ -301,7 +313,7 @@ export default function App() {
                   </span>
                   <span className="jc-name">
                     <b>{job.title}</b>
-                    <i>{person.name}・{placeOf(person.place).short}</i>
+                    <i><em className={`kindtag k-${job.kind}`}>{job.kind}</em>{person.name}・{placeOf(person.place).short}</i>
                   </span>
                   <span className="jc-pay">
                     <b>{now.toLocaleString()}<small>G</small></b>
@@ -322,7 +334,7 @@ export default function App() {
                   {job.costs.length === 0 ? (
                     <span className="cost cost-none">
                       <em>差し出すものは無い</em>
-                      <u>体力だけで済む仕事</u>
+                      <u>{job.bond && job.bond > 1 ? `関係が ${job.bond} 進む席` : '体力だけで済む仕事'}</u>
                     </span>
                   ) : job.costs.map((c) => {
                     const after = Math.max(0, game.axes[c.axis] - c.amount);
