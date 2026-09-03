@@ -189,3 +189,52 @@ export const TRAIN_STAMINA = 12;
 export const NETWORK_COST = 20;
 export const NETWORK_STAMINA = 8;
 export const REST_RECOVERY = 58;
+
+/* ---------------- イベントシーン ----------------
+   依頼を受けたあとに流れる「本番」。遊ぶ場所ではなく観る場所なので、
+   選択は出さず、タップで送るだけにする。
+   差分は台詞で担当し、絵は art.ts の規約で1枚ずつ差し替える。 */
+
+export type SceneLine = { speaker?: string; text: string };
+
+const HEROINE = 'エレオノール';
+
+const scriptByAxis: Record<Axis, SceneLine[]> = {
+  貞操: [
+    { speaker: HEROINE, text: '「……先に、お金の話を終わらせてください」' },
+    { text: '依頼人は答えなかった。かわりに、扉の鍵が回る音がした。' },
+    { speaker: HEROINE, text: '「終わったら、約束の額はきちんと」' },
+    { text: 'そう言うのが、いちばん早いと知ってしまった。' },
+  ],
+  品位: [
+    { text: '「おい、そこの。名前は要らん。"女"で通す」' },
+    { text: '一度だけ訂正しようとして、やめた。' },
+    { text: '訂正したところで、日当が増えるわけではない。' },
+    { speaker: HEROINE, text: '「……はい」' },
+  ],
+  威厳: [
+    { text: '「ラティエ家のご令嬢が、うちの店先に立つ。それだけで客が来る」' },
+    { text: '通りには、見覚えのある顔がいくつもあった。' },
+    { text: '目が合う。相手のほうが、慌てて逸らした。' },
+    { text: '明日には、街じゅうが知っている。' },
+  ],
+};
+
+const plainScript: SceneLine[] = [
+  { text: '言われた通りに、言われた分だけ働いた。' },
+  { text: '誰も彼女を見なかった。' },
+  { text: 'それが、今日いちばんの収穫だった。' },
+];
+
+/** 受けた依頼と、払った軸から台本を組む。払った軸が複数なら重い順に繋ぐ。 */
+export function sceneScript(job: Job, paidAxes: Axis[]): SceneLine[] {
+  const opening: SceneLine = { text: `${job.client}／${job.title}。` };
+  if (paidAxes.length === 0) return [opening, ...plainScript];
+  const ordered = axes.filter((axis) => paidAxes.includes(axis));
+  return [opening, ...ordered.flatMap((axis) => scriptByAxis[axis])];
+}
+
+/** 台本のうち、絵を決める主軸。 */
+export function primaryAxis(paidAxes: Axis[]): Axis | null {
+  return axes.find((axis) => paidAxes.includes(axis)) ?? null;
+}
