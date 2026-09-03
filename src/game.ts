@@ -1,11 +1,9 @@
 // ゲームのルールとデータ。画面(App.tsx)からは、ここが返す値を表示するだけにする。
 // 数値の根拠は GAME_DESIGN.md。変更するときは企画書側と必ず揃える。
 
-export type Skill = '礼法' | '学識' | '商才';
 export type Axis = '貞操' | '品位' | '威厳';
 export type PlaceId = 'estate' | 'arnaud' | 'academy' | 'valere' | 'guild';
 
-export const skills: Skill[] = ['礼法', '学識', '商才'];
 export const axes: Axis[] = ['貞操', '品位', '威厳'];
 
 /** 場所。マップ上の位置は背景画像に対する割合で持つ（実素材が来ても合う）。 */
@@ -151,13 +149,11 @@ export type Job = {
   id: string;
   title: string;
   person: PersonId;
-  skill: Skill;
-  required: number;
   pay: number;
   stamina: number;
   description: string;
-  /** 品位がこの値を下回ると紹介されなくなる（§5「軽い依頼が母集団から消える」）。 */
-  dignityFloor: number;
+  /** これを下回ると紹介されなくなる尊厳の下限。軸ごとに持つ。 */
+  needs: Partial<Record<Axis, number>>;
   /** 空なら「何も差し出さずに済む仕事」。 */
   costs: JobCost[];
 };
@@ -174,7 +170,6 @@ export type GameState = {
   stamina: number;
   /** 品位の上限。§1-4「現在値は戻る。ただし上限は下がったまま戻らない」。 */
   dignityCap: number;
-  skills: Record<Skill, number>;
   axes: Record<Axis, number>;
   relations: Record<PersonId, number>;
   /** 直近に仕事を受けた相手（新しい順）。同じ人に通い詰めると買い叩かれる。 */
@@ -201,35 +196,51 @@ export type DayResult = {
 };
 
 function makeJob(
-  id: string, title: string, person: PersonId, skill: Skill,
-  required: number, pay: number, stamina: number, dignityFloor: number,
-  costs: JobCost[], description: string,
+  id: string, title: string, person: PersonId,
+  pay: number, stamina: number,
+  needs: Partial<Record<Axis, number>>, costs: JobCost[], description: string,
 ): Job {
-  return { id, title, person, skill, required, pay, stamina, dignityFloor, costs, description };
+  return { id, title, person, pay, stamina, needs, costs, description };
 }
 
-// dignityFloor が高い依頼ほど「軽い/まともな」依頼で、品位が落ちると先に消える。
+// needs が「まだ紹介してもらえる線」。尊厳が下がるほど上から順に閉じ、
+// 最後には底辺の仕事しか残らない。
 // costs が空の依頼が「何も差し出さずに済む道」。報酬は低い。
 export const jobs: Job[] = [
-  makeJob('copyist', '学院文書の筆耕', 'claire', '学識', 1, 175, 20, 62,
-    [], '筆写するだけの静かな仕事。誰も彼女の素性を訊かない。'),
-  makeJob('ledger', '商会の帳簿整理', 'vernet', '学識', 1, 130, 24, 40,
-    [], '数字は多いが、日が暮れるまでに終えれば約束の額になる。'),
-  makeJob('tutor', '商家の娘の家庭教師', 'claire', '学識', 2, 225, 26, 70,
-    [{ axis: '品位', amount: 6 }], '教える相手は、かつて挨拶にも来られなかった家の娘。'),
-  makeJob('auction', '旧家財の競売補佐', 'marc', '商才', 0, 165, 22, 28,
-    [{ axis: '威厳', amount: 8 }], '誰かの家財に値をつける。明日は自分の番かもしれない。'),
-  makeJob('market', '市場の仕入れ交渉', 'marc', '商才', 2, 245, 28, 34,
-    [{ axis: '威厳', amount: 9 }], '往来で声を張って値を争う。見物人は貴族の令嬢を面白がる。'),
-  makeJob('packing', '商会倉庫の荷造り', 'marc', '商才', 0, 95, 38, 0,
-    [{ axis: '品位', amount: 10 }], '誰でもできる安全な仕事。荷を担ぐ令嬢を、皆が見ている。'),
-  makeJob('banquet', '商家の晩餐で給仕', 'jean', '礼法', 1, 215, 30, 20,
-    [{ axis: '品位', amount: 14 }], '客の中に、かつて彼女に頭を下げた者が混じっている。'),
-  makeJob('escort', '夜会への同伴', 'count', '礼法', 1, 265, 24, 12,
-    [{ axis: '威厳', amount: 12 }, { axis: '貞操', amount: 8 }],
+  // 上から順に「まともな仕事」。尊厳が削れるほど、上から閉じていく。
+  makeJob('copyist', '学院文書の筆耕', 'claire', 175, 20,
+    { 品位: 70, 貞操: 60 }, [],
+    '筆写するだけの静かな仕事。誰も彼女の素性を訊かない。'),
+  makeJob('tutor', '商家の娘の家庭教師', 'claire', 225, 26,
+    { 品位: 62, 貞操: 50 }, [{ axis: '品位', amount: 6 }],
+    '教える相手は、かつて挨拶にも来られなかった家の娘。'),
+  makeJob('ledger', '商会の帳簿整理', 'vernet', 130, 24,
+    { 品位: 40, 貞操: 25 }, [],
+    '数字は多いが、日が暮れるまでに終えれば約束の額になる。'),
+
+  // 名前と体面で稼ぐ仕事。威厳が落ちると声が掛からなくなる。
+  makeJob('secretary', '伯爵家の臨時秘書', 'guillaume', 340, 34,
+    { 品位: 48, 威厳: 46, 貞操: 20 }, [{ axis: '貞操', amount: 16 }],
+    '手紙と来客を捌く。夜まで屋敷に留め置かれる日もある。'),
+  makeJob('escort', '夜会への同伴', 'count', 265, 24,
+    { 威厳: 34, 貞操: 12 }, [{ axis: '威厳', amount: 12 }, { axis: '貞操', amount: 8 }],
     '伯爵の連れとして立つ。何の連れかは、誰も口に出さない。'),
-  makeJob('secretary', '伯爵家の臨時秘書', 'guillaume', '礼法', 3, 340, 34, 55,
-    [{ axis: '貞操', amount: 16 }], '手紙と来客を捌く。夜まで屋敷に留め置かれる日もある。'),
+
+  // 人前に出る仕事。品位が落ちるほど、条件が悪くなっていく。
+  makeJob('market', '市場の仕入れ交渉', 'marc', 245, 28,
+    { 品位: 28 }, [{ axis: '威厳', amount: 9 }],
+    '往来で声を張って値を争う。見物人は貴族の令嬢を面白がる。'),
+  makeJob('banquet', '商家の晩餐で給仕', 'jean', 215, 30,
+    { 品位: 18 }, [{ axis: '品位', amount: 14 }],
+    '客の中に、かつて彼女に頭を下げた者が混じっている。'),
+  makeJob('auction', '旧家財の競売補佐', 'marc', 165, 22,
+    { 威厳: 14 }, [{ axis: '威厳', amount: 8 }],
+    '誰かの家財に値をつける。明日は自分の番かもしれない。'),
+
+  // 何も残っていなくても受けられる、最後の一段。
+  makeJob('packing', '商会倉庫の荷造り', 'marc', 95, 38,
+    {}, [{ axis: '品位', amount: 10 }],
+    '誰でもできる安全な仕事。荷を担ぐ令嬢を、皆が見ている。'),
 ];
 
 export const initialState: GameState = {
@@ -241,7 +252,6 @@ export const initialState: GameState = {
   debt: TOTAL_DEBT,
   stamina: 82,
   dignityCap: 100,
-  skills: { 礼法: 1, 学識: 1, 商才: 0 },
   axes: { 貞操: 100, 品位: 100, 威厳: 100 },
   relations: { vernet: 0, jean: 0, claire: 0, guillaume: 0, count: 0, marc: 0 },
   recent: [],
@@ -257,7 +267,6 @@ export const midGameState: GameState = {
   money: 540,
   stamina: 44,
   dignityCap: 74,
-  skills: { 礼法: 2, 学識: 2, 商才: 1 },
   axes: { 貞操: 62, 品位: 51, 威厳: 47 },
   relations: { vernet: 1, jean: 0, claire: 0, guillaume: 2, count: 1, marc: 1 },
   recent: ['guillaume', 'vernet'],
@@ -274,9 +283,14 @@ export function jobsBy(person: PersonId): Job[] {
   return jobs.filter((job) => job.person === person);
 }
 
-/** まだ紹介してもらえるか。品位が落ちると、軽い依頼から順に閉じる(§5)。 */
+/** まだ紹介してもらえるか。尊厳が下がるほど、上の仕事から順に閉じる。 */
 export function isOpen(job: Job, state: GameState): boolean {
-  return state.axes.品位 >= job.dignityFloor;
+  return axes.every((axis) => state.axes[axis] >= (job.needs[axis] ?? 0));
+}
+
+/** その依頼が閉じている理由。跡の表示に使う。 */
+export function closedBy(job: Job, state: GameState): Axis[] {
+  return axes.filter((axis) => state.axes[axis] < (job.needs[axis] ?? 0));
 }
 
 /** いま受けられる依頼すべて。仕事メニューはここから作る。 */
@@ -393,21 +407,6 @@ export function relationLabel(value: number): string {
   return ['疎遠', '既知', '信頼', '懇意'][value] ?? '懇意';
 }
 
-/** 人脈が深いほど求められる技能が下がる。 */
-export function requiredSkillFor(job: Job, state: GameState): number {
-  return Math.max(0, job.required - Math.floor(state.relations[job.person] / 2));
-}
-
-/** 技能が足りているか。足りない依頼は受けられない（肩代わりする手段は無い）。 */
-export function hasSkillFor(job: Job, state: GameState): boolean {
-  return state.skills[job.skill] >= requiredSkillFor(job, state);
-}
-
-/** 技能の不足分。表示用。 */
-export function skillShortage(job: Job, state: GameState): number {
-  return Math.max(0, requiredSkillFor(job, state) - state.skills[job.skill]);
-}
-
 /** その依頼で下がる品位の上限。品位を払う依頼だけ発生する。 */
 export function capDropOf(job: Job): number {
   const dignity = job.costs.find((c) => c.axis === '品位');
@@ -429,8 +428,6 @@ export function hasStaminaFor(job: Job, state: GameState): boolean {
   return state.stamina >= job.stamina;
 }
 
-export const TRAIN_COST = 70;
-export const TRAIN_STAMINA = 12;
 export const NETWORK_COST = 20;
 export const NETWORK_STAMINA = 8;
 export const REST_RECOVERY = 58;

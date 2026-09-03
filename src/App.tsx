@@ -1,25 +1,23 @@
 import { useEffect, useState, type ButtonHTMLAttributes } from 'react';
 import {
-  BookOpen, BriefcaseBusiness, ChevronDown, ChevronLeft, Coins, Handshake, Landmark,
+  BookOpen, BriefcaseBusiness, ChevronDown, ChevronLeft, Handshake, Landmark,
   Map as MapIcon, Moon, RotateCcw, Scale, Store, Zap,
 } from 'lucide-react';
 import {
-  CHAPTER_DAYS, MAX_STAMINA, NETWORK_COST, NETWORK_STAMINA, REST_RECOVERY,
-  TRAIN_COST, TRAIN_STAMINA, axes, axisStage, closedJobsAt, fatigueRate, hasStaminaFor,
-  initialState, isOpen, jobsBy, listPrice, midGameState, openCountAt, payWithRelation,
-  CHAPTERS, TOTAL_DEBT, applySettlement, capDropOf, openJobs, peopleAt, personFatigue, personOf, placeOf,
-  primaryAxis, quotaOf, relationStage, requiredSkillFor, sceneScript, settlementOf,
-  skillShortage, skills, stageUpLine, workPlaces,
-  type Settlement,
+  CHAPTERS, CHAPTER_DAYS, MAX_STAMINA, NETWORK_COST, NETWORK_STAMINA, REST_RECOVERY,
+  TOTAL_DEBT, applySettlement, axes, axisStage, capDropOf, closedBy, closedJobsAt,
+  fatigueRate, hasStaminaFor, initialState, isOpen, jobsBy, listPrice, midGameState,
+  openCountAt, openJobs, payWithRelation, peopleAt, personFatigue, personOf, placeOf,
+  primaryAxis, quotaOf, relationStage, sceneScript, settlementOf, stageUpLine, workPlaces,
   type Axis, type DayResult, type GameState, type Job, type PersonId, type PlaceId,
-  type SceneLine, type Skill,
+  type SceneLine, type Settlement,
 } from './game';
 import {
   PLACEHOLDER, backgroundSrc, mapSrc, personSrc, placeSrc, portraitSrc, portraitStage,
   sceneFallbackSrc, sceneSrc,
 } from './art';
 
-const SAVE_KEY = 'ikusei-prototype-save-v5';
+const SAVE_KEY = 'ikusei-prototype-save-v6';
 
 const PLACE_ICON: Record<PlaceId, typeof Store> = {
   estate: Landmark, arnaud: Store, academy: BookOpen, valere: Landmark, guild: Scale,
@@ -96,7 +94,6 @@ function Hud({ game, onReset }: { game: GameState; onReset: () => void }) {
 /* 画面の状態機械。1画面につき仕事は1つ。 */
 type View =
   | { kind: 'home' }
-  | { kind: 'study' }
   | { kind: 'jobs' }
   | { kind: 'map' }
   | { kind: 'place'; place: PlaceId }
@@ -205,20 +202,6 @@ export default function App() {
     setView({ kind: 'result', result, back: { kind: 'home' } });
   }
 
-  function train(skill: Skill) {
-    if (!game || game.money < TRAIN_COST || game.stamina < TRAIN_STAMINA) return;
-    const result: DayResult = {
-      kind: 'train', title: `${skill}を学ぶ`, narrative: `${skill}を学んだ。今日の収入を将来の力へ変えた。`,
-      basePay: 0, relationBonus: 0, paidTerms: [], moneyDelta: -TRAIN_COST,
-      staminaDelta: -TRAIN_STAMINA, axisDrops: [], axisGains: [], dignityCapDrop: 0,
-    };
-    commit({
-      money: game.money - TRAIN_COST, stamina: game.stamina - TRAIN_STAMINA,
-      skills: { ...game.skills, [skill]: Math.min(5, game.skills[skill] + 1) },
-    }, result.narrative, 'none');
-    setView({ kind: 'result', result, back: { kind: 'home' } });
-  }
-
   function network(id: PersonId) {
     if (!game || game.money < NETWORK_COST || game.stamina < NETWORK_STAMINA) return;
     const person = personOf(id);
@@ -304,9 +287,8 @@ export default function App() {
         <div className="jobgrid">
           {list.map((job) => {
             const person = personOf(job.person);
-            const lack = skillShortage(job, game);
             const tired = !hasStaminaFor(job, game);
-            const blocked = lack > 0 || tired;
+            const blocked = tired;
             const list0 = listPrice(job, game);
             const now = payWithRelation(job, game);
             return (
@@ -329,10 +311,9 @@ export default function App() {
 
                 <div className="jc-req">
                   <i className={tired ? 'tag bad' : 'tag'}><Zap />{job.stamina}</i>
-                  <i className={lack > 0 ? 'tag flat short' : 'tag flat'}>
-                    {job.skill} {game.skills[job.skill]}/{requiredSkillFor(job, game)}
-                  </i>
-                  {lack > 0 && <i className="tag need">技能が {lack} 足りない</i>}
+                  {axes.filter((a) => job.needs[a] !== undefined).map((a) => (
+                    <i key={a} className="tag flat">{a} {job.needs[a]}以上</i>
+                  ))}
                   {tired && <i className="tag need">スタミナ不足</i>}
                 </div>
 
@@ -474,7 +455,8 @@ export default function App() {
 
                 {shut.map((job) => (
                   <div className="jobcard closed" key={job.id}>
-                    <s>{job.title}</s><span>── もう貴女には紹介できません</span>
+                    <s>{job.title}</s>
+                    <span>── {closedBy(job, game).join('と')}が足りず、もう紹介できません</span>
                   </div>
                 ))}
               </section>
@@ -531,35 +513,8 @@ export default function App() {
             <Moon />
             <span><b>休む</b><i>スタミナ+{REST_RECOVERY}・品位が上限まで戻る</i></span>
           </button>
-          <button className="cmd" disabled={game.money < TRAIN_COST || game.stamina < TRAIN_STAMINA}
-            onClick={() => setView({ kind: 'study' })}>
-            <BookOpen />
-            <span><b>学ぶ</b><i>{TRAIN_COST}G・スタミナ−{TRAIN_STAMINA}</i></span>
-          </button>
-        </div>
-        <div className="skillbar">
-          {skills.map((skill) => (
-            <span key={skill}>{skill}<b>{game.skills[skill]}</b></span>
-          ))}
         </div>
       </section>
-
-      {view.kind === 'study' && (
-        <Sheet title="何を学ぶ" sub={`${TRAIN_COST}G・スタミナ−${TRAIN_STAMINA}・1日`}
-          onClose={() => setView({ kind: 'home' })}>
-          <div className="pickrow">
-            {skills.map((skill) => (
-              <button key={skill} className="pick" disabled={game.skills[skill] >= 5}
-                onClick={() => train(skill)}>
-                <b>{skill}</b>
-                <span className="pips">
-                  {[0, 1, 2, 3, 4].map((i) => <i key={i} className={i < game.skills[skill] ? 'on' : ''} />)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </Sheet>
-      )}
 
       {view.kind === 'contract' && (
         <ContractSheet job={view.job} game={game}
@@ -568,22 +523,6 @@ export default function App() {
             : { kind: 'place', place: personOf(view.job.person).place })}
           onAccept={() => acceptJob(view.job)} />
       )}
-    </div>
-  );
-}
-
-/* 契約シートは place の上にも出せるよう、App の返り値の外に置く */
-function Sheet({ title, sub, children, onClose }: {
-  title: string; sub?: string; children: React.ReactNode; onClose: () => void;
-}) {
-  return (
-    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label={title}>
-      <button className="sheet-backdrop" onClick={onClose} aria-label="閉じる" />
-      <section className="sheet">
-        <div className="sheet-head"><div><h2>{title}</h2>{sub && <span>{sub}</span>}</div></div>
-        {children}
-        <div className="sheet-foot"><Button variant="outline" onClick={onClose}>戻る</Button></div>
-      </section>
     </div>
   );
 }
@@ -605,7 +544,6 @@ function ContractSheet({ job, game, onCancel, onAccept }: {
             <h2>{job.title}</h2>
             <span>
               {person.name}・{relationStage(game.relations[job.person])}
-              ／{job.skill} 必要{requiredSkillFor(job, game)}（現在{game.skills[job.skill]}）
               {fatigue > 0 && <em className="inline-warn">／相場 −{Math.round((1 - fatigueRate(job.person, game)) * 100)}%</em>}
             </span>
           </div>

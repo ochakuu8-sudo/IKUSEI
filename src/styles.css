@@ -210,14 +210,6 @@ img { display: block; max-width: 100%; }
   background: linear-gradient(90deg, #3c3018f2, #1d2836f2);
   border-color: #a8813c66; border-left-color: var(--gold);
 }
-.cmd.primary b { color: #f0d79b; }
-.skillbar {
-  display: flex; gap: 14px; margin-top: auto;
-  padding-top: 8px; border-top: 1px solid var(--line);
-  color: var(--ink-3); font-size: var(--fs-xs);
-}
-.skillbar b { margin-left: 5px; color: var(--ink); font-size: var(--fs-sm); }
-
 /* ================= 上部バー（マップ・場所） ================= */
 .screen.map, .screen.place, .screen.worklist { display: flex; flex-direction: column; }
 .screen.place, .screen.worklist { padding-inline: clamp(10px, 2vw, 22px); }
@@ -319,7 +311,6 @@ img { display: block; max-width: 100%; }
 
 .jc-req { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .tag.flat { color: var(--ink-2); }
-.tag.flat.short { color: var(--bad); background: #e0808c14; }
 .jc-max { margin-left: auto; color: var(--ink-3); font-size: var(--fs-xs); white-space: nowrap; }
 .jc-max b { color: var(--gold); }
 
@@ -422,20 +413,6 @@ img { display: block; max-width: 100%; }
 .jobcard.closed span { font-size: var(--fs-xs); }
 .empty-note { color: var(--ink-3); font-size: var(--fs-sm); padding: 10px 2px; }
 .inline-warn { color: var(--bad); font-style: normal; }
-
-/* 学ぶシートの選択 */
-.pickrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
-.pick {
-  padding: 12px 10px; text-align: center; color: inherit;
-  background: var(--card); border: 1px solid var(--line); border-radius: 9px;
-  cursor: pointer; transition: .15s ease;
-}
-.pick:hover:not(:disabled) { background: var(--card-active); border-color: var(--gold); }
-.pick:disabled { opacity: .38; cursor: not-allowed; }
-.pick b { display: block; font-family: var(--font-serif-jp); font-size: var(--fs-lg); }
-.pips { display: flex; gap: 3px; justify-content: center; margin-top: 6px; }
-.pips i { width: 10px; height: 10px; background: #ffffff1a; border-radius: 2px; }
-.pips i.on { background: linear-gradient(180deg, #e2c37c, #a8813c); }
 
 /* ================= シート（契約・休養） ================= */
 .sheet-wrap { position: absolute; inset: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
@@ -638,7 +615,6 @@ img { display: block; max-width: 100%; }
   .cmd { padding: 8px 11px; gap: 9px; }
   .cmd svg { width: 18px; height: 18px; }
   .ticker { padding: 5px 9px; }
-  .skillbar { padding-top: 6px; gap: 11px; }
   .topbar { padding: 2px 10px 6px; }
   .marker-pin { width: 34px; height: 34px; }
   .marker-pin svg { width: 16px; height: 16px; }
@@ -660,8 +636,6 @@ img { display: block; max-width: 100%; }
   .person-line { color: var(--ink-2); font-size: var(--fs-xs); }
 .person-line b { color: var(--ink); }
 .person-notice { padding: 4px 8px; }
-  .pickrow { gap: 6px; }
-  .pick { padding: 9px 8px; }
   .figure-status { padding: 8px 10px; }
   .figure-name { margin-bottom: 5px; }
   .sheet { padding: 11px 14px; }
@@ -700,7 +674,6 @@ img { display: block; max-width: 100%; }
     background: linear-gradient(180deg, #05080d00, #05080de6 12%, #05080df7 100%);
     overflow-y: auto;
   }
-  .pickrow { grid-template-columns: 1fr; }
   .jobgrid { grid-template-columns: 1fr; }
   .result-cols { grid-template-columns: 1fr; }
   .ending-stats { grid-template-columns: repeat(2, 1fr); }
