@@ -276,27 +276,57 @@ export default function App() {
           <h2>仕事を受ける</h2>
           <span className="topbar-sub">{list.length}件 ／ 報酬の高い順</span>
         </div>
-        <div className="joblist">
+        <div className="jobgrid">
           {list.map((job) => {
             const person = personOf(job.person);
             const short = shortageFor(job, game);
             const tired = !hasStaminaFor(job, game);
             const list0 = listPrice(job, game);
             const now = payWithRelation(job, game);
+            const most = now + Math.max(...job.concessions.map((c) => c.bonus));
             return (
-              <button key={job.id} className={`joprow ${tired ? 'disabled' : ''}`} disabled={tired}
+              <button key={job.id} className={`jobcard2 ${tired ? 'disabled' : ''}`} disabled={tired}
                 onClick={() => { setPicked([]); setView({ kind: 'contract', job, from: 'jobs' }); }}>
-                <span className="joprow-main">
-                  <b>{job.title}</b>
-                  <i>{person.name}・{placeOf(person.place).short}</i>
-                </span>
-                <span className="joprow-side">
-                  <strong>{now.toLocaleString()}<small>G</small>{now < list0 && <s>{list0.toLocaleString()}</s>}</strong>
-                  <span className="jobcard-tags">
-                    <i className={tired ? 'tag bad' : 'tag'}><Zap />{job.stamina}</i>
-                    {short > 0 ? <i className="tag need">要 上乗せ{short}</i> : <i className="tag ok">そのまま可</i>}
+                <div className="jc-head">
+                  <span className="avatar sm">
+                    <b>{person.name.slice(0, 1)}</b>
+                    <Art className="avatar-img" sources={[personSrc(person.id)]} alt="" hideIfMissing />
                   </span>
-                </span>
+                  <span className="jc-name">
+                    <b>{job.title}</b>
+                    <i>{person.name}・{placeOf(person.place).short}</i>
+                  </span>
+                  <span className="jc-pay">
+                    <b>{now.toLocaleString()}<small>G</small></b>
+                    {now < list0 && <s>{list0.toLocaleString()}</s>}
+                  </span>
+                </div>
+
+                <div className="jc-req">
+                  <i className={tired ? 'tag bad' : 'tag'}><Zap />{job.stamina}</i>
+                  <i className={short > 0 ? 'tag flat short' : 'tag flat'}>
+                    {job.skill} {game.skills[job.skill]}/{requiredSkillFor(job, game)}
+                  </i>
+                  {short > 0 ? <i className="tag need">上乗せ {short}つ必須</i> : <i className="tag ok">そのまま可</i>}
+                  <span className="jc-max">上乗せ次第で <b>{most.toLocaleString()}G</b></span>
+                </div>
+
+                {/* このゲームの本体は「何を払うか」なので、比べる画面に必ず出す */}
+                <div className="jc-costs">
+                  {job.concessions.map((c) => {
+                    const after = Math.max(0, game.axes[c.axis] - c.cost);
+                    return (
+                      <span key={c.axis} className={`cost cost-cell-${c.axis}`}>
+                        <em>{c.axis}</em>
+                        <b>−{c.cost}</b>
+                        <u>{game.axes[c.axis]}→{after}</u>
+                        <i>+{c.bonus}G</i>
+                      </span>
+                    );
+                  })}
+                </div>
+
+                {tired && <p className="jc-block">スタミナが足りない</p>}
               </button>
             );
           })}
