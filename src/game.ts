@@ -115,7 +115,34 @@ export function placeOf(id: PlaceId): Place {
 }
 
 export const CHAPTER_DAYS = 14;
+export const CHAPTERS = 6;
 export const MAX_STAMINA = 100;
+
+/* ---------------- 章末のノルマ ----------------
+   額そのものより「正攻法で稼げる額に対する比率」が設計の本体。
+   実測（正攻法は1章あたり約1,800G）から逆算して、
+   その比率を 166% → 75% へ落としていく。
+   前半は経営ゲーム、後半は身売りゲームになる。 */
+export const QUOTAS = [1100, 1350, 1600, 1850, 2100, 2400];
+export const TOTAL_DEBT = QUOTAS.reduce((a, b) => a + b, 0);
+
+/** 未達分に付く利息。 */
+export const LATE_INTEREST = 0.25;
+
+/** 未達のときに受ける仕打ち。返せない見本として扱われる。 */
+export const LATE_PENALTY: { axis: Axis; amount: number }[] = [
+  { axis: '威厳', amount: 15 },
+  { axis: '品位', amount: 10 },
+];
+
+export function baseQuota(chapter: number): number {
+  return QUOTAS[chapter - 1] ?? QUOTAS[QUOTAS.length - 1];
+}
+
+/** 今章に納める額。前章の未達分は利息ごと乗る。 */
+export function quotaOf(state: GameState): number {
+  return baseQuota(state.chapter) + state.carryOver;
+}
 
 /** その依頼を受けると必ず削られるもの。選ばせない。 */
 export type JobCost = { axis: Axis; amount: number };
@@ -136,7 +163,12 @@ export type Job = {
 };
 
 export type GameState = {
+  chapter: number;
   day: number;
+  /** 前章の未達分（利息込み）。今章のノルマに上乗せされる。 */
+  carryOver: number;
+  /** 14日目の行動を終えて、章末精算を待っている状態。 */
+  awaitingSettlement: boolean;
   money: number;
   debt: number;
   stamina: number;
@@ -201,9 +233,12 @@ export const jobs: Job[] = [
 ];
 
 export const initialState: GameState = {
+  chapter: 1,
   day: 1,
+  carryOver: 0,
+  awaitingSettlement: false,
   money: 120,
-  debt: 1800,
+  debt: TOTAL_DEBT,
   stamina: 82,
   dignityCap: 100,
   skills: { 礼法: 1, 学識: 1, 商才: 0 },
@@ -217,6 +252,7 @@ export const initialState: GameState = {
 /** 中盤の疑似再現（§13 MVP の初期状態B）。冒頭は何も失っていないため、企画の売りが出ない。 */
 export const midGameState: GameState = {
   ...initialState,
+  chapter: 3,
   day: 6,
   money: 540,
   stamina: 44,
@@ -277,6 +313,67 @@ export function fatigueRate(person: PersonId, state: GameState): number {
 export function placeDiscount(place: PlaceId, state: GameState): number {
   const rates = peopleAt(place).map((p) => fatigueRate(p.id, state));
   return rates.length ? Math.min(...rates) : 1;
+}
+
+/* ---------------- 章末精算 ---------------- */
+
+export type Settlement = {
+  chapter: number;
+  quota: number;
+  paid: number;
+  shortfall: number;
+  interest: number;
+  penalties: { axis: Axis; amount: number }[];
+  debtBefore: number;
+  debtAfter: number;
+  nextQuota: number;
+  finished: boolean;
+  cleared: boolean;
+};
+
+/** 精算の内訳を計算する。状態は変えない（画面に見せてから適用する）。 */
+export function settlementOf(state: GameState): Settlement {
+  const quota = quotaOf(state);
+  const paid = Math.min(state.money, quota);
+  const shortfall = quota - paid;
+  const interest = shortfall > 0 ? Math.ceil(shortfall * LATE_INTEREST) : 0;
+  const debtAfter = Math.max(0, state.debt - paid + interest);
+  const finished = state.chapter >= CHAPTERS;
+  return {
+    chapter: state.chapter,
+    quota, paid, shortfall, interest,
+    penalties: shortfall > 0 ? LATE_PENALTY : [],
+    debtBefore: state.debt,
+    debtAfter,
+    nextQuota: finished ? 0 : baseQuota(state.chapter + 1) + shortfall + interest,
+    finished,
+    cleared: finished && debtAfter <= 0,
+  };
+}
+
+/** 精算を適用して次章へ。最終章なら ended を立てる。 */
+export function applySettlement(state: GameState, s: Settlement): GameState {
+  const axes2 = { ...state.axes };
+  s.penalties.forEach((p) => { axes2[p.axis] = Math.max(0, axes2[p.axis] - p.amount); });
+  axes2.品位 = Math.min(axes2.品位, state.dignityCap);
+  return {
+    ...state,
+    money: state.money - s.paid,
+    debt: s.debtAfter,
+    axes: axes2,
+    carryOver: s.shortfall + s.interest,
+    awaitingSettlement: false,
+    chapter: s.finished ? state.chapter : state.chapter + 1,
+    day: s.finished ? state.day : 1,
+    stamina: s.finished ? state.stamina : MAX_STAMINA,
+    ended: s.finished,
+    log: [
+      s.shortfall > 0
+        ? `第${s.chapter}章 章末。${s.paid.toLocaleString()}Gを納めたが、${s.shortfall.toLocaleString()}G足りなかった。`
+        : `第${s.chapter}章 章末。${s.paid.toLocaleString()}Gを納めた。`,
+      ...state.log,
+    ].slice(0, 8),
+  };
 }
 
 export function axisStage(axis: Axis, value: number): string {

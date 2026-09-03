@@ -7,8 +7,10 @@ import {
   CHAPTER_DAYS, MAX_STAMINA, NETWORK_COST, NETWORK_STAMINA, REST_RECOVERY,
   TRAIN_COST, TRAIN_STAMINA, axes, axisStage, closedJobsAt, fatigueRate, hasStaminaFor,
   initialState, isOpen, jobsBy, listPrice, midGameState, openCountAt, payWithRelation,
-  capDropOf, hasSkillFor, openJobs, peopleAt, personFatigue, personOf, placeOf, primaryAxis,
-  relationStage, requiredSkillFor, sceneScript, skillShortage, skills, stageUpLine, workPlaces,
+  CHAPTERS, TOTAL_DEBT, applySettlement, capDropOf, openJobs, peopleAt, personFatigue, personOf, placeOf,
+  primaryAxis, quotaOf, relationStage, requiredSkillFor, sceneScript, settlementOf,
+  skillShortage, skills, stageUpLine, workPlaces,
+  type Settlement,
   type Axis, type DayResult, type GameState, type Job, type PersonId, type PlaceId,
   type SceneLine, type Skill,
 } from './game';
@@ -17,7 +19,7 @@ import {
   sceneFallbackSrc, sceneSrc,
 } from './art';
 
-const SAVE_KEY = 'ikusei-prototype-save-v4';
+const SAVE_KEY = 'ikusei-prototype-save-v5';
 
 const PLACE_ICON: Record<PlaceId, typeof Store> = {
   estate: Landmark, arnaud: Store, academy: BookOpen, valere: Landmark, guild: Scale,
@@ -60,20 +62,31 @@ function Gauge({ value, max = 100, cap, tone }: { value: number; max?: number; c
   );
 }
 
-/** 全画面で共通のHUD。残債を最も大きい数字に置く。 */
+/** 全画面で共通のHUD。残債を最も大きい数字に、今章のノルマを進捗として置く。 */
 function Hud({ game, onReset }: { game: GameState; onReset: () => void }) {
-  const left = Math.max(0, game.debt - game.money);
+  const quota = quotaOf(game);
+  const done = game.money >= quota;
+  const pct = Math.min(100, (game.money / Math.max(1, quota)) * 100);
   return (
     <header className="hud">
       <div className="hud-debt">
         <span>残債</span>
-        <strong>{left.toLocaleString()}<small>G</small></strong>
+        <strong>{game.debt.toLocaleString()}<small>G</small></strong>
       </div>
-      <div className="hud-track"><i style={{ width: `${Math.min(100, (game.money / game.debt) * 100)}%` }} /></div>
+      <div className="hud-quota">
+        <div className="hud-quota-head">
+          <span>第{game.chapter}章のノルマ</span>
+          <span className={done ? 'met' : ''}>
+            <b>{game.money.toLocaleString()}</b> / {quota.toLocaleString()}G
+            {done && ' 達成'}
+          </span>
+        </div>
+        <div className="hud-track"><i className={done ? 'met' : ''} style={{ width: `${pct}%` }} /></div>
+      </div>
       <div className="hud-chips">
-        <span className="chip"><b>{CHAPTER_DAYS - game.day + 1}</b>日</span>
+        <span className="chip">{game.chapter}<i>/{CHAPTERS}章</i></span>
+        <span className="chip">残り<b>{CHAPTER_DAYS - game.day + 1}</b>日</span>
         <span className={`chip ${game.stamina < 30 ? 'low' : ''}`}><Zap /><b>{game.stamina}</b></span>
-        <span className="chip"><Coins /><b>{game.money.toLocaleString()}</b></span>
       </div>
       <Button variant="ghost" size="icon" aria-label="最初からやり直す" onClick={onReset}><RotateCcw /></Button>
     </header>
@@ -90,6 +103,7 @@ type View =
   | { kind: 'contract'; job: Job; from: 'jobs' | 'place' }
   | { kind: 'scene'; job: Job; script: SceneLine[]; line: number; result: DayResult }
   | { kind: 'result'; result: DayResult; back: View }
+  | { kind: 'settlement' }
   | { kind: 'ending' };
 
 function loadGame(): GameState | null {
@@ -132,7 +146,7 @@ export default function App() {
         axes: nextAxes,
         recent: [worked, ...current.recent].slice(0, 6),
         day: lastDay ? CHAPTER_DAYS : current.day + 1,
-        ended: lastDay,
+        awaitingSettlement: lastDay,
         log: [narrative, ...current.log].slice(0, 8),
       };
     });
@@ -224,6 +238,11 @@ export default function App() {
     setView({ kind: 'result', result, back: { kind: 'place', place: person.place } });
   }
 
+  /** 結果を閉じたあとの行き先。14日目なら章末精算へ。 */
+  function closeResult(back: View) {
+    setView(game && game.awaitingSettlement ? { kind: 'settlement' } : back);
+  }
+
   /* ---- イベントシーン ---- */
   if (view.kind === 'scene') {
     const axis = primaryAxis(view.job);
@@ -248,8 +267,19 @@ export default function App() {
   }
 
   if (view.kind === 'result') {
-    return <ResultScreen result={view.result} stage={stage}
-      onClose={() => setView(game.ended ? { kind: 'ending' } : view.back)} />;
+    const back = view.back;
+    return <ResultScreen result={view.result} stage={stage} onClose={() => closeResult(back)} />;
+  }
+
+  /* ---- 章末：ノルマを納める ---- */
+  if (view.kind === 'settlement') {
+    const sheet = settlementOf(game);
+    return (
+      <SettlementScreen settlement={sheet} onNext={() => {
+        setGame(applySettlement(game, sheet));
+        setView(sheet.finished ? { kind: 'ending' } : { kind: 'home' });
+      }} />
+    );
   }
 
   /* ---- 仕事メニュー：受けられる依頼を一画面で比べる ---- */
@@ -684,6 +714,57 @@ function ResultScreen({ result, stage, onClose }: { result: DayResult; stage: st
   );
 }
 
+/** 章末。納めた額と、足りなかった場合に何が起きるかを見せる。 */
+function SettlementScreen({ settlement, onNext }: { settlement: Settlement; onNext: () => void }) {
+  const s = settlement;
+  const short = s.shortfall > 0;
+  return (
+    <div className="screen title">
+      <div className="backdrop">
+        <Art className="bg" sources={[backgroundSrc('ledger')]} alt="" hideIfMissing />
+        <div className="bg-veil strong" />
+      </div>
+      <section className="title-body settle">
+        <p className="title-eyebrow">第{s.chapter}章 章末</p>
+        <h1>{short ? '足りない額が読み上げられた。' : '返済票に、印が押された。'}</h1>
+
+        <div className="settle-rows">
+          <div className="row"><span>今章のノルマ</span><b>{s.quota.toLocaleString()}G</b></div>
+          <div className="row"><span>納めた額</span><b className="plus">{s.paid.toLocaleString()}G</b></div>
+          {short && <div className="row"><span>不足</span><b className="minus">{s.shortfall.toLocaleString()}G</b></div>}
+          {short && <div className="row"><span>利息（25%）</span><b className="minus">＋{s.interest.toLocaleString()}G</b></div>}
+          <div className="row total">
+            <span>残債</span>
+            <b>{s.debtBefore.toLocaleString()}<i>→</i>{s.debtAfter.toLocaleString()}G</b>
+          </div>
+        </div>
+
+        {short && (
+          <div className="settle-penalty">
+            <h3>返せない見本として</h3>
+            <p>街に名が回る。</p>
+            <div className="settle-pen-row">
+              {s.penalties.map((p) => (
+                <span key={p.axis} className={`pen axis-${p.axis}`}>{p.axis} −{p.amount}</span>
+              ))}
+            </div>
+            {!s.finished && (
+              <p className="settle-next">次章のノルマは <b>{s.nextQuota.toLocaleString()}G</b> になる。</p>
+            )}
+          </div>
+        )}
+        {!short && !s.finished && (
+          <p className="settle-next">次章のノルマは <b>{s.nextQuota.toLocaleString()}G</b>。</p>
+        )}
+
+        <Button size="lg" onClick={onNext}>
+          {s.finished ? '結末を見る' : `第${s.chapter + 1}章へ`}
+        </Button>
+      </section>
+    </div>
+  );
+}
+
 function TitleScreen({ onStart }: { onStart: (state: GameState) => void }) {
   return (
     <div className="screen title">
@@ -709,8 +790,7 @@ function TitleScreen({ onStart }: { onStart: (state: GameState) => void }) {
 }
 
 function EndingScreen({ game, onRestart }: { game: GameState; onRestart: () => void }) {
-  const paid = Math.min(game.money, game.debt);
-  const complete = paid >= game.debt;
+  const complete = game.debt <= 0;
   const lowest = axes.reduce((a, b) => (game.axes[a] <= game.axes[b] ? a : b));
   return (
     <div className="screen title">
@@ -719,12 +799,12 @@ function EndingScreen({ game, onRestart }: { game: GameState; onRestart: () => v
         <div className="bg-veil strong" />
       </div>
       <section className="title-body">
-        <p className="title-eyebrow">第1章・試算結果</p>
-        <h1>{complete ? '期限の日、返済票に印が押された。' : '期限の日、足りない金額が読み上げられた。'}</h1>
+        <p className="title-eyebrow">全{CHAPTERS}章 ・ 結末</p>
+        <h1>{complete ? '最後の返済票に、印が押された。' : '期限を過ぎても、額は残っていた。'}</h1>
         <p className="title-lead">
           {complete
-            ? `${game.debt.toLocaleString()}Gを返した。家はまだ彼女の名のもとにある。`
-            : `${paid.toLocaleString()}Gを納め、${(game.debt - paid).toLocaleString()}Gが次章へ持ち越された。`}
+            ? `${TOTAL_DEBT.toLocaleString()}Gを返しきった。家はまだ彼女の名のもとにある。`
+            : `${game.debt.toLocaleString()}Gが残った。家は、彼女の手を離れる。`}
           {' '}最も傷ついたものは「{lowest}」だった。
         </p>
         <div className="ending-stats">
