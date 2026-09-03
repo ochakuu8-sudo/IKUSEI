@@ -364,10 +364,19 @@ export function openCountAt(place: PlaceId, state: GameState): number {
   return jobsAt(place).filter((job) => isOpen(job, state)).length;
 }
 
+/** 一度は回ってきたのに、いまは紹介されない依頼か。まだ現れていないものは「跡」ではない。 */
+function isTrace(job: Job, state: GameState): boolean {
+  return !isOpen(job, state) && !notYetFallen(job, state);
+}
+
 /** 紹介されなくなった依頼。消さずに跡として残す(§5)。 */
 export function closedJobsAt(place: PlaceId, state: GameState): Job[] {
-  // まだ現れていない依頼は「跡」ではないので除く
-  return jobsAt(place).filter((job) => !isOpen(job, state) && !notYetFallen(job, state));
+  return jobsAt(place).filter((job) => isTrace(job, state));
+}
+
+/** その人物が、もう紹介してくれなくなった依頼。 */
+export function closedJobsBy(person: PersonId, state: GameState): Job[] {
+  return jobsBy(person).filter((job) => isTrace(job, state));
 }
 
 /* --- 常設リストの単調さを防ぐ：同じ場所に通い詰めると買い叩かれる --- */

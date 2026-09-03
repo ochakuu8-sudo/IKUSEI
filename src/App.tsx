@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import {
   CHAPTERS, CHAPTER_DAYS, MAX_STAMINA, NETWORK_COST, NETWORK_STAMINA, REST_RECOVERY,
-  TOTAL_DEBT, applySettlement, axes, axisStage, capDropOf, closedBy, closedJobsAt,
+  TOTAL_DEBT, applySettlement, axes, axisStage, capDropOf, closedBy, closedJobsAt, closedJobsBy,
   fatigueRate, hasStaminaFor, initialState, isOpen, jobsBy, listPrice, midGameState,
   openCountAt, openJobs, payWithRelation, peopleAt, personFatigue, personOf, placeOf,
   countsByKind, jobKinds, kindNote, primaryAxis, quotaOf, relationStage, sceneScript,
@@ -111,9 +111,17 @@ function loadGame(): GameState | null {
   try { return JSON.parse(saved) as GameState; } catch { return null; }
 }
 
+/** 中断したところへ戻す。章末精算と結末は、読み直しで飛ばせてはいけない。 */
+function resumeView(saved: GameState | null): View {
+  if (!saved) return { kind: 'home' };
+  if (saved.ended) return { kind: 'ending' };
+  if (saved.awaitingSettlement) return { kind: 'settlement' };
+  return { kind: 'home' };
+}
+
 export default function App() {
   const [game, setGame] = useState<GameState | null>(loadGame);
-  const [view, setView] = useState<View>({ kind: 'home' });
+  const [view, setView] = useState<View>(() => resumeView(game));
 
   useEffect(() => {
     if (game) localStorage.setItem(SAVE_KEY, JSON.stringify(game));
@@ -436,7 +444,7 @@ export default function App() {
             const rate = fatigueRate(person.id, game);
             const mine = jobsBy(person.id);
             const open = mine.filter((job) => isOpen(job, game));
-            const shut = mine.filter((job) => !isOpen(job, game));
+            const shut = closedJobsBy(person.id, game);
             return (
               <section className="person" key={person.id}>
                 <header className="person-head">
@@ -681,34 +689,37 @@ function SettlementScreen({ settlement, onNext }: { settlement: Settlement; onNe
         <p className="title-eyebrow">第{s.chapter}章 章末</p>
         <h1>{short ? '足りない額が読み上げられた。' : '返済票に、印が押された。'}</h1>
 
-        <div className="settle-rows">
-          <div className="row"><span>今章のノルマ</span><b>{s.quota.toLocaleString()}G</b></div>
-          <div className="row"><span>納めた額</span><b className="plus">{s.paid.toLocaleString()}G</b></div>
-          {short && <div className="row"><span>不足</span><b className="minus">{s.shortfall.toLocaleString()}G</b></div>}
-          {short && <div className="row"><span>利息（25%）</span><b className="minus">＋{s.interest.toLocaleString()}G</b></div>}
-          <div className="row total">
-            <span>残債</span>
-            <b>{s.debtBefore.toLocaleString()}<i>→</i>{s.debtAfter.toLocaleString()}G</b>
-          </div>
-        </div>
-
-        {short && (
-          <div className="settle-penalty">
-            <h3>返せない見本として</h3>
-            <p>街に名が回る。</p>
-            <div className="settle-pen-row">
-              {s.penalties.map((p) => (
-                <span key={p.axis} className={`pen axis-${p.axis}`}>{p.axis} −{p.amount}</span>
-              ))}
+        {/* 横持ちでは高さが足りないので、返済票と仕打ちを横に並べる */}
+        <div className="settle-cols">
+          <div className="settle-rows">
+            <div className="row"><span>今章のノルマ</span><b>{s.quota.toLocaleString()}G</b></div>
+            <div className="row"><span>納めた額</span><b className="plus">{s.paid.toLocaleString()}G</b></div>
+            {short && <div className="row"><span>不足</span><b className="minus">{s.shortfall.toLocaleString()}G</b></div>}
+            {short && <div className="row"><span>利息（25%）</span><b className="minus">＋{s.interest.toLocaleString()}G</b></div>}
+            <div className="row total">
+              <span>残債</span>
+              <b>{s.debtBefore.toLocaleString()}<i>→</i>{s.debtAfter.toLocaleString()}G</b>
             </div>
-            {!s.finished && (
-              <p className="settle-next">次章のノルマは <b>{s.nextQuota.toLocaleString()}G</b> になる。</p>
-            )}
           </div>
-        )}
-        {!short && !s.finished && (
-          <p className="settle-next">次章のノルマは <b>{s.nextQuota.toLocaleString()}G</b>。</p>
-        )}
+
+          {short && (
+            <div className="settle-penalty">
+              <h3>返せない見本として</h3>
+              <p>街に名が回る。</p>
+              <div className="settle-pen-row">
+                {s.penalties.map((p) => (
+                  <span key={p.axis} className={`pen axis-${p.axis}`}>{p.axis} −{p.amount}</span>
+                ))}
+              </div>
+              {!s.finished && (
+                <p className="settle-next">次章のノルマは <b>{s.nextQuota.toLocaleString()}G</b> になる。</p>
+              )}
+            </div>
+          )}
+          {!short && !s.finished && (
+            <p className="settle-next">次章のノルマは <b>{s.nextQuota.toLocaleString()}G</b>。</p>
+          )}
+        </div>
 
         <Button size="lg" onClick={onNext}>
           {s.finished ? '結末を見る' : `第${s.chapter + 1}章へ`}
