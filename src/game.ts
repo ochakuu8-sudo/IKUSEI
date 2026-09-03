@@ -27,6 +27,89 @@ export const places: Place[] = [
 ];
 
 export const workPlaces = places.filter((p) => p.kind === 'work');
+
+/** 依頼人。関係は組織ではなく、この人と結ぶ。 */
+export type PersonId = 'vernet' | 'jean' | 'claire' | 'guillaume' | 'count' | 'marc';
+
+export type Person = {
+  id: PersonId;
+  name: string;
+  role: string;
+  place: PlaceId;
+  note: string;
+  /** 関係が段階1/2/3に上がった日に、その人が言うこと。 */
+  stageLines: [string, string, string];
+};
+
+export const people: Person[] = [
+  {
+    id: 'vernet', name: 'ヴェルネ', role: '番頭', place: 'arnaud',
+    note: '帳簿より正確に人を見る。感情は挟まない。',
+    stageLines: [
+      '「……名前だけは覚えました。それだけです」',
+      '「ラティエ様。次はもう少し早く来られますか」',
+      '「旦那様には黙っておきます。貴女のためではなく、帳簿のためです」',
+    ],
+  },
+  {
+    id: 'jean', name: 'ジャン・アルノー', role: '若旦那', place: 'arnaud',
+    note: '金払いはいい。身分というものに何の敬意も無い。',
+    stageLines: [
+      '「へえ。貴族様が、本当に来た」',
+      '「エレオノールさん、でしたっけ。覚えましたよ」',
+      '「今度、店じゃないところで話しませんか」',
+    ],
+  },
+  {
+    id: 'claire', name: 'クレール', role: '司書', place: 'academy',
+    note: '詮索をしない。ここでの仕事は、まだ彼女を令嬢のまま扱う。',
+    stageLines: [
+      '「助かりました。また、お願いできますか」',
+      '「あなたの字は読みやすい。教授もそう言っていました」',
+      '「……ここにいる間は、誰も貴女を詮索しません」',
+    ],
+  },
+  {
+    id: 'guillaume', name: 'ギヨーム', role: '家令', place: 'valere',
+    note: '慇懃で、丁寧で、こちらを一段下に置く。',
+    stageLines: [
+      '「使えなくはない、と申し上げておきます」',
+      '「ラティエ家の名は、まだ多少の役に立つようで」',
+      '「伯爵がお呼びです。断る理由は、もう無いでしょう」',
+    ],
+  },
+  {
+    id: 'count', name: 'ヴァレール伯爵', role: '当主', place: 'valere',
+    note: 'かつては同格だった。その事実を、両方が覚えている。',
+    stageLines: [
+      '「久しいな。……ずいぶん、変わった」',
+      '「昔は私が頭を下げる側だった。覚えているか」',
+      '「金で解決する話は、金で終わらせよう。そうだろう」',
+    ],
+  },
+  {
+    id: 'marc', name: 'マルク', role: '組合の顔役', place: 'guild',
+    note: '下世話だが、値切らないし嘘もつかない。',
+    stageLines: [
+      '「上玉が来たって噂は、本当だったな」',
+      '「あんた、値切らねえのが偉い。仕事はきっちり回すよ」',
+      '「悪い話も来る。聞くだけ、聞くか」',
+    ],
+  },
+];
+
+export function personOf(id: PersonId): Person {
+  return people.find((p) => p.id === id) ?? people[0];
+}
+
+export function peopleAt(place: PlaceId): Person[] {
+  return people.filter((p) => p.place === place);
+}
+
+/** 関係の段階。数値ではなく言葉で出す。 */
+export function relationStage(value: number): string {
+  return ['依頼人', '顔を覚えられた', '名前で呼ばれる', '私的な用も頼まれる'][Math.min(value, 3)];
+}
 export function placeOf(id: PlaceId): Place {
   return places.find((p) => p.id === id) ?? places[0];
 }
@@ -45,7 +128,7 @@ export type Concession = {
 export type Job = {
   id: string;
   title: string;
-  place: PlaceId;
+  person: PersonId;
   skill: Skill;
   required: number;
   pay: number;
@@ -65,9 +148,9 @@ export type GameState = {
   dignityCap: number;
   skills: Record<Skill, number>;
   axes: Record<Axis, number>;
-  relations: Record<PlaceId, number>;
-  /** 直近に働いた場所（新しい順）。同じ所に通い詰めると買い叩かれる。 */
-  recent: PlaceId[];
+  relations: Record<PersonId, number>;
+  /** 直近に仕事を受けた相手（新しい順）。同じ人に通い詰めると買い叩かれる。 */
+  recent: (PersonId | 'none')[];
   log: string[];
   ended: boolean;
 };
@@ -85,6 +168,8 @@ export type DayResult = {
   axisDrops: { axis: Axis; amount: number }[];
   axisGains: { axis: Axis; amount: number }[];
   dignityCapDrop: number;
+  /** 関係が新しい段階に入ったとき。 */
+  relationUp?: { name: string; stage: string };
 };
 
 const terms: Record<Axis, [string, string]> = {
@@ -94,11 +179,11 @@ const terms: Record<Axis, [string, string]> = {
 };
 
 function makeJob(
-  id: string, title: string, place: PlaceId, skill: Skill,
+  id: string, title: string, person: PersonId, skill: Skill,
   required: number, pay: number, stamina: number, dignityFloor: number, description: string,
 ): Job {
   return {
-    id, title, place, skill, required, pay, stamina, dignityFloor, description,
+    id, title, person, skill, required, pay, stamina, dignityFloor, description,
     concessions: axes.map((axis, index) => ({
       axis,
       title: terms[axis][0],
@@ -111,15 +196,15 @@ function makeJob(
 
 // dignityFloor が高い依頼ほど「軽い/まともな」依頼で、品位が落ちると先に消える。
 export const jobs: Job[] = [
-  makeJob('tutor', '商家の娘の家庭教師', 'academy', '学識', 2, 210, 26, 70, '静かな仕事だが、学院の推薦に応える知識が必要だ。'),
-  makeJob('copyist', '学院文書の筆耕', 'academy', '学識', 2, 175, 20, 62, '報酬は控えめだが、継続雇用につながる。'),
-  makeJob('secretary', '伯爵家の臨時秘書', 'valere', '礼法', 3, 300, 34, 55, '社交界の手紙と来客を一日で捌く高額依頼。'),
-  makeJob('ledger', '商会の帳簿整理', 'arnaud', '学識', 1, 130, 24, 40, '数字は多いが、日が暮れるまでに終えれば約束の額になる。'),
-  makeJob('market', '市場の仕入れ交渉', 'guild', '商才', 2, 220, 28, 34, '相場を読み、複数の店を回って条件をまとめる。'),
-  makeJob('auction', '旧家財の競売補佐', 'guild', '商才', 1, 160, 22, 28, '品物の来歴を語り、少しでも高く売る。'),
-  makeJob('banquet', '商家の晩餐で給仕', 'arnaud', '礼法', 2, 190, 30, 20, '客は作法に厳しい。かつての身分を面白がる者もいる。'),
-  makeJob('escort', '夜会への同伴', 'valere', '礼法', 2, 240, 24, 12, '昔の知人と顔を合わせる可能性がある。'),
-  makeJob('packing', '商会倉庫の荷造り', 'guild', '商才', 0, 95, 38, 0, '誰でもできる安全な仕事。ただしひどく疲れる。'),
+  makeJob('tutor', '商家の娘の家庭教師', 'claire', '学識', 2, 210, 26, 70, '静かな仕事だが、学院の推薦に応える知識が必要だ。'),
+  makeJob('copyist', '学院文書の筆耕', 'claire', '学識', 2, 175, 20, 62, '報酬は控えめだが、継続雇用につながる。'),
+  makeJob('secretary', '伯爵家の臨時秘書', 'guillaume', '礼法', 3, 300, 34, 55, '社交界の手紙と来客を一日で捌く高額依頼。'),
+  makeJob('ledger', '商会の帳簿整理', 'vernet', '学識', 1, 130, 24, 40, '数字は多いが、日が暮れるまでに終えれば約束の額になる。'),
+  makeJob('market', '市場の仕入れ交渉', 'marc', '商才', 2, 220, 28, 34, '相場を読み、複数の店を回って条件をまとめる。'),
+  makeJob('auction', '旧家財の競売補佐', 'marc', '商才', 1, 160, 22, 28, '品物の来歴を語り、少しでも高く売る。'),
+  makeJob('banquet', '商家の晩餐で給仕', 'jean', '礼法', 2, 190, 30, 20, '客は作法に厳しい。かつての身分を面白がる者もいる。'),
+  makeJob('escort', '夜会への同伴', 'count', '礼法', 2, 240, 24, 12, '昔の知人と顔を合わせる可能性がある。'),
+  makeJob('packing', '商会倉庫の荷造り', 'marc', '商才', 0, 95, 38, 0, '誰でもできる安全な仕事。ただしひどく疲れる。'),
 ];
 
 export const initialState: GameState = {
@@ -130,7 +215,7 @@ export const initialState: GameState = {
   dignityCap: 100,
   skills: { 礼法: 1, 学識: 1, 商才: 0 },
   axes: { 貞操: 100, 品位: 100, 威厳: 100 },
-  relations: { estate: 0, arnaud: 0, academy: 0, valere: 0, guild: 0 },
+  relations: { vernet: 0, jean: 0, claire: 0, guillaume: 0, count: 0, marc: 0 },
   recent: [],
   log: ['返済期限まで、あと14日。まだ、どこへでも行ける。'],
   ended: false,
@@ -145,14 +230,19 @@ export const midGameState: GameState = {
   dignityCap: 74,
   skills: { 礼法: 2, 学識: 2, 商才: 1 },
   axes: { 貞操: 62, 品位: 51, 威厳: 47 },
-  relations: { estate: 0, arnaud: 1, academy: 0, valere: 2, guild: 1 },
-  recent: ['valere', 'arnaud'],
+  relations: { vernet: 1, jean: 0, claire: 0, guillaume: 2, count: 1, marc: 1 },
+  recent: ['guillaume', 'vernet'],
   log: ['五日が過ぎた。差し出したものは、もう帳簿には戻らない。'],
 };
 
 /** その場所にある依頼。常設なので、開いているものはいつでも受けられる。 */
 export function jobsAt(place: PlaceId): Job[] {
-  return jobs.filter((job) => job.place === place);
+  return jobs.filter((job) => personOf(job.person).place === place);
+}
+
+/** その人物が抱えている依頼。 */
+export function jobsBy(person: PersonId): Job[] {
+  return jobs.filter((job) => job.person === person);
 }
 
 /** まだ紹介してもらえるか。品位が落ちると、軽い依頼から順に閉じる(§5)。 */
@@ -176,13 +266,19 @@ export const RECENT_WINDOW = 3;
 const FATIGUE_RATE = [1, 0.82, 0.68, 0.58];
 
 /** 直近 RECENT_WINDOW 日のうち、その場所で働いた回数。 */
-export function placeFatigue(place: PlaceId, state: GameState): number {
-  return state.recent.slice(0, RECENT_WINDOW).filter((id) => id === place).length;
+export function personFatigue(person: PersonId, state: GameState): number {
+  return state.recent.slice(0, RECENT_WINDOW).filter((id) => id === person).length;
 }
 
 /** 通い詰めによる相場の下落率（1 = 定価）。 */
-export function fatigueRate(place: PlaceId, state: GameState): number {
-  return FATIGUE_RATE[Math.min(placeFatigue(place, state), FATIGUE_RATE.length - 1)];
+export function fatigueRate(person: PersonId, state: GameState): number {
+  return FATIGUE_RATE[Math.min(personFatigue(person, state), FATIGUE_RATE.length - 1)];
+}
+
+/** その場所の誰かが買い叩いてくる状態か。地図の表示に使う。 */
+export function placeDiscount(place: PlaceId, state: GameState): number {
+  const rates = peopleAt(place).map((p) => fatigueRate(p.id, state));
+  return rates.length ? Math.min(...rates) : 1;
 }
 
 export function axisStage(axis: Axis, value: number): string {
@@ -204,7 +300,7 @@ export function relationLabel(value: number): string {
 
 /** 人脈が深いほど求められる技能が下がる。 */
 export function requiredSkillFor(job: Job, state: GameState): number {
-  return Math.max(0, job.required - Math.floor(state.relations[job.place] / 2));
+  return Math.max(0, job.required - Math.floor(state.relations[job.person] / 2));
 }
 
 /** 技能の不足分。この数だけ上乗せを受け入れないと依頼を受けられない。 */
@@ -214,12 +310,12 @@ export function shortageFor(job: Job, state: GameState): number {
 
 /** 定価＋人脈。相場の下落はまだ掛けない。 */
 export function listPrice(job: Job, state: GameState): number {
-  return job.pay + state.relations[job.place] * 25;
+  return job.pay + state.relations[job.person] * 25;
 }
 
 /** 実際に提示される額。通い詰めていると下がる。 */
 export function payWithRelation(job: Job, state: GameState): number {
-  return Math.round(listPrice(job, state) * fatigueRate(job.place, state));
+  return Math.round(listPrice(job, state) * fatigueRate(job.person, state));
 }
 
 /** スタミナが足りない依頼は選べない(§1-5)。 */
@@ -271,7 +367,8 @@ const plainScript: SceneLine[] = [
 
 /** 受けた依頼と、払った軸から台本を組む。払った軸が複数なら重い順に繋ぐ。 */
 export function sceneScript(job: Job, paidAxes: Axis[]): SceneLine[] {
-  const opening: SceneLine = { text: `${placeOf(job.place).name}／${job.title}。` };
+  const person = personOf(job.person);
+  const opening: SceneLine = { text: `${placeOf(person.place).name}／${job.title}。` };
   if (paidAxes.length === 0) return [opening, ...plainScript];
   const ordered = axes.filter((axis) => paidAxes.includes(axis));
   return [opening, ...ordered.flatMap((axis) => scriptByAxis[axis])];
@@ -280,4 +377,11 @@ export function sceneScript(job: Job, paidAxes: Axis[]): SceneLine[] {
 /** 台本のうち、絵を決める主軸。 */
 export function primaryAxis(paidAxes: Axis[]): Axis | null {
   return axes.find((axis) => paidAxes.includes(axis)) ?? null;
+}
+
+/** 関係が新しい段階に入った日の一言。上がっていなければ空。 */
+export function stageUpLine(person: PersonId, before: number, after: number): SceneLine[] {
+  if (after <= before || after < 1 || after > 3) return [];
+  const p = personOf(person);
+  return [{ speaker: p.name, text: p.stageLines[after - 1] }];
 }

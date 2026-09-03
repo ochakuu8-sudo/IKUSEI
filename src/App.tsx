@@ -6,17 +6,18 @@ import {
 import {
   CHAPTER_DAYS, MAX_STAMINA, NETWORK_COST, NETWORK_STAMINA, REST_RECOVERY,
   TRAIN_COST, TRAIN_STAMINA, axes, axisStage, closedJobsAt, fatigueRate, hasStaminaFor,
-  initialState, isOpen, jobsAt, listPrice, midGameState, openCountAt, payWithRelation,
-  placeFatigue, placeOf, primaryAxis, relationLabel, requiredSkillFor, sceneScript,
-  shortageFor, skills, workPlaces,
-  type Axis, type DayResult, type GameState, type Job, type PlaceId, type SceneLine, type Skill,
+  initialState, isOpen, jobsBy, listPrice, midGameState, openCountAt, payWithRelation,
+  peopleAt, personFatigue, personOf, placeDiscount, placeOf, primaryAxis, relationStage,
+  requiredSkillFor, sceneScript, shortageFor, skills, stageUpLine, workPlaces,
+  type Axis, type DayResult, type GameState, type Job, type PersonId, type PlaceId,
+  type SceneLine, type Skill,
 } from './game';
 import {
-  PLACEHOLDER, backgroundSrc, mapSrc, placeSrc, portraitSrc, portraitStage,
+  PLACEHOLDER, backgroundSrc, mapSrc, personSrc, placeSrc, portraitSrc, portraitStage,
   sceneFallbackSrc, sceneSrc,
 } from './art';
 
-const SAVE_KEY = 'ikusei-prototype-save-v3';
+const SAVE_KEY = 'ikusei-prototype-save-v4';
 
 const PLACE_ICON: Record<PlaceId, typeof Store> = {
   estate: Landmark, arnaud: Store, academy: BookOpen, valere: Landmark, guild: Scale,
@@ -35,13 +36,16 @@ function Button({ variant = 'primary', size = 'default', className = '', ...prop
 function Art({ sources, alt, className, hideIfMissing = false }: {
   sources: string[]; alt: string; className?: string; hideIfMissing?: boolean;
 }) {
-  const key = sources.join('|');
+  // 同じURLが並ぶと、src が変わらないので onError が二度と起きず候補送りが止まる。
+  // （軸ごとの差分が無い依頼で、共通CGと候補が一致して実際に止まっていた）
+  const list = [...new Set(sources)];
+  const key = list.join('|');
   const [step, setStep] = useState(0);
   useEffect(() => setStep(0), [key]);
-  if (hideIfMissing && step >= sources.length) return null;
+  if (hideIfMissing && step >= list.length) return null;
   return (
-    <img className={className} src={sources[Math.min(step, sources.length - 1)]} alt={alt}
-      onError={() => setStep((n) => (n < sources.length ? n + 1 : n))} />
+    <img className={className} src={list[Math.min(step, list.length - 1)]} alt={alt}
+      onError={() => setStep((n) => (n < list.length ? n + 1 : n))} />
   );
 }
 
@@ -115,7 +119,7 @@ export default function App() {
   const reset = () => setGame(null);
 
   /** 1日を消費する。演出は呼び出し側が View で見せる。 */
-  function commit(patch: Partial<GameState>, narrative: string, worked: PlaceId, publicWork = false) {
+  function commit(patch: Partial<GameState>, narrative: string, worked: PersonId | 'none', publicWork = false) {
     setGame((current) => {
       if (!current) return current;
       const nextAxes = { ...current.axes, ...patch.axes };
@@ -148,6 +152,8 @@ export default function App() {
       if (t.axis === '品位') capDrop += Math.ceil(t.cost / 2);
     });
     const paid = terms.map((t) => t.axis);
+    const relBefore = game.relations[job.person];
+    const relAfter = Math.min(3, relBefore + 1);
     const result: DayResult = {
       kind: 'job', title: job.title,
       narrative: `${job.title}。${terms.length ? '条件を受け入れ、' : '正攻法で勤め、'}${total}Gを得た。`,
@@ -155,16 +161,22 @@ export default function App() {
       paidTerms: terms.map((t) => ({ axis: t.axis, title: t.title, bonus: t.bonus, cost: t.cost })),
       moneyDelta: total, staminaDelta: -job.stamina,
       axisDrops: drops, axisGains: [], dignityCapDrop: capDrop,
+      relationUp: relAfter > relBefore
+        ? { name: personOf(job.person).name, stage: relationStage(relAfter) }
+        : undefined,
     };
     commit({
       money: game.money + total,
       stamina: game.stamina - job.stamina,
       axes: nextAxes,
       dignityCap: Math.max(0, game.dignityCap - capDrop),
-      relations: { ...game.relations, [job.place]: Math.min(3, game.relations[job.place] + 1) },
-    }, result.narrative, job.place, paid.includes('威厳'));
+      relations: { ...game.relations, [job.person]: relAfter },
+    }, result.narrative, job.person, paid.includes('威厳'));
     setPicked([]);
-    setView({ kind: 'scene', job, paid, script: sceneScript(job, paid), line: 0, result });
+    setView({
+      kind: 'scene', job, paid, line: 0, result,
+      script: [...sceneScript(job, paid), ...stageUpLine(job.person, relBefore, relAfter)],
+    });
   }
 
   function rest() {
@@ -179,7 +191,7 @@ export default function App() {
       axisGains: after > before ? [{ axis: '品位' as Axis, amount: after - before }] : [],
       dignityCapDrop: 0,
     };
-    commit({ stamina: next, axes: { ...game.axes, 品位: after } }, result.narrative, 'estate');
+    commit({ stamina: next, axes: { ...game.axes, 品位: after } }, result.narrative, 'none');
     setView({ kind: 'result', result, back: { kind: 'home' } });
   }
 
@@ -193,23 +205,27 @@ export default function App() {
     commit({
       money: game.money - TRAIN_COST, stamina: game.stamina - TRAIN_STAMINA,
       skills: { ...game.skills, [skill]: Math.min(5, game.skills[skill] + 1) },
-    }, result.narrative, 'estate');
+    }, result.narrative, 'none');
     setView({ kind: 'result', result, back: { kind: 'home' } });
   }
 
-  function network(place: PlaceId) {
+  function network(id: PersonId) {
     if (!game || game.money < NETWORK_COST || game.stamina < NETWORK_STAMINA) return;
-    const name = placeOf(place).name;
+    const person = personOf(id);
+    const before = game.relations[id];
+    const after = Math.min(3, before + 1);
     const result: DayResult = {
-      kind: 'network', title: `${name}に顔を出す`, narrative: `${name}に顔を出し、次の仕事につながる話をした。`,
+      kind: 'network', title: `${person.name}に会う`,
+      narrative: `${person.name}のもとに顔を出し、仕事の話をした。`,
       basePay: 0, relationBonus: 0, paidTerms: [], moneyDelta: -NETWORK_COST,
       staminaDelta: -NETWORK_STAMINA, axisDrops: [], axisGains: [], dignityCapDrop: 0,
+      relationUp: after > before ? { name: person.name, stage: relationStage(after) } : undefined,
     };
     commit({
       money: game.money - NETWORK_COST, stamina: game.stamina - NETWORK_STAMINA,
-      relations: { ...game.relations, [place]: Math.min(3, game.relations[place] + 1) },
-    }, result.narrative, 'estate');
-    setView({ kind: 'result', result, back: { kind: 'place', place } });
+      relations: { ...game.relations, [id]: after },
+    }, result.narrative, 'none');
+    setView({ kind: 'result', result, back: { kind: 'place', place: person.place } });
   }
 
   /* ---- イベントシーン ---- */
@@ -240,7 +256,7 @@ export default function App() {
       onClose={() => setView(game.ended ? { kind: 'ending' } : view.back)} />;
   }
 
-  /* ---- マップ：どこへ行くかを選ぶ ---- */
+  /* ---- 地図：どこへ行くかを選ぶ ---- */
   if (view.kind === 'map') {
     return (
       <div className="screen map">
@@ -264,8 +280,8 @@ export default function App() {
             const Icon = PLACE_ICON[place.id];
             const open = openCountAt(place.id, game);
             const shut = closedJobsAt(place.id, game).length;
-            const rate = fatigueRate(place.id, game);
-            const rel = game.relations[place.id];
+            const discount = placeDiscount(place.id, game);
+            const known = peopleAt(place.id).filter((p) => game.relations[p.id] > 0).length;
             return (
               <button key={place.id} className={`marker ${open === 0 ? 'shut' : ''}`}
                 style={{ left: `${place.map.x}%`, top: `${place.map.y}%` }}
@@ -276,8 +292,8 @@ export default function App() {
                   <i>{open > 0 ? `依頼 ${open}件` : shut > 0 ? 'もう紹介されない' : '依頼なし'}</i>
                 </span>
                 <span className="marker-flags">
-                  {rel > 0 && <em className="flag rel">{relationLabel(rel)}</em>}
-                  {rate < 1 && <em className="flag down">相場 −{Math.round((1 - rate) * 100)}%</em>}
+                  {known > 0 && <em className="flag rel">顔なじみ {known}人</em>}
+                  {discount < 1 && <em className="flag down">相場 −{Math.round((1 - discount) * 100)}%</em>}
                 </span>
               </button>
             );
@@ -287,13 +303,10 @@ export default function App() {
     );
   }
 
-  /* ---- 場所：その場所の常設依頼 ---- */
+  /* ---- 場所：そこにいる人と、その人が抱えている依頼 ---- */
   if (view.kind === 'place') {
     const place = placeOf(view.place);
-    const open = jobsAt(place.id).filter((j) => isOpen(j, game));
-    const closed = closedJobsAt(place.id, game);
-    const rate = fatigueRate(place.id, game);
-    const rel = game.relations[place.id];
+    const roster = peopleAt(place.id);
     return (
       <div className="screen place">
         <div className="backdrop">
@@ -309,56 +322,81 @@ export default function App() {
             <h2>{place.name}</h2>
             <span>{place.tagline}</span>
           </div>
-          <span className="topbar-sub">{relationLabel(rel)}</span>
         </div>
-
-        {rate < 1 && (
-          <p className="notice">
-            続けて通ったので相場が下がっている（<b>報酬 −{Math.round((1 - rate) * 100)}%</b>）。
-            何日か空ければ戻る。
-          </p>
-        )}
 
         <div className="joblist">
-          {open.map((job) => {
-            const short = shortageFor(job, game);
-            const tired = !hasStaminaFor(job, game);
-            const list = listPrice(job, game);
-            const now = payWithRelation(job, game);
+          {roster.map((person) => {
+            const rel = game.relations[person.id];
+            const rate = fatigueRate(person.id, game);
+            const mine = jobsBy(person.id);
+            const open = mine.filter((job) => isOpen(job, game));
+            const shut = mine.filter((job) => !isOpen(job, game));
             return (
-              <button key={job.id} className={`jobcard ${tired ? 'disabled' : ''}`} disabled={tired}
-                onClick={() => { setPicked([]); setView({ kind: 'contract', job }); }}>
-                <div className="jobcard-main">
-                  <h3>{job.title}</h3>
-                  <p>{job.description}</p>
-                </div>
-                <div className="jobcard-side">
-                  <strong>
-                    {now.toLocaleString()}<small>G</small>
-                    {now < list && <s>{list.toLocaleString()}</s>}
-                  </strong>
-                  <span className="jobcard-tags">
-                    <i className={tired ? 'tag bad' : 'tag'}><Zap />{job.stamina}</i>
-                    {short > 0 ? <i className="tag need">要 上乗せ{short}</i> : <i className="tag ok">そのまま可</i>}
+              <section className="person" key={person.id}>
+                <header className="person-head">
+                  <span className="avatar">
+                    <b>{person.name.slice(0, 1)}</b>
+                    <Art className="avatar-img" sources={[personSrc(person.id)]} alt="" hideIfMissing />
                   </span>
-                </div>
-              </button>
+                  <div className="person-id">
+                    <b>{person.name}<span>{person.role}</span></b>
+                    <p>{person.note}</p>
+                  </div>
+                  <div className="person-rel">
+                    <em>{relationStage(rel)}</em>
+                    <span className="relpips">
+                      {[0, 1, 2].map((i) => <i key={i} className={i < rel ? 'on' : ''} />)}
+                    </span>
+                  </div>
+                  <Button size="sm" variant="outline"
+                    disabled={game.money < NETWORK_COST || game.stamina < NETWORK_STAMINA || rel >= 3}
+                    onClick={() => network(person.id)}>
+                    <Handshake />顔を出す
+                  </Button>
+                </header>
+
+                {rate < 1 && (
+                  <p className="person-notice">
+                    続けて頼んだので買い叩かれている（<b>−{Math.round((1 - rate) * 100)}%</b>）。何日か空ければ戻る。
+                  </p>
+                )}
+
+                {open.map((job) => {
+                  const short = shortageFor(job, game);
+                  const tired = !hasStaminaFor(job, game);
+                  const list = listPrice(job, game);
+                  const now = payWithRelation(job, game);
+                  return (
+                    <button key={job.id} className={`jobcard ${tired ? 'disabled' : ''}`} disabled={tired}
+                      onClick={() => { setPicked([]); setView({ kind: 'contract', job }); }}>
+                      <div className="jobcard-main">
+                        <h3>{job.title}</h3>
+                        <p>{job.description}</p>
+                      </div>
+                      <div className="jobcard-side">
+                        <strong>
+                          {now.toLocaleString()}<small>G</small>
+                          {now < list && <s>{list.toLocaleString()}</s>}
+                        </strong>
+                        <span className="jobcard-tags">
+                          <i className={tired ? 'tag bad' : 'tag'}><Zap />{job.stamina}</i>
+                          {short > 0 ? <i className="tag need">要 上乗せ{short}</i> : <i className="tag ok">そのまま可</i>}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+                {shut.map((job) => (
+                  <div className="jobcard closed" key={job.id}>
+                    <s>{job.title}</s><span>── もう貴女には紹介できません</span>
+                  </div>
+                ))}
+                {open.length === 0 && shut.length === 0 && (
+                  <p className="empty-note">いまは頼めることが無い。</p>
+                )}
+              </section>
             );
           })}
-          {open.length === 0 && <p className="empty-note">ここで受けられる依頼はもう無い。</p>}
-          {closed.map((job) => (
-            <div className="jobcard closed" key={job.id}>
-              <s>{job.title}</s><span>── もう貴女には紹介できません</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="place-foot">
-          <Button variant="outline"
-            disabled={game.money < NETWORK_COST || game.stamina < NETWORK_STAMINA || rel >= 3}
-            onClick={() => network(place.id)}>
-            <Handshake />顔を出すだけ（{NETWORK_COST}G・1日）
-          </Button>
         </div>
       </div>
     );
@@ -438,7 +476,7 @@ export default function App() {
 
       {view.kind === 'contract' && (
         <ContractSheet job={view.job} game={game} picked={picked} setPicked={setPicked}
-          onCancel={() => { setPicked([]); setView({ kind: 'place', place: view.job.place }); }}
+          onCancel={() => { setPicked([]); setView({ kind: 'place', place: personOf(view.job.person).place }); }}
           onAccept={() => acceptJob(view.job, picked)} />
       )}
     </div>
@@ -471,7 +509,7 @@ function ContractSheet({ job, game, picked, setPicked, onCancel, onAccept }: {
   const shortage = shortageFor(job, game);
   const total = offered + terms.reduce((a, t) => a + t.bonus, 0);
   const ready = picked.length >= shortage;
-  const fatigue = placeFatigue(job.place, game);
+  const fatigue = personFatigue(job.person, game);
   return (
     <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label="契約内容">
       <button className="sheet-backdrop" onClick={onCancel} aria-label="閉じる" />
@@ -480,9 +518,9 @@ function ContractSheet({ job, game, picked, setPicked, onCancel, onAccept }: {
           <div>
             <h2>{job.title}</h2>
             <span>
-              {placeOf(job.place).name}・{relationLabel(game.relations[job.place])}
+              {personOf(job.person).name}・{relationStage(game.relations[job.person])}
               ／{job.skill} 必要{requiredSkillFor(job, game)}（現在{game.skills[job.skill]}）
-              {fatigue > 0 && <em className="inline-warn">／相場 −{Math.round((1 - fatigueRate(job.place, game)) * 100)}%</em>}
+              {fatigue > 0 && <em className="inline-warn">／相場 −{Math.round((1 - fatigueRate(job.person, game)) * 100)}%</em>}
             </span>
           </div>
           <div className="sheet-pay">
@@ -566,6 +604,12 @@ function ResultScreen({ result, stage, onClose }: { result: DayResult; stage: st
             )}
           </div>
         </div>
+        {result.relationUp && (
+          <div className="result-block rel-up">
+            <h3>関係が変わった</h3>
+            <p><strong>{result.relationUp.name}</strong>とは、これで「{result.relationUp.stage}」。</p>
+          </div>
+        )}
         {result.dignityCapDrop > 0 && (
           <div className="result-block cap-warning">
             <h3>戻らないもの</h3>

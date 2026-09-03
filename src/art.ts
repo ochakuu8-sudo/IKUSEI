@@ -7,11 +7,12 @@
 //   public/art/bg/<id>.png            背景        16:9 推奨 (1920x1080)
 //   public/art/portrait/<stage>.png   立ち絵      縦長・背景透過 (1024x1536)
 //   public/art/place/<placeId>.png    場所の背景  16:9 (1920x1080)
+//   public/art/person/<personId>.png  依頼人の顔  正方形・背景透過 (512x512)
 //   public/art/map.png                街の地図    16:9 (1920x1080)
 //   public/art/scene/<jobId>.png      イベントCG  16:9 (1920x1080)
 //   public/art/scene/<jobId>-<axis>.png  軸ごとの差分（あれば優先）
 
-import type { Axis, Job, PlaceId } from './game';
+import type { Axis, Job, PersonId, PlaceId } from './game';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -45,6 +46,11 @@ export function mapSrc(): string {
 /** 場所ごとの背景。 */
 export function placeSrc(id: PlaceId): string {
   return `${BASE}art/place/${id}.png`;
+}
+
+/** 依頼人の顔。無ければ頭文字の丸を出すので、仮画像には落とさない。 */
+export function personSrc(id: PersonId): string {
+  return `${BASE}art/person/${id}.png`;
 }
 
 /** イベントCG。軸ごとの差分があればそれを、無ければ依頼共通の絵を指す。 */
