@@ -36,6 +36,11 @@
   --good: #2c6446;
   --bad: #8a323b;
 
+  /* 余白と行数。狭い画面ではこの3つを縮めるだけで全体が詰まる */
+  --pad-col: 14px;
+  --gap-stage: 14px;
+  --hud-pad-y: 12px;
+
   --axis-貞操: #a3465d;
   --axis-品位: #6a559d;
   --axis-威厳: #a5761f;
@@ -91,7 +96,7 @@ s { text-decoration-thickness: 1px; }
   display: grid;
   grid-template-columns: minmax(180px, 250px) minmax(260px, 1fr) auto auto;
   align-items: center; gap: clamp(16px, 2.5vw, 36px);
-  padding: 12px clamp(16px, 2.5vw, 34px);
+  padding: var(--hud-pad-y) clamp(16px, 2.5vw, 34px);
   color: var(--chrome-ink);
   background: linear-gradient(180deg, #0e1725 0%, #0a111c 100%);
   border-bottom: 1px solid var(--chrome-border);
@@ -148,14 +153,15 @@ s { text-decoration-thickness: 1px; }
 .stage {
   flex: 1; min-height: 0;
   display: grid;
-  grid-template-columns: minmax(240px, 288px) minmax(0, 1fr) minmax(300px, 356px);
-  gap: 14px;
-  padding: 14px clamp(12px, 2.5vw, 34px);
+  /* 主役は依頼列。両脇は画面幅に比例させ、中央が必ず一番広くなるようにする */
+  grid-template-columns: clamp(200px, 20vw, 288px) minmax(0, 1fr) clamp(240px, 25vw, 356px);
+  gap: var(--gap-stage);
+  padding: var(--gap-stage) clamp(10px, 2.5vw, 34px);
   overflow: hidden;
 }
 .col {
   min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  padding: 14px;
+  padding: var(--pad-col);
   background: var(--panel);
   border: 1px solid var(--border-strong);
   border-radius: 10px;
@@ -198,8 +204,8 @@ s { text-decoration-thickness: 1px; }
 
 .axis + .axis { margin-top: 12px; }
 .axis-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.axis-name { font-family: var(--font-serif-jp); font-size: var(--fs-md); font-weight: 700; }
-.axis-num { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.axis-name { font-family: var(--font-serif-jp); font-size: var(--fs-md); font-weight: 700; white-space: nowrap; }
+.axis-num { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .axis-num small { font-weight: 500; color: var(--ink-3); font-size: var(--fs-xs); }
 .axis-stage { margin-top: 3px; color: var(--ink-2); font-size: var(--fs-xs); }
 .axis-貞操 { color: var(--axis-貞操); }
@@ -324,7 +330,8 @@ s { text-decoration-thickness: 1px; }
 .retired-row span { font-size: var(--fs-xs); }
 
 /* ================= 右：契約 ================= */
-.contract-title { margin-bottom: 12px; font-size: var(--fs-2xl); }
+.contract-title { font-size: var(--fs-2xl); }
+.contract-desc { margin: 4px 0 12px; color: var(--ink-2); font-size: var(--fs-sm); }
 .ledger { padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; }
 .ledger-row {
   display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
@@ -359,7 +366,21 @@ s { text-decoration-thickness: 1px; }
 .cost-威厳 { color: #7a5610; background: #a5761f1f; }
 .term-gain { padding: 1px 6px; border-radius: 3px; color: var(--good); background: #2c64461a; font-size: var(--fs-xs); font-weight: 700; }
 
-.contract-foot { margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--border-strong); }
+/* 受取額と受注ボタンは列の最下部に貼り付ける。
+   上乗せを選ぶあいだも主要動作が画面外に出ないようにする。 */
+.contract-foot {
+  position: sticky; bottom: calc(-1 * var(--pad-col));
+  margin-top: 14px; padding: 12px 0 var(--pad-col);
+  background: var(--panel);
+  border-top: 2px solid var(--border-strong);
+}
+/* 固定部の上端をぼかし、隠れた選択肢が「切れている」ではなく
+   「続きがある」と読めるようにする */
+.contract-foot::before {
+  content: ''; position: absolute; left: 0; right: 0; top: -15px; height: 15px;
+  background: linear-gradient(to bottom, #e4d8bd00, var(--panel));
+  pointer-events: none;
+}
 .total { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .total span { font-size: var(--fs-sm); font-weight: 600; }
 .total strong {
@@ -438,24 +459,123 @@ s { text-decoration-thickness: 1px; }
 .ending-stats small { color: var(--ink-2); font-size: var(--fs-xs); }
 .title-card .btn { width: 100%; }
 
-/* ================= 画面が狭いとき ================= */
-@media (max-width: 1180px) {
+/* ================= 画面に合わせる =================
+   横持ちスマホで乏しいのは幅(667〜932px)ではなく高さ(360〜430px)なので、
+   分岐はまず高さを見る。幅がある限り3カラムは畳まない。 */
+
+/* ---- A. 高さが足りない画面：横持ちスマホ、小型ノート ---- */
+@media (max-height: 560px) {
+  :root {
+    --fs-4xl: 25px; --fs-3xl: 20px; --fs-2xl: 17px; --fs-xl: 15px;
+    --fs-lg: 14px;  --fs-md: 13px;  --fs-sm: 12px;  --fs-xs: 11px;
+    --pad-col: 9px; --gap-stage: 7px; --hud-pad-y: 5px;
+  }
+  .app { height: 100dvh; overflow: hidden; }
+
+  .hud {
+    grid-template-columns: auto minmax(140px, 1fr) auto auto;
+    gap: clamp(8px, 1.6vw, 20px); padding-left: 10px; padding-right: 10px;
+  }
+  .hud-identity { gap: 8px; }
+  .hud-identity svg { width: 19px; height: 19px; }
+  .hud-identity p, .hud-debt-foot, .hud-stat-sub { display: none; }
+  .hud-debt-track { height: 5px; }
+  .hud-stat { min-width: 58px; padding-left: 10px; }
+  .hud-stat .gauge { height: 4px; margin-top: 2px; }
+
+  /* 縦を食うだけで判断に効かないものを落とす。
+     立ち絵→HUDに名前がある／説明文→契約パネルに出す／上限の注記→軸の数値に出る */
+  .portrait, .ticker, .offer-desc, .cap-note { display: none; }
+  /* 説明文は選択中の依頼だけ出す。今考えている1件の中身は分かり、
+     並べて比べるときは邪魔をしない */
+  .offer.active .offer-desc { display: block; margin: 5px 0 7px; }
+
+  .stage { grid-template-columns: clamp(120px, 15vw, 172px) minmax(0, 1fr) clamp(176px, 24vw, 286px); }
+  .col-head { padding-bottom: 5px; margin-bottom: 8px; }
+  .col-head.sub { margin-top: 12px; }
+  .offers { gap: 7px; }
+  .offer { padding: 8px 10px; }
+  .offer-req { padding-top: 6px; }
+  .offer-terms { margin-top: 6px; gap: 4px; }
+  .term-chip { padding: 1px 5px; }
+  .block { padding-top: 9px; margin-top: 9px; }
+  .axis + .axis { margin-top: 8px; }
+  .axis-stage { margin-top: 2px; }
+  .gauge { height: 6px; margin-top: 3px; }
+  .alt { padding: 7px 9px; }
+  .contract-desc { display: none; }
+  /* 横持ちでは上乗せの選択肢を画面内に上げることを最優先し、
+     隣の依頼カードやフッタと重複する要素を落とす。
+     基本報酬・必要スタミナ→依頼カード、見出しの依頼人→依頼カード、
+     不足の注記→フッタの警告文が同じことを言っている */
+  .ledger, .contract-note { display: none; }
+  .col-contract .col-head { display: none; }
+  .contract-title { margin-top: 2px; }
+  .total strong { font-size: var(--fs-2xl); }
+  .warn { margin-top: 3px; line-height: 1.45; }
+  .accept { margin-top: 6px; }
+  .btn.lg { min-height: 40px; font-size: var(--fs-md); }
+  /* 3つの選択肢が同時に見えることを、説明文より優先する。
+     どれを払うかの比較がこのゲームの中身で、1つずつ出しては比較にならない。
+     台詞は依頼カードの上乗せ一覧と選択肢の見出しで足りる */
+  .terms { gap: 5px; }
+  .term { padding: 6px 8px; gap: 7px; }
+  .term-body p { display: none; }
+  .term-body small { gap: 4px; margin-top: 2px; }
+  .term-dot { margin-top: 4px; }
+  .contract-foot { margin-top: 6px; padding: 7px 0 var(--pad-col); }
+  .accept { margin-top: 5px; }
+  .btn.lg { min-height: 38px; }
+  .result { padding: 15px; max-height: 94dvh; }
+  .result-block { padding: 8px 10px; margin-bottom: 7px; }
+  .title-card { padding: 20px; }
+  .title-card h1 { margin: 4px 0 8px; }
+  .title-lead { margin-bottom: 12px; }
+  .title-modes { gap: 7px; margin-bottom: 12px; }
+  .mode { padding: 9px 12px; }
+  .ending-stats { gap: 7px; margin-bottom: 12px; }
+}
+
+/* 横幅も狭い横持ち（iPhone SE 667px 等）：状態列を締めて依頼と契約に幅を回す */
+@media (max-height: 560px) and (max-width: 720px) {
+  /* 契約列は決定の場なので幅を優先する。依頼列は上乗せチップが2列で並べば足りる */
+  .stage { grid-template-columns: 112px minmax(0, 1fr) 214px; gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .col { padding: 8px; }
+  .relation, .skill { font-size: var(--fs-xs); }
+  /* 題字はHUDの横幅を圧迫するだけなので、アイコンだけ残す */
+  .hud-identity h1 { display: none; }
+}
+
+/* ---- B. 高さはあるが幅が足りない：縦持ちスマホ、タブレット縦 ----
+   縦持ちで3カラムに押し込むと各列が読めない幅になるため、
+   ここだけは1カラムに畳んでページを送る。 */
+@media (min-height: 561px) and (max-width: 900px) {
   .app { height: auto; min-height: 100dvh; overflow: visible; }
-  .hud { grid-template-columns: 1fr auto; row-gap: 12px; }
+  .hud {
+    position: sticky; top: 0; z-index: 20;
+    grid-template-columns: 1fr auto; row-gap: 10px;
+  }
   .hud-debt { grid-column: 1 / -1; order: 3; }
   .hud-stats { order: 2; }
-  .stage { grid-template-columns: minmax(220px, 260px) minmax(0, 1fr); overflow: visible; }
+  .stage { grid-template-columns: minmax(0, 1fr); overflow: visible; }
   .col { overflow: visible; max-height: none; }
-  .col-contract { grid-column: 1 / -1; }
   /* 何も選んでいない空パネルは、縦積みでは場所を取るだけなので出さない */
   .col-contract.is-empty { display: none; }
 }
-@media (max-width: 760px) {
-  .hud { grid-template-columns: 1fr auto; padding: 10px 14px; }
+@media (min-height: 561px) and (max-width: 560px) {
   .hud-identity p { display: none; }
   .hud-stats { flex-wrap: wrap; gap: 12px; }
-  .hud-stat { min-width: 72px; padding-left: 12px; }
-  .hud-debt-value { font-size: var(--fs-3xl); }
-  .stage { grid-template-columns: minmax(0, 1fr); padding: 12px; }
-  .col-status, .col-contract { grid-column: auto; }
+  .hud-stat { min-width: 70px; padding-left: 12px; }
+}
+
+/* ---- C. 指で操作する端末：小さいボタンを押せる大きさにする ---- */
+@media (pointer: coarse) {
+  .btn.xs { min-height: 44px; padding: 6px 13px; }
+  .btn.sm { min-height: 44px; }
+  .btn.icon { width: 44px; height: 44px; }
+}
+/* ただし横持ちでは44pxが画面の12%を占めるので、押せる下限まで戻す */
+@media (pointer: coarse) and (max-height: 560px) {
+  .btn.xs, .btn.sm { min-height: 36px; }
+  .btn.icon { width: 36px; height: 36px; }
 }

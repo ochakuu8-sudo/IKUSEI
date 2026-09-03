@@ -425,6 +425,7 @@ export default function App() {
                 <span className="col-head-sub">{selectedJob.client}</span>
               </div>
               <h3 className="contract-title">{selectedJob.title}</h3>
+              <p className="contract-desc">{selectedJob.description}</p>
 
               <div className="ledger">
                 <div className="ledger-row"><span>基本報酬</span><b>{selectedJob.pay}G</b></div>
