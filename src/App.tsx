@@ -1,7 +1,7 @@
 import { useEffect, useState, type ButtonHTMLAttributes } from 'react';
 import {
   BookOpen, BriefcaseBusiness, ChevronDown, ChevronLeft, Handshake, Landmark,
-  Map as MapIcon, Moon, RotateCcw, Scale, Store, Zap,
+  Map as MapIcon, Moon, RotateCcw, Scale, Store,
 } from 'lucide-react';
 import {
   CHAPTERS, CHAPTER_DAYS, MAX_STAMINA, NETWORK_COST, NETWORK_STAMINA, REST_RECOVERY,
@@ -17,6 +17,7 @@ import {
   PLACEHOLDER, backgroundSrc, mapSrc, personSrc, placeSrc, portraitSrc, portraitStage,
   sceneFallbackSrc, sceneSrc,
 } from './art';
+import { Mark } from './marks';
 
 const SAVE_KEY = 'ikusei-prototype-save-v6';
 
@@ -85,7 +86,7 @@ function Hud({ game, onReset }: { game: GameState; onReset: () => void }) {
       <div className="hud-chips">
         <span className="chip">{game.chapter}<i>/{CHAPTERS}章</i></span>
         <span className="chip">残り<b>{CHAPTER_DAYS - game.day + 1}</b>日</span>
-        <span className={`chip ${game.stamina < 30 ? 'low' : ''}`}><Zap /><b>{game.stamina}</b></span>
+        <span className={`chip ${game.stamina < 30 ? 'low' : ''}`}><Mark name="体力" /><b>{game.stamina}</b></span>
       </div>
       <Button variant="ghost" size="icon" aria-label="最初からやり直す" onClick={onReset}><RotateCcw /></Button>
     </header>
@@ -303,53 +304,69 @@ export default function App() {
             const blocked = tired;
             const list0 = listPrice(job, game);
             const now = payWithRelation(job, game);
+            const cap = capDropOf(job);
+            // 透かしは「この依頼が主に削る軸」の紋。無償の依頼は結びの紋。
+            const seal = primaryAxis(job) ?? '関係';
+            const needs = axes.filter((a) => job.needs[a] !== undefined);
             return (
               <button key={job.id} className={`jobcard2 paper paper-${job.kind} ${blocked ? 'disabled' : ''}`} disabled={blocked}
                 onClick={() => setView({ kind: 'contract', job, from: 'jobs' })}>
                 <span className={`stamp stamp-${job.kind}`} aria-hidden="true">{job.kind}</span>
+                {/* 紙に薄く刷られた紋。何を差し出す依頼かが、読む前に分かる */}
+                <span className={`jc-seal axis-${seal}`} aria-hidden="true"><Mark name={seal} /></span>
 
-                <div className="jc-head">
-                  <span className="jc-name">
-                    <b>{job.title}</b>
-                    <i>{person.name}・{placeOf(person.place).short}　様</i>
-                  </span>
-                </div>
+                <span className="jc-name">
+                  <b>{job.title}</b>
+                  <i>{person.name}・{placeOf(person.place).short}　様</i>
+                </span>
 
-                <div className="jc-req">
-                  <span className={tired ? 'req-note bad' : 'req-note'}>要 体力 {job.stamina}</span>
-                  {axes.filter((a) => job.needs[a] !== undefined).map((a) => (
-                    <span key={a} className="req-note">{a} {job.needs[a]}以上</span>
-                  ))}
-                  {tired && <span className="req-note bad">（いまは動けない）</span>}
-                </div>
-
-                {/* この依頼を受けると何が減るか。選ばせないので、帳簿のように断言して並べる */}
+                {/* この依頼を受けると何が減るか。紋・量・払ったあとの値だけ。 */}
                 <div className="jc-ledger">
                   {job.costs.length === 0 ? (
                     <div className="ledger-row ledger-none">
-                      <span>差し出すもの</span><span className="leader" />
-                      <span>無し{job.bond && job.bond > 1 ? `・関係が${job.bond}進む` : ''}</span>
+                      {job.bond && job.bond > 1
+                        ? <><Mark name="関係" /><b className="ledger-num">＋{job.bond}</b></>
+                        : <b className="ledger-num ledger-dash">—</b>}
+                      <span className="leader" />
+                      <span className="ledger-after">差し出すもの無し</span>
                     </div>
                   ) : job.costs.map((c) => {
                     const after = Math.max(0, game.axes[c.axis] - c.amount);
                     return (
                       <div className={`ledger-row axis-${c.axis}`} key={c.axis}>
-                        <span>{c.axis}</span><span className="leader" />
-                        <span className="ledger-num">−{c.amount}　（{game.axes[c.axis]}→{after}）</span>
+                        <Mark name={c.axis} />
+                        <b className="ledger-num">−{c.amount}</b>
+                        <span className="leader" />
+                        <span className="ledger-after">{game.axes[c.axis]}<em>→</em>{after}</span>
                       </div>
                     );
                   })}
-                  {capDropOf(job) > 0 && (
+                  {cap > 0 && (
                     <div className="ledger-row ledger-cap">
-                      <span>品位の上限</span><span className="leader" />
-                      <span className="ledger-num">−{capDropOf(job)}　（戻らない）</span>
+                      <Mark name="品位" />
+                      <b className="ledger-num">−{cap}</b>
+                      <span className="leader" />
+                      <span className="ledger-after">上限。戻らない</span>
                     </div>
                   )}
                 </div>
 
                 <div className="jc-foot">
+                  {/* 受けるのに要るもの。余白の走り書きの扱いにして、代償より小さく */}
+                  <span className="jc-req">
+                    {/* 「要」は一度だけ。あとは紋と数だけ並べる ── 一件ごとに「以上」を書かない */}
+                    <em className="req-label">要</em>
+                    <span className={tired ? 'req-note bad' : 'req-note'}>
+                      <Mark name="体力" />{job.stamina}
+                    </span>
+                    {needs.map((a) => (
+                      <span key={a} className="req-note">
+                        <Mark name={a} />{job.needs[a]}
+                      </span>
+                    ))}
+                  </span>
                   <span className="jc-pay">
-                    {now < list0 && <s>{list0.toLocaleString()}G</s>}
+                    {now < list0 && <s>{list0.toLocaleString()}</s>}
                     <b>{now.toLocaleString()}<small>G</small></b>
                   </span>
                 </div>
@@ -496,7 +513,7 @@ export default function App() {
         <p className="figure-name"><span>エレオノール・ラティエ</span></p>
         {axes.map((axis) => (
           <div className="mini-axis" key={axis}>
-            <span className={`mini-name axis-${axis}`}>{axis}</span>
+            <span className={`mini-name axis-${axis}`}><Mark name={axis} />{axis}</span>
             <Gauge value={game.axes[axis]} cap={axis === '品位' ? game.dignityCap : undefined} tone={axis} />
             <span className="mini-num">
               {game.axes[axis]}{axis === '品位' && game.dignityCap < 100 && <small>/{game.dignityCap}</small>}
@@ -564,7 +581,7 @@ function ContractSheet({ job, game, onCancel, onAccept }: {
           </div>
           <div className="sheet-pay">
             <b>{pay.toLocaleString()}<small>G</small></b>
-            <i><Zap />{job.stamina}</i>
+            <i><Mark name="体力" />{job.stamina}</i>
           </div>
         </div>
         <p className="sheet-desc">{job.description}</p>
@@ -579,7 +596,7 @@ function ContractSheet({ job, game, onCancel, onAccept }: {
             const after = Math.max(0, before - c.amount);
             return (
               <div className="confirm-row" key={c.axis}>
-                <span className={`confirm-axis axis-${c.axis}`}>{c.axis}</span>
+                <span className={`confirm-axis axis-${c.axis}`}><Mark name={c.axis} />{c.axis}</span>
                 <span className="lossbar">
                   <i className={`keep tone-${c.axis}`} style={{ width: `${after}%` }} />
                   <i className="lose" style={{ width: `${Math.min(before, c.amount)}%` }} />
@@ -633,16 +650,16 @@ function ResultScreen({ result, stage, onClose }: { result: DayResult; stage: st
           <div className="result-block">
             <h3>今日、動いたもの</h3>
             <div className="row">
-              <span>スタミナ</span>
+              <span><Mark name="体力" />スタミナ</span>
               <b className={result.staminaDelta < 0 ? 'minus' : 'plus'}>
                 {result.staminaDelta < 0 ? `−${Math.abs(result.staminaDelta)}` : `+${result.staminaDelta}`}
               </b>
             </div>
             {result.axisDrops.map((d) => (
-              <div className="row" key={d.axis}><span className={`axis-${d.axis}`}>{d.axis}</span><b className="minus">−{d.amount}</b></div>
+              <div className="row" key={d.axis}><span className={`axis-${d.axis}`}><Mark name={d.axis} />{d.axis}</span><b className="minus">−{d.amount}</b></div>
             ))}
             {result.axisGains.map((g) => (
-              <div className="row" key={g.axis}><span className={`axis-${g.axis}`}>{g.axis}</span><b className="plus">+{g.amount}</b></div>
+              <div className="row" key={g.axis}><span className={`axis-${g.axis}`}><Mark name={g.axis} />{g.axis}</span><b className="plus">+{g.amount}</b></div>
             ))}
             {result.axisDrops.length === 0 && result.axisGains.length === 0 && (
               <p className="result-none">今日は、何も差し出さずに済んだ。</p>
@@ -763,7 +780,7 @@ function EndingScreen({ game, onRestart }: { game: GameState; onRestart: () => v
         <div className="ending-stats">
           {axes.map((axis) => (
             <div key={axis}>
-              <span>{axis}</span><strong>{game.axes[axis]}</strong>
+              <span><Mark name={axis} />{axis}</span><strong>{game.axes[axis]}</strong>
               <small>{axisStage(axis, game.axes[axis])}</small>
             </div>
           ))}

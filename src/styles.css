@@ -149,9 +149,13 @@ img { display: block; max-width: 100%; }
 }
 .figure-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .figure-name small { color: var(--ink-3); font-size: var(--fs-xs); font-weight: 400; white-space: nowrap; }
-.mini-axis { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 7px; }
+.mini-axis { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 7px; }
 .mini-axis + .mini-axis { margin-top: 5px; }
-.mini-name { font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
+.mini-name {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: var(--fs-xs); font-weight: 700; white-space: nowrap;
+}
+.mini-name .mark { width: 12px; height: 12px; }
 .mini-num { font-size: var(--fs-xs); font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mini-num small { color: var(--ink-3); }
 .figure-stage {
@@ -302,18 +306,25 @@ img { display: block; max-width: 100%; }
 .k-労務 { color: #a8a496; border-color: #a8a4964d; background: #a8a4961f; }
 .k-裏   { color: #d97f8e; border-color: #d97f8e4d; background: #d97f8e1f; }
 
-/* ---- 仕事一覧：横幅を使って並べ、払うものまで見せて比べる ---- */
+/* ================= 紋（三軸・体力・関係の印） =================
+   線画アイコンにしない。アイコンを並べると画面がアプリの一覧に見える。
+   ここは紙なので、紙に押される紋章＝塗りのシルエットにしてある。
+   色は持たず `fill: currentColor` で置いた場所の文字色（軸色）を継ぐ。 */
+.mark { flex-shrink: 0; width: 1.05em; height: 1.05em; fill: currentColor; vertical-align: -.16em; }
+
+/* ---- 仕事一覧：紋で読ませ、文字は最小限にする ---- */
 .jobgrid {
   position: relative; z-index: 1;
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(292px, 1fr));
-  align-content: start; gap: 8px;
-  width: min(1120px, 100%); margin: 0 auto; padding-bottom: var(--pad);
+  /* 横に長い帯にしない。1枚が手紙に見える幅まで詰めて、枚数を出す */
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(224px, 1fr));
+  align-content: start; align-items: start; gap: 10px;
+  width: min(1180px, 100%); margin: 0 auto; padding-bottom: var(--pad);
 }
 .jobcard2 {
   position: relative;
-  display: flex; flex-direction: column; gap: 8px;
-  padding: 14px 16px 12px; text-align: left; color: inherit;
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 12px 13px 9px; text-align: left; color: inherit;
   background: var(--card); border: 1px solid var(--line);
   cursor: pointer; transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
   /* 手紙が机に置かれた形。四辺すべてを角丸にしない ── アプリのカードにしない */
@@ -323,6 +334,9 @@ img { display: block; max-width: 100%; }
     99.6% 97.8%, 98.3% 100%, 1.6% 99.5%, 0% 98%
   );
 }
+.jobcard2 > .jc-name,
+.jobcard2 > .jc-ledger,
+.jobcard2 > .jc-foot { position: relative; z-index: 1; }
 .jobcard2:hover:not(:disabled) {
   transform: translateY(-3px) rotate(-.3deg);
   box-shadow: 0 12px 26px #00000073;
@@ -346,56 +360,86 @@ img { display: block; max-width: 100%; }
 
 /* 印判。人物のアイコンではなく、依頼状に押された種別の判 */
 .stamp {
-  position: absolute; top: 10px; right: 12px;
+  position: absolute; top: 10px; right: 12px; z-index: 2;
   padding: 2px 7px; font-size: 10px; font-weight: 700; letter-spacing: .08em;
   border: 1.5px solid currentColor; border-radius: 2px;
   transform: rotate(-6deg);
   opacity: .82;
 }
 
-.jc-head { padding-right: 46px; }
-.jc-name { min-width: 0; }
-.jc-name b { display: block; font-family: var(--font-serif-jp); font-size: var(--fs-lg); line-height: 1.3; }
+/* 紙に薄く刷られた紋。読む前に「何を差し出す依頼か」が地の絵で分かる */
+.jc-seal {
+  position: absolute; right: -26px; bottom: -30px; z-index: 0;
+  width: 122px; height: 122px;
+  opacity: .13; pointer-events: none;
+  transform: rotate(-8deg);
+}
+.jc-seal .mark { width: 100%; height: 100%; vertical-align: 0; }
+
+.jc-name { display: block; min-width: 0; padding-right: 44px; }
+.jc-name b {
+  display: block; font-family: var(--font-serif-jp);
+  font-size: var(--fs-lg); line-height: 1.3; overflow-wrap: anywhere;
+}
 .jc-name i {
-  display: block; margin-top: 2px;
-  font-style: normal; font-size: var(--fs-xs); color: var(--ink-3);
+  display: block; margin-top: 1px;
+  font-style: normal; font-size: 11px; color: var(--ink-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* 余白に書かれた注記。バッジにしない ── 下線だけの文字 */
-.jc-req { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: var(--fs-xs); }
-.req-note { color: var(--ink-3); border-bottom: 1px dotted var(--ink-3); padding-bottom: 1px; }
-.req-note.bad { color: var(--bad); border-bottom-color: var(--bad); font-weight: 700; }
-
-/* 代償を帳簿のように箇条書きにする。色付きの箱にしない */
-.jc-ledger { display: flex; flex-direction: column; gap: 3px; }
-.ledger-row {
-  display: flex; align-items: baseline; gap: 6px;
-  font-size: var(--fs-sm); line-height: 1.5;
+/* 代償。紋・量・払ったあとの値だけ。軸名は紋が言うので書かない */
+.jc-ledger { display: flex; flex-direction: column; gap: 2px; }
+.ledger-row { display: flex; align-items: center; gap: 6px; line-height: 1.4; }
+.ledger-row > .mark { width: 16px; height: 16px; }
+/* 代償の無い依頼。紋を置くと「関係が動く」と読めてしまうので、罫だけ引く */
+.ledger-dash { opacity: .6; letter-spacing: -.1em; }
+.ledger-num {
+  flex-shrink: 0; font-family: var(--font-serif-jp);
+  font-size: var(--fs-xl); font-weight: 700; line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
-.ledger-row > span:first-child { flex-shrink: 0; font-weight: 700; }
 .ledger-row .leader {
-  flex: 1; border-bottom: 1px dotted currentColor; opacity: .35;
-  margin-bottom: 4px;
+  flex: 1; min-width: 6px; border-bottom: 1px dotted currentColor;
+  opacity: .3; margin-bottom: 3px;
 }
-.ledger-num { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.ledger-after {
+  flex-shrink: 0; font-size: 11px; color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.ledger-after em { font-style: normal; margin: 0 1px; opacity: .55; }
 .ledger-row.axis-貞操 { color: var(--axis-貞操); }
 .ledger-row.axis-品位 { color: var(--axis-品位); }
 .ledger-row.axis-威厳 { color: var(--axis-威厳); }
-.ledger-cap { color: var(--axis-品位); font-weight: 700; }
-.ledger-cap .ledger-num { text-decoration: underline; text-decoration-style: double; }
+.ledger-cap { color: var(--axis-品位); }
+.ledger-cap .ledger-after { color: var(--axis-品位); font-weight: 700; }
 .ledger-none { color: var(--good); }
-.ledger-none > span:first-child { font-weight: 400; color: var(--ink-3); }
+.ledger-none .ledger-after { color: var(--good); }
 
-/* 金額は手紙の末尾、署名のように右下へ */
-.jc-foot { margin-top: 2px; display: flex; justify-content: flex-end; align-items: baseline; }
-.jc-pay { text-align: right; }
-.jc-pay s { margin-right: 8px; color: var(--ink-3); font-size: var(--fs-xs); }
+/* 足元：要るもの（走り書き）と、受取額（署名） */
+.jc-foot {
+  margin-top: auto; padding-top: 5px;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 8px;
+  border-top: 1px solid var(--line);
+}
+.jc-req {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding-bottom: 3px; font-size: 11px;
+}
+.req-note {
+  display: inline-flex; align-items: center; gap: 2px;
+  color: var(--ink-3); font-variant-numeric: tabular-nums;
+}
+.req-note > .mark { width: 11px; height: 11px; }
+.req-label { font-style: normal; font-size: 10px; color: var(--ink-3); opacity: .8; margin-right: -3px; }
+.req-note.bad { color: var(--bad); font-weight: 700; }
+
+.jc-pay { flex-shrink: 0; text-align: right; white-space: nowrap; }
+.jc-pay s { display: block; margin-bottom: 1px; color: var(--ink-3); font-size: 10px; line-height: 1; }
 .jc-pay b {
   font-family: var(--font-serif-jp); font-size: var(--fs-2xl); font-weight: 700;
   line-height: 1; color: var(--gold);
-  border-bottom: 2px solid currentColor; padding-bottom: 1px;
 }
-.jc-pay b small { font-size: var(--fs-sm); font-weight: 500; margin-left: 1px; }
+.jc-pay b small { font-size: 12px; font-weight: 500; margin-left: 1px; }
 
 /* ================= 依頼状の紙質（仮置き・素材なし） =================
    VISUAL_PLAN.md の背骨：紙の質が、彼女がどう扱われているかを表す。
@@ -427,8 +471,8 @@ img { display: block; max-width: 100%; }
   filter: brightness(1.05);
 }
 .jobcard2.paper .jc-pay b { color: var(--gold); }
-.jobcard2.paper .req-note { color: var(--ink-3); border-bottom-color: #00000030; }
-.jobcard2.paper .req-note.bad { color: var(--bad); border-bottom-color: var(--bad); }
+.jobcard2.paper .req-note { color: var(--ink-3); }
+.jobcard2.paper .req-note.bad { color: var(--bad); }
 .jobcard2.paper .stamp { color: var(--ink-2); }
 .jobcard2.paper .ledger-none { color: #2d6a49; }
 
@@ -637,7 +681,11 @@ img { display: block; max-width: 100%; }
 .confirm-none { color: var(--good); font-size: var(--fs-sm); }
 .confirm-row { display: flex; align-items: center; gap: 10px; }
 .confirm-row + .confirm-row { margin-top: 7px; }
-.confirm-axis { width: 34px; flex-shrink: 0; font-size: var(--fs-sm); font-weight: 700; }
+.confirm-axis {
+  display: inline-flex; align-items: center; gap: 4px;
+  flex-shrink: 0; width: 54px; font-size: var(--fs-sm); font-weight: 700;
+}
+.confirm-axis .mark { width: 14px; height: 14px; }
 .lossbar {
   display: flex; flex: 1; height: 9px;
   background: #ffffff14; border-radius: 5px; overflow: hidden;
@@ -717,6 +765,7 @@ img { display: block; max-width: 100%; }
 .result-block { padding: 10px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
 .result-block h3 { margin-bottom: 6px; color: var(--gold); font-size: var(--fs-sm); }
 .row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: var(--fs-sm); }
+.row .mark { width: 13px; height: 13px; margin-right: 4px; }
 .row + .row { margin-top: 4px; }
 .row b { font-weight: 700; font-variant-numeric: tabular-nums; }
 .row b.minus { color: var(--bad); }
@@ -783,7 +832,8 @@ img { display: block; max-width: 100%; }
 
 .ending-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
 .ending-stats > div { padding: 9px 6px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
-.ending-stats span { display: block; color: var(--ink-3); font-size: var(--fs-xs); }
+.ending-stats span { display: flex; align-items: center; gap: 3px; color: var(--ink-3); font-size: var(--fs-xs); }
+.ending-stats .mark { width: 12px; height: 12px; }
 .ending-stats strong { display: block; font-family: var(--font-serif-jp); font-size: var(--fs-2xl); color: var(--gold); line-height: 1.15; }
 .ending-stats small { color: var(--ink-2); font-size: 11px; }
 .title-body .btn { width: 100%; }
@@ -811,15 +861,22 @@ img { display: block; max-width: 100%; }
   .jobcard { padding: 8px 11px; }
   .kindbar { margin-bottom: 5px; gap: 4px; }
   .kindchip { padding: 1px 7px; }
-  .jobgrid { gap: 6px; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); }
-  .jobcard2 { padding: 7px 9px; gap: 4px; }
+  .jobgrid { gap: 7px; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); }
+  .jobcard2 { padding: 7px 9px 5px; gap: 4px; }
   .avatar.sm { width: 26px; height: 26px; }
-  /* 上乗せ後の総額は代償欄の +G を足せば分かるので、高さを優先して落とす */
-  .jc-max { display: none; }
-  .jc-head { gap: 7px; }
-  .jc-name b { line-height: 1.2; }
-  .cost { padding: 3px 5px; line-height: 1.3; }
-  .jc-costs { gap: 3px; }
+  .jc-name { padding-right: 40px; }
+  .jc-name b { line-height: 1.2; font-size: var(--fs-md); }
+  .jc-name i { font-size: 10px; line-height: 1.3; }
+  .jc-seal { width: 96px; height: 96px; right: -20px; bottom: -24px; }
+  .jc-ledger { gap: 1px; }
+  .ledger-row { gap: 5px; line-height: 1.25; }
+  .ledger-row > .mark { width: 14px; height: 14px; }
+  .ledger-num { font-size: var(--fs-lg); }
+  .ledger-after { font-size: 10px; }
+  .jc-foot { padding-top: 3px; }
+  .jc-req { gap: 6px; padding-bottom: 2px; font-size: 10px; }
+  .jc-pay b { font-size: var(--fs-xl); }
+  .stamp { top: 7px; right: 9px; padding: 1px 5px; font-size: 9px; }
   .person { padding: 7px 9px; gap: 5px; }
   .person-head { gap: 8px; }
   .avatar { width: 32px; height: 32px; }
@@ -864,7 +921,18 @@ img { display: block; max-width: 100%; }
     background: linear-gradient(180deg, #05080d00, #05080de6 12%, #05080df7 100%);
     overflow-y: auto;
   }
-  .jobgrid { grid-template-columns: 1fr; }
+  /* 縦持ちで1列にすると1枚が横長の帯になる。2列に割って手紙の形に近づける */
+  .jobgrid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 164px), 1fr)); gap: 8px; }
+  .jobcard2 { padding: 10px 11px 8px; gap: 6px; }
+  .jc-name { padding-right: 38px; }
+  .jc-name b { font-size: var(--fs-md); }
+  .jc-name i { font-size: 10px; }
+  .ledger-num { font-size: var(--fs-lg); }
+  .ledger-after { font-size: 10px; }
+  .jc-req { gap: 6px; font-size: 10px; }
+  .jc-pay b { font-size: var(--fs-xl); }
+  .jc-seal { width: 92px; height: 92px; right: -18px; bottom: -22px; }
+  .stamp { top: 8px; right: 9px; padding: 1px 5px; font-size: 9px; }
   .result-cols { grid-template-columns: 1fr; }
   .ending-stats { grid-template-columns: repeat(2, 1fr); }
   .textbox { min-height: 32dvh; }
