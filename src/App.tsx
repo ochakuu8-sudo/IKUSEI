@@ -1,7 +1,7 @@
 import { useEffect, useState, type ButtonHTMLAttributes } from 'react';
 import {
   BookOpen, BriefcaseBusiness, ChevronDown, ChevronLeft, Handshake, Landmark,
-  Map as MapIcon, Moon, RotateCcw, Scale, Store,
+  FlaskConical, Flower2, Map as MapIcon, Moon, RotateCcw, Scale, Store, Trees,
 } from 'lucide-react';
 import {
   CHAPTERS, CHAPTER_DAYS, MAX_STAMINA, NETWORK_COST, NETWORK_STAMINA, REST_RECOVERY,
@@ -10,8 +10,11 @@ import {
   openCountAt, openJobs, payWithRelation, peopleAt, personFatigue, personOf, placeOf,
   countsByKind, jobKinds, kindNote, primaryAxis, quotaOf, relationStage, sceneScript,
   settlementOf, stageUpLine, workPlaces,
-  type Axis, type DayResult, type GameState, type Job, type PersonId, type PlaceId,
-  type SceneLine, type Settlement,
+  brewOnce, canBrew, gatherPlaces, gatherYield, hasMaterialsFor, hasStockFor,
+  knownRecipes, materialIds, materialOf, placeOpen, places, recipeOf,
+  recipesTaughtBy, sellsAt, RECIPE_SOURCE,
+  type Axis, type DayResult, type GameState, type Job, type MaterialId, type PersonId,
+  type PlaceId, type Recipe, type RecipeId, type SceneLine, type Settlement,
 } from './game';
 import {
   PLACEHOLDER, backgroundSrc, mapSrc, personSrc, placeSrc, portraitSrc, portraitStage,
@@ -19,10 +22,11 @@ import {
 } from './art';
 import { Mark } from './marks';
 
-const SAVE_KEY = 'ikusei-prototype-save-v6';
+const SAVE_KEY = 'ikusei-prototype-save-v7';
 
 const PLACE_ICON: Record<PlaceId, typeof Store> = {
   estate: Landmark, arnaud: Store, academy: BookOpen, valere: Landmark, guild: Scale,
+  hill: Flower2, wood: Trees, backstreet: Moon,
 };
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -97,6 +101,7 @@ function Hud({ game, onReset }: { game: GameState; onReset: () => void }) {
 type View =
   | { kind: 'home' }
   | { kind: 'jobs' }
+  | { kind: 'brew' }
   | { kind: 'map' }
   | { kind: 'place'; place: PlaceId }
   | { kind: 'contract'; job: Job; from: 'jobs' | 'place' }
@@ -163,17 +168,29 @@ export default function App() {
     const capDrop = capDropOf(job);
     const relBefore = game.relations[job.person];
     const relAfter = Math.min(3, relBefore + (job.bond ?? 1));
+    // 納品ぶんの在庫を引く。
+    const nextStock = { ...game.stock };
+    if (job.recipe) nextStock[job.recipe] = (nextStock[job.recipe] ?? 0) - (job.count ?? 1);
+    // 処方は関係の段階と、依頼そのものの両方から入る(§2-1)。
+    const learned = [
+      ...recipesTaughtBy(job.person, relBefore, relAfter, game.known),
+      ...(job.teaches && !game.known.includes(job.teaches) ? [job.teaches] : []),
+    ];
     const result: DayResult = {
       kind: 'job', title: job.title,
-      narrative: job.costs.length
-        ? `${job.title}。差し出すものを差し出して、${total}Gを得た。`
-        : `${job.title}。何も失わずに、${total}Gを得た。`,
+      narrative: job.recipe
+        ? `${job.title}。調合したものを納めて、${total}Gを得た。`
+        : job.costs.length
+          ? `${job.title}。差し出すものを差し出して、${total}Gを得た。`
+          : `${job.title}。何も失わずに、${total}Gを得た。`,
       basePay: total, relationBonus: 0, paidTerms: [],
       moneyDelta: total, staminaDelta: -job.stamina,
       axisDrops: drops, axisGains: [], dignityCapDrop: capDrop,
       relationUp: relAfter > relBefore
         ? { name: personOf(job.person).name, stage: relationStage(relAfter) }
         : undefined,
+      delivered: job.recipe ? { recipe: job.recipe, count: job.count ?? 1 } : undefined,
+      learned: learned.length ? learned : undefined,
     };
     commit({
       money: game.money + total,
@@ -181,6 +198,8 @@ export default function App() {
       axes: nextAxes,
       dignityCap: Math.max(0, game.dignityCap - capDrop),
       relations: { ...game.relations, [job.person]: relAfter },
+      stock: nextStock,
+      known: [...game.known, ...learned],
     }, result.narrative, job.person, job.costs.some((c) => c.axis === '威厳'));
     setView({
       kind: 'scene', job, line: 0, result,
@@ -209,18 +228,69 @@ export default function App() {
     const person = personOf(id);
     const before = game.relations[id];
     const after = Math.min(3, before + 1);
+    const learned = recipesTaughtBy(id, before, after, game.known);
     const result: DayResult = {
       kind: 'network', title: `${person.name}に会う`,
       narrative: `${person.name}のもとに顔を出し、仕事の話をした。`,
       basePay: 0, relationBonus: 0, paidTerms: [], moneyDelta: -NETWORK_COST,
       staminaDelta: -NETWORK_STAMINA, axisDrops: [], axisGains: [], dignityCapDrop: 0,
       relationUp: after > before ? { name: person.name, stage: relationStage(after) } : undefined,
+      learned: learned.length ? learned : undefined,
     };
     commit({
       money: game.money - NETWORK_COST, stamina: game.stamina - NETWORK_STAMINA,
       relations: { ...game.relations, [id]: after },
+      known: [...game.known, ...learned],
     }, result.narrative, 'none');
     setView({ kind: 'result', result, back: { kind: 'place', place: person.place } });
+  }
+
+  /** 採集に出る。1日と体力を払って、その土地のものを持ち帰る(§2-2)。 */
+  function gather(placeId: PlaceId) {
+    if (!game) return;
+    const place = placeOf(placeId);
+    const cost = place.gatherStamina ?? 20;
+    if (game.stamina < cost) return;
+    const got = gatherYield(place);
+    const nextMaterials = { ...game.materials };
+    got.forEach((g) => { nextMaterials[g.id] += g.amount; });
+    const result: DayResult = {
+      kind: 'gather', title: `${place.name}で採る`,
+      narrative: `${place.name}へ出て、${got.map((g) => materialOf(g.id).name).join('と')}を摘んだ。`,
+      basePay: 0, relationBonus: 0, paidTerms: [], moneyDelta: 0,
+      staminaDelta: -cost, axisDrops: [], axisGains: [], dignityCapDrop: 0,
+      materialDeltas: got,
+    };
+    commit({ stamina: game.stamina - cost, materials: nextMaterials }, result.narrative, 'none');
+    setView({ kind: 'result', result, back: { kind: 'map' } });
+  }
+
+  /** 仕入れて帰る。まとめ買いできるので、金があるほど日が浮く(§2-2)。 */
+  function buy(placeId: PlaceId, basket: Partial<Record<MaterialId, number>>) {
+    if (!game) return;
+    const bought = materialIds
+      .filter((id) => (basket[id] ?? 0) > 0)
+      .map((id) => ({ id, amount: basket[id] ?? 0 }));
+    if (!bought.length) return;
+    const spend = bought.reduce((sum, b) => sum + (materialOf(b.id).buy ?? 0) * b.amount, 0);
+    if (spend > game.money) return;
+    const nextMaterials = { ...game.materials };
+    bought.forEach((b) => { nextMaterials[b.id] += b.amount; });
+    const place = placeOf(placeId);
+    const result: DayResult = {
+      kind: 'buy', title: `${place.short}で仕入れる`,
+      narrative: `${place.name}で素材を買い付けた。${spend}Gが出ていった。`,
+      basePay: 0, relationBonus: 0, paidTerms: [], moneyDelta: -spend,
+      staminaDelta: 0, axisDrops: [], axisGains: [], dignityCapDrop: 0,
+      materialDeltas: bought,
+    };
+    commit({ money: game.money - spend, materials: nextMaterials }, result.narrative, 'none');
+    setView({ kind: 'result', result, back: { kind: 'map' } });
+  }
+
+  /** 1回調合する。日は消費しない ── 減るのは体力と素材(§2-3)。 */
+  function brew(id: RecipeId) {
+    setGame((current) => (current && canBrew(recipeOf(id), current) ? brewOnce(current, id) : current));
   }
 
   /** 結果を閉じたあとの行き先。14日目なら章末精算へ。 */
@@ -301,7 +371,8 @@ export default function App() {
           {list.map((job) => {
             const person = personOf(job.person);
             const tired = !hasStaminaFor(job, game);
-            const blocked = tired;
+            const noStock = !hasStockFor(job, game);
+            const blocked = tired || noStock;
             const list0 = listPrice(job, game);
             const now = payWithRelation(job, game);
             const cap = capDropOf(job);
@@ -328,7 +399,9 @@ export default function App() {
                         ? <><Mark name="関係" /><b className="ledger-num">＋{job.bond}</b></>
                         : <b className="ledger-num ledger-dash">—</b>}
                       <span className="leader" />
-                      <span className="ledger-after">差し出すもの無し</span>
+                      <span className="ledger-after">
+                        {job.recipe ? `${recipeOf(job.recipe).name}を${job.count ?? 1}つ納める` : '差し出すもの無し'}
+                      </span>
                     </div>
                   ) : job.costs.map((c) => {
                     const after = Math.max(0, game.axes[c.axis] - c.amount);
@@ -356,6 +429,13 @@ export default function App() {
                   <span className="jc-req">
                     {/* 「要」は一度だけ。あとは紋と数だけ並べる ── 一件ごとに「以上」を書かない */}
                     <em className="req-label">要</em>
+                    {/* 調剤の注文は、在庫が無ければ受けられない */}
+                    {job.recipe && (
+                      <span className={noStock ? 'req-note bad' : 'req-note stocked'}>
+                        {recipeOf(job.recipe).name}
+                        <em>{game.stock[job.recipe] ?? 0}/{job.count ?? 1}</em>
+                      </span>
+                    )}
                     <span className={tired ? 'req-note bad' : 'req-note'}>
                       <Mark name="体力" />{job.stamina}
                     </span>
@@ -374,6 +454,71 @@ export default function App() {
             );
           })}
           {list.length === 0 && <p className="empty-note">受けられる依頼が一つも無い。</p>}
+        </div>
+      </div>
+    );
+  }
+
+  /* ---- 調合：日は進まない。減るのは体力と素材(§2-3) ---- */
+  if (view.kind === 'brew') {
+    const book = knownRecipes(game);
+    return (
+      <div className="screen worklist">
+        <div className="backdrop"><div className="bg-veil" /></div>
+        <Hud game={game} onReset={reset} />
+        <div className="topbar">
+          <Button variant="ghost" size="sm" onClick={() => setView({ kind: 'home' })}>
+            <ChevronLeft />戻る
+          </Button>
+          <h2>調合する</h2>
+          <span className="topbar-sub">日は進まない</span>
+        </div>
+        <div className="matbar">
+          {materialIds.map((id) => (
+            <span key={id} className={`matchip ${game.materials[id] === 0 ? 'none' : ''}`}>
+              <b>{materialOf(id).name}</b><i>{game.materials[id]}</i>
+            </span>
+          ))}
+        </div>
+        <div className="jobgrid">
+          {book.map((r) => {
+            const short = !hasMaterialsFor(r, game);
+            const tired = game.stamina < r.stamina;
+            const held = game.stock[r.id] ?? 0;
+            return (
+              <div className={`jobcard2 paper paper-調剤 brewcard ${short || tired ? 'disabled' : ''}`} key={r.id}>
+                <span className="stamp stamp-調剤" aria-hidden="true">{r.grade}</span>
+                <span className="jc-name">
+                  <b>{r.name}</b>
+                  <i>{RECIPE_SOURCE[r.id]}</i>
+                </span>
+                <div className="jc-ledger">
+                  {materialIds.filter((m) => (r.needs[m] ?? 0) > 0).map((m) => {
+                    const need = r.needs[m] ?? 0;
+                    const have = game.materials[m];
+                    return (
+                      <div className={`ledger-row ${have < need ? 'short' : ''}`} key={m}>
+                        <span className="mat-name">{materialOf(m).name}</span>
+                        <span className="leader" />
+                        <span className="ledger-after">{have}<em>/</em>{need}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="jc-foot">
+                  <span className="jc-req">
+                    <span className={tired ? 'req-note bad' : 'req-note'}>
+                      <Mark name="体力" />{r.stamina}
+                    </span>
+                    {held > 0 && <span className="req-note held">在庫 {held}</span>}
+                  </span>
+                  <Button size="sm" disabled={short || tired} onClick={() => brew(r.id)}>
+                    調合
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -399,6 +544,26 @@ export default function App() {
           <svg className="map-routes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             <polygon points={workPlaces.map((p) => `${p.map.x},${p.map.y}`).join(' ')} />
           </svg>
+          {gatherPlaces(game).map((place) => {
+            const Icon = PLACE_ICON[place.id];
+            const got = gatherYield(place);
+            const cost = place.gatherStamina ?? 20;
+            const tired = game.stamina < cost;
+            return (
+              <button key={place.id} className={`marker gatherpin ${tired ? 'shut' : ''}`}
+                style={{ left: `${place.map.x}%`, top: `${place.map.y}%` }}
+                onClick={() => setView({ kind: 'place', place: place.id })}>
+                <span className="marker-pin"><Icon /></span>
+                <span className="marker-body">
+                  <b>{place.short}</b>
+                  <i>{got.map((g) => materialOf(g.id).name).join('・')}</i>
+                </span>
+                <span className="marker-flags">
+                  <em className={tired ? 'flag bad' : 'flag'}><Mark name="体力" />{cost}</em>
+                </span>
+              </button>
+            );
+          })}
           {workPlaces.map((place) => {
             const Icon = PLACE_ICON[place.id];
             const roster = peopleAt(place.id);
@@ -427,9 +592,57 @@ export default function App() {
   }
 
   /* ---- 場所：人に会いに行く。仕事は一覧から受けるので、ここには置かない ---- */
+  /* ---- 採集地：金の代わりに体力を払って素材を採る ---- */
+  if (view.kind === 'place' && placeOf(view.place).kind === 'gather') {
+    const place = placeOf(view.place);
+    const got = gatherYield(place);
+    const cost = place.gatherStamina ?? 20;
+    const tired = game.stamina < cost;
+    return (
+      <div className="screen place">
+        <div className="backdrop">
+          <Art className="bg" sources={[placeSrc(place.id)]} alt="" hideIfMissing />
+          <div className="bg-veil" />
+        </div>
+        <Hud game={game} onReset={reset} />
+        <div className="topbar">
+          <Button variant="ghost" size="sm" onClick={() => setView({ kind: 'map' })}>
+            <ChevronLeft />地図
+          </Button>
+          <div className="topbar-title">
+            <h2>{place.name}</h2>
+            <span>{place.tagline}</span>
+          </div>
+        </div>
+
+        <div className="gatherbox">
+          <h3>ここで採れるもの</h3>
+          <div className="matrow">
+            {got.map((g) => (
+              <span className="matchip" key={g.id}>
+                <b>{materialOf(g.id).name}</b><i>×{g.amount}</i>
+                <small>持 {game.materials[g.id]}</small>
+              </span>
+            ))}
+          </div>
+          <p className="gather-note">{got.map((g) => materialOf(g.id).note).join(' ')}</p>
+          <div className="gather-foot">
+            <span className={tired ? 'gather-cost bad' : 'gather-cost'}>
+              <Mark name="体力" />{cost}　／　1日
+            </span>
+            <Button size="lg" disabled={tired} onClick={() => gather(place.id)}>
+              {tired ? '今日はもう歩けない' : '摘んで帰る'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (view.kind === 'place') {
     const place = placeOf(view.place);
     const roster = peopleAt(place.id);
+    const forSale = sellsAt(place);
     return (
       <div className="screen place">
         <div className="backdrop">
@@ -448,6 +661,9 @@ export default function App() {
         </div>
 
         <div className="joblist">
+          {forSale.length > 0 && (
+            <SupplyPanel place={place.id} game={game} onBuy={buy} />
+          )}
           {roster.map((person) => {
             const rel = game.relations[person.id];
             const rate = fatigueRate(person.id, game);
@@ -537,9 +753,13 @@ export default function App() {
             <BriefcaseBusiness />
             <span><b>仕事を受ける</b><i>受けられる依頼を見比べる</i></span>
           </button>
+          <button className="cmd" onClick={() => setView({ kind: 'brew' })}>
+            <FlaskConical />
+            <span><b>調合する</b><i>日は進まない。体力と素材を使う</i></span>
+          </button>
           <button className="cmd" onClick={() => setView({ kind: 'map' })}>
             <MapIcon />
-            <span><b>出かける</b><i>人に会い、関係を進める</i></span>
+            <span><b>出かける</b><i>素材を採る／買う／人に会う</i></span>
           </button>
           <button className="cmd" onClick={rest}>
             <Moon />
@@ -560,6 +780,46 @@ export default function App() {
 }
 
 /** 受けるかどうかを決める最後の画面。何を差し出すかを断言して見せる。 */
+/** 仕入れ棚。まとめ買いして1日で帰る ── 金があるほど日が浮く(§2-2)。 */
+function SupplyPanel({ place, game, onBuy }: {
+  place: PlaceId; game: GameState;
+  onBuy: (place: PlaceId, basket: Partial<Record<MaterialId, number>>) => void;
+}) {
+  const [basket, setBasket] = useState<Partial<Record<MaterialId, number>>>({});
+  const forSale = sellsAt(placeOf(place));
+  const total = forSale.reduce((sum, m) => sum + (m.buy ?? 0) * (basket[m.id] ?? 0), 0);
+  const over = total > game.money;
+  const bump = (id: MaterialId, d: number) =>
+    setBasket((b) => ({ ...b, [id]: Math.max(0, (b[id] ?? 0) + d) }));
+  return (
+    <section className="supply">
+      <header className="supply-head">
+        <h3>素材を仕入れる</h3>
+        <span>持ち金 {game.money.toLocaleString()}G</span>
+      </header>
+      <div className="supply-rows">
+        {forSale.map((m) => (
+          <div className="supply-row" key={m.id}>
+            <span className="sup-name"><b>{m.name}</b><i>手持ち {game.materials[m.id]}</i></span>
+            <span className="sup-price">{m.buy}G</span>
+            <span className="sup-step">
+              <button onClick={() => bump(m.id, -1)} disabled={!basket[m.id]} aria-label={`${m.name}を減らす`}>−</button>
+              <b>{basket[m.id] ?? 0}</b>
+              <button onClick={() => bump(m.id, 1)} aria-label={`${m.name}を増やす`}>＋</button>
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="supply-foot">
+        <span className={over ? 'sup-total bad' : 'sup-total'}>計 {total.toLocaleString()}G</span>
+        <Button size="sm" disabled={total === 0 || over} onClick={() => onBuy(place, basket)}>
+          仕入れて帰る<small>（1日）</small>
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 function ContractSheet({ job, game, onCancel, onAccept }: {
   job: Job; game: GameState; onCancel: () => void; onAccept: () => void;
 }) {
@@ -586,10 +846,19 @@ function ContractSheet({ job, game, onCancel, onAccept }: {
         </div>
         <p className="sheet-desc">{job.description}</p>
 
+        {job.recipe && (
+          <p className="confirm-deliver">
+            <b>{recipeOf(job.recipe).name}</b>を <b>{job.count ?? 1}</b> つ納める
+            <em>（在庫 {game.stock[job.recipe] ?? 0}）</em>
+          </p>
+        )}
+
         <div className="confirm">
           <h3>{job.costs.length ? 'この仕事で差し出すもの' : '差し出すもの'}</h3>
           {job.costs.length === 0 && (
-            <p className="confirm-none">何も無い。体力だけで済む。</p>
+            <p className="confirm-none">
+              {job.recipe ? '何も無い。調合したものを渡すだけで済む。' : '何も無い。体力だけで済む。'}
+            </p>
           )}
           {job.costs.map((c) => {
             const before = game.axes[c.axis];
@@ -666,6 +935,24 @@ function ResultScreen({ result, stage, onClose }: { result: DayResult; stage: st
             )}
           </div>
         </div>
+        {result.materialDeltas && result.materialDeltas.length > 0 && (
+          <div className="result-block">
+            <h3>持ち帰ったもの</h3>
+            {result.materialDeltas.map((m) => (
+              <div className="row" key={m.id}>
+                <span>{materialOf(m.id).name}</span><b className="plus">+{m.amount}</b>
+              </div>
+            ))}
+          </div>
+        )}
+        {result.learned && result.learned.length > 0 && (
+          <div className="result-block learned">
+            <h3>覚えた</h3>
+            {result.learned.map((id) => (
+              <p key={id}><strong>{recipeOf(id).name}</strong>　{RECIPE_SOURCE[id]}</p>
+            ))}
+          </div>
+        )}
         {result.relationUp && (
           <div className="result-block rel-up">
             <h3>関係が変わった</h3>

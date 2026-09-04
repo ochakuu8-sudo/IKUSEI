@@ -2,9 +2,96 @@
 // 数値の根拠は GAME_DESIGN.md。変更するときは企画書側と必ず揃える。
 
 export type Axis = '貞操' | '品位' | '威厳';
-export type PlaceId = 'estate' | 'arnaud' | 'academy' | 'valere' | 'guild';
+export type PlaceId =
+  | 'estate' | 'arnaud' | 'academy' | 'valere' | 'guild'
+  | 'hill' | 'wood' | 'backstreet';
 
 export const axes: Axis[] = ['貞操', '品位', '威厳'];
+
+/* ================= 調剤 ── 素材とレシピ =================
+   主軸。SYSTEM_PLAN.md §2。
+   - レシピは金では買えない。人間関係と依頼の報酬でしか手に入らない
+   - 素材は「買う（金）／採る（体力）／人から貰う（関係・尊厳）」の3経路
+   - 調合は体力と素材を使う。日は消費しない
+   面白さは品数ではなく分岐にあるので、素材は6種に抑える。 */
+
+export type MaterialId = 'rose' | 'wax' | 'poppy' | 'wormwood' | 'ambergris' | 'silversand';
+
+export type Material = {
+  id: MaterialId;
+  name: string;
+  /** 商会での値。買えないものは持たない。 */
+  buy?: number;
+  note: string;
+};
+
+export const materials: Material[] = [
+  { id: 'rose',       name: '野薔薇',   buy: 12, note: '丘に群れて咲く。摘むのに許可は要らない。' },
+  { id: 'wax',        name: '蜜蝋',     buy: 18, note: '採れる場所は無い。商会で買うしかない。' },
+  // 分岐の要。眠り薬にも媚薬にもなる。手持ちは一つしかないので、両方は作れない。
+  { id: 'poppy',      name: '乾燥ケシ', buy: 26, note: '眠らせるためにも、眠らせないためにも使える。' },
+  { id: 'wormwood',   name: '苦艾',     buy: 14, note: 'どこにでも生える。だから安い。' },
+  { id: 'ambergris',  name: '竜涎',     note: '表では売っていない。裏通りか、マルクの厚意でしか手に入らない。' },
+  { id: 'silversand', name: '銀砂',     buy: 60, note: '上等な品にしか使わない。値も上等。' },
+];
+
+export const materialIds = materials.map((m) => m.id);
+export function materialOf(id: MaterialId): Material {
+  return materials.find((m) => m.id === id) ?? materials[0];
+}
+
+/** 品の格。低い格を作ると街での立場が落ち、上の注文が閉じる(§3-2)。 */
+export type Grade = '上' | '中' | '下';
+export const grades: Grade[] = ['上', '中', '下'];
+
+export type RecipeId =
+  | 'tisane' | 'balm' | 'perfume' | 'sleeper' | 'tonic' | 'philtre' | 'abortive';
+
+export type Recipe = {
+  id: RecipeId;
+  name: string;
+  grade: Grade;
+  needs: Partial<Record<MaterialId, number>>;
+  /** 調合に要る体力。丁寧な仕事ほど高い ── 下の品は雑に作れるので安い。 */
+  stamina: number;
+  note: string;
+};
+
+// 上の格ほど体力を食う。「堕ちるほうが速い」を調合の手間にも通す(§6 AとBの関係)。
+export const recipes: Recipe[] = [
+  { id: 'tisane',  name: '薬湯',     grade: '上', needs: { rose: 2, wormwood: 1 }, stamina: 16,
+    note: '母が客に出していたもの。作り方は身体が覚えている。' },
+  { id: 'balm',    name: '傷薬',     grade: '中', needs: { wax: 1, wormwood: 2 },  stamina: 18,
+    note: '効く。それだけの薬。' },
+  { id: 'perfume', name: '香油',     grade: '上', needs: { rose: 3, wax: 2 },      stamina: 26,
+    note: '香りで身分が分かる、と教わった。' },
+  { id: 'sleeper', name: '眠り薬',   grade: '中', needs: { poppy: 2, wormwood: 1 },stamina: 20,
+    note: '眠れない人がいる。それだけの話だと、まだ思える。' },
+  { id: 'tonic',   name: '気付け薬', grade: '上', needs: { silversand: 1, rose: 2 },stamina: 30,
+    note: '倒れた貴婦人に嗅がせるもの。銀砂が要る。' },
+  { id: 'philtre', name: '媚薬',     grade: '下', needs: { poppy: 3, ambergris: 1 },stamina: 12,
+    note: '誰に使うのかは訊かない。訊けば、作れなくなる。' },
+  { id: 'abortive',name: '堕胎薬',   grade: '下', needs: { wormwood: 3, poppy: 1 },stamina: 12,
+    note: '要る人がいる限り、無くならない薬。' },
+];
+
+export function recipeOf(id: RecipeId): Recipe {
+  return recipes.find((r) => r.id === id) ?? recipes[0];
+}
+
+/** 最初から知っている処方。母から受け継いだぶんだけ。 */
+export const INITIAL_RECIPES: RecipeId[] = ['tisane'];
+
+/** 覚えた処方の出どころ。レシピ帳は「どこで覚えたか」の記録になる(§2-1)。 */
+export const RECIPE_SOURCE: Record<RecipeId, string> = {
+  tisane:  '母から。まだ屋敷に人がいた頃',
+  balm:    'ヴェルネに、帳簿の礼として',
+  perfume: '学院で筆写した文書が、処方集だった',
+  sleeper: 'クレールが、書庫の頁を開いたまま席を外した',
+  tonic:   'ギヨームが、伯爵家の薬棚を開けてみせた',
+  philtre: 'マルクが「聞くだけ聞くか」と言った日',
+  abortive:'マルクが、もう隠さなくなってから',
+};
 
 /** 場所。マップ上の位置は背景画像に対する割合で持つ（実素材が来ても合う）。 */
 export type Place = {
@@ -12,19 +99,50 @@ export type Place = {
   name: string;
   short: string;
   tagline: string;
-  kind: 'home' | 'work';
+  kind: 'home' | 'work' | 'gather';
   map: { x: number; y: number };
+  /** 採集地で採れるもの。1回の採集で丸ごと手に入る。 */
+  gathers?: Partial<Record<MaterialId, number>>;
+  /** 採集に要る体力。 */
+  gatherStamina?: number;
+  /** ここで買える素材。 */
+  sells?: MaterialId[];
+  /** これ以下まで落ちて、初めて行ける場所。 */
+  opensBelow?: Partial<Record<Axis, number>>;
 };
 
 export const places: Place[] = [
   { id: 'estate',  name: 'ラティエ邸',       short: '屋敷',   kind: 'home', tagline: '帰る場所。休み、学ぶ。',         map: { x: 14, y: 70 } },
-  { id: 'arnaud',  name: 'アルノー商会',     short: '商会',   kind: 'work', tagline: '金の話が早い。実務の仕事。',     map: { x: 26, y: 62 } },
+  { id: 'arnaud',  name: 'アルノー商会',     short: '商会',   kind: 'work', tagline: '金の話が早い。素材も買える。',   map: { x: 26, y: 62 },
+    sells: ['rose', 'wax', 'poppy', 'wormwood', 'silversand'] },
   { id: 'academy', name: '王立学院',         short: '学院',   kind: 'work', tagline: 'まともな道の入口。',             map: { x: 48, y: 26 } },
   { id: 'valere',  name: 'ヴァレール伯爵家', short: '伯爵家', kind: 'work', tagline: 'かつての同格。最も気が重い。',   map: { x: 76, y: 44 } },
   { id: 'guild',   name: '街の組合',         short: '組合',   kind: 'work', tagline: '下世話だが、公平ではある。',     map: { x: 58, y: 76 } },
+
+  // 採集地。金の代わりに体力を払って素材を採る場所。
+  { id: 'hill', name: '修道院の丘', short: '丘', kind: 'gather',
+    tagline: '薔薇と苦艾。誰も咎めない。', map: { x: 34, y: 14 },
+    gathers: { rose: 4, wormwood: 3 }, gatherStamina: 22 },
+  { id: 'wood', name: '王領の森', short: '森', kind: 'gather',
+    tagline: 'ケシが生える。入るのは、本当は許されていない。', map: { x: 66, y: 16 },
+    gathers: { poppy: 4, wormwood: 2 }, gatherStamina: 30 },
+  // 堕ちて初めて開く場所(§6-B)。竜涎はここか、マルクの厚意でしか手に入らない。
+  { id: 'backstreet', name: '裏通り', short: '裏通り', kind: 'gather',
+    tagline: '売る物も、買う物も、名前が無い。', map: { x: 44, y: 88 },
+    gathers: { ambergris: 2, poppy: 2 }, gatherStamina: 18,
+    opensBelow: { 威厳: 30 } },
 ];
 
 export const workPlaces = places.filter((p) => p.kind === 'work');
+
+/** その場所へ行けるか。採集地は堕ちて開くものがある。 */
+export function placeOpen(place: Place, state: GameState): boolean {
+  if (!place.opensBelow) return true;
+  return axes.some((axis) => {
+    const line = place.opensBelow?.[axis];
+    return line !== undefined && state.axes[axis] <= line;
+  });
+}
 
 /** 依頼人。関係は組織ではなく、この人と結ぶ。 */
 export type PersonId = 'vernet' | 'jean' | 'claire' | 'guillaume' | 'count' | 'marc';
@@ -37,6 +155,8 @@ export type Person = {
   note: string;
   /** 関係が段階1/2/3に上がった日に、その人が言うこと。 */
   stageLines: [string, string, string];
+  /** この段階に達した日に教わる処方。レシピは金では買えない(§2-1)。 */
+  teaches?: { stage: number; recipe: RecipeId }[];
 };
 
 export const people: Person[] = [
@@ -48,6 +168,7 @@ export const people: Person[] = [
       '「ラティエ様。次はもう少し早く来られますか」',
       '「旦那様には黙っておきます。貴女のためではなく、帳簿のためです」',
     ],
+    teaches: [{ stage: 1, recipe: 'balm' }],
   },
   {
     id: 'jean', name: 'ジャン・アルノー', role: '若旦那', place: 'arnaud',
@@ -66,6 +187,7 @@ export const people: Person[] = [
       '「あなたの字は読みやすい。教授もそう言っていました」',
       '「……ここにいる間は、誰も貴女を詮索しません」',
     ],
+    teaches: [{ stage: 1, recipe: 'sleeper' }],
   },
   {
     id: 'guillaume', name: 'ギヨーム', role: '家令', place: 'valere',
@@ -75,6 +197,7 @@ export const people: Person[] = [
       '「ラティエ家の名は、まだ多少の役に立つようで」',
       '「伯爵がお呼びです。断る理由は、もう無いでしょう」',
     ],
+    teaches: [{ stage: 2, recipe: 'tonic' }],
   },
   {
     id: 'count', name: 'ヴァレール伯爵', role: '当主', place: 'valere',
@@ -93,6 +216,7 @@ export const people: Person[] = [
       '「あんた、値切らねえのが偉い。仕事はきっちり回すよ」',
       '「悪い話も来る。聞くだけ、聞くか」',
     ],
+    teaches: [{ stage: 2, recipe: 'philtre' }, { stage: 3, recipe: 'abortive' }],
   },
 ];
 
@@ -117,11 +241,17 @@ export const CHAPTERS = 6;
 export const MAX_STAMINA = 100;
 
 /* ---------------- 章末のノルマ ----------------
-   額そのものより「正攻法で稼げる額に対する比率」が設計の本体。
-   実測（正攻法は1章あたり約1,800G）から逆算して、
-   その比率を 166% → 75% へ落としていく。
-   前半は経営ゲーム、後半は身売りゲームになる。 */
-export const QUOTAS = [1100, 1350, 1600, 1850, 2100, 2400];
+   額そのものより「正攻法で稼げる額に対する達成率」が設計の本体。
+   達成率 ＝ 尊厳を1点も払わずに稼げる額 ÷ ノルマ。
+   これを 162% → 75% へ落としていく。前半は調剤ゲーム、後半は身売りゲームになる。
+
+   調剤ラインを入れたあとの実測（段階E）:
+     正攻法の稼ぎ  1701 / 2064 / 2164 / 2033 / 2068 / 2068  計 12,098G
+     達成率        162% / 133% / 111% /  97% /  84% /  75%
+   合計 11,850G に対して、完全に清廉でも余りは +248G しかない。
+
+   依頼・処方・素材・報酬を触ったら、必ず測り直してここを引き直すこと。 */
+export const QUOTAS = [1050, 1550, 1950, 2100, 2450, 2750];
 export const TOTAL_DEBT = QUOTAS.reduce((a, b) => a + b, 0);
 
 /** 未達分に付く利息。 */
@@ -146,11 +276,12 @@ export function quotaOf(state: GameState): number {
 export type JobCost = { axis: Axis; amount: number };
 
 /** 依頼の種別。尊厳の状態で、受けられる「種類」そのものが入れ替わる。 */
-export type JobKind = '親交' | '社交' | '実務' | '人前' | '労務' | '裏';
+export type JobKind = '調剤' | '親交' | '社交' | '実務' | '人前' | '労務' | '裏';
 
-export const jobKinds: JobKind[] = ['親交', '社交', '実務', '人前', '労務', '裏'];
+export const jobKinds: JobKind[] = ['調剤', '親交', '社交', '実務', '人前', '労務', '裏'];
 
 export const kindNote: Record<JobKind, string> = {
+  調剤: '薬の注文。素材を集めて調合し、納める。日はかかるが身体は削らない',
   親交: '人と親しくなるための席。まともに扱われているうちしか呼ばれない',
   社交: '家名と作法で立つ仕事',
   実務: '手を動かす仕事。誰にも見られない',
@@ -175,6 +306,11 @@ export type Job = {
   bond?: number;
   /** 空なら「何も差し出さずに済む仕事」。 */
   costs: JobCost[];
+  /** 調剤の注文。この品を count だけ納める。 */
+  recipe?: RecipeId;
+  count?: number;
+  /** 納めると処方を教わる依頼。レシピは金では買えない(§2-1)。 */
+  teaches?: RecipeId;
 };
 
 export type GameState = {
@@ -191,6 +327,12 @@ export type GameState = {
   dignityCap: number;
   axes: Record<Axis, number>;
   relations: Record<PersonId, number>;
+  /** 手持ちの素材。 */
+  materials: Record<MaterialId, number>;
+  /** 調合済みの品の在庫。納品するとここから減る。 */
+  stock: Partial<Record<RecipeId, number>>;
+  /** 覚えた処方。レシピ帳。 */
+  known: RecipeId[];
   /** 直近に仕事を受けた相手（新しい順）。同じ人に通い詰めると買い叩かれる。 */
   recent: (PersonId | 'none')[];
   log: string[];
@@ -199,7 +341,7 @@ export type GameState = {
 
 /** 1日の行動結果。結果画面(§10)がそのまま読める形で持つ。 */
 export type DayResult = {
-  kind: 'job' | 'rest' | 'train' | 'network';
+  kind: 'job' | 'rest' | 'network' | 'gather' | 'buy';
   title: string;
   narrative: string;
   basePay: number;
@@ -212,13 +354,22 @@ export type DayResult = {
   dignityCapDrop: number;
   /** 関係が新しい段階に入ったとき。 */
   relationUp?: { name: string; stage: string };
+  /** 素材の増減。採集・購入・納品で動く。 */
+  materialDeltas?: { id: MaterialId; amount: number }[];
+  /** 納めた品。 */
+  delivered?: { recipe: RecipeId; count: number };
+  /** その日に覚えた処方。 */
+  learned?: RecipeId[];
 };
 
 function makeJob(
   id: string, title: string, kind: JobKind, person: PersonId,
   pay: number, stamina: number,
   needs: Partial<Record<Axis, number>>, costs: JobCost[], description: string,
-  extra: { opensBelow?: Partial<Record<Axis, number>>; bond?: number } = {},
+  extra: {
+    opensBelow?: Partial<Record<Axis, number>>; bond?: number;
+    recipe?: RecipeId; count?: number; teaches?: RecipeId;
+  } = {},
 ): Job {
   return { id, title, kind, person, pay, stamina, needs, costs, description, ...extra };
 }
@@ -227,6 +378,37 @@ function makeJob(
 // 最後には底辺の仕事しか残らない。
 // costs が空の依頼が「何も差し出さずに済む道」。報酬は低い。
 export const jobs: Job[] = [
+  // 調剤 ── 主軸。素材を集めて調合し、納める。日はかかるが身体は削らない。
+  // 下の格（媚薬・堕胎薬）だけが威厳を削り、それが上の注文を閉じる(§3-2)。
+  makeJob('ord-balm', '傷薬をまとめて納める', '調剤', 'vernet', 360, 12,
+    { 品位: 22 }, [],
+    '荷役が絶えず怪我をする。効けばいい、と番頭は言った。',
+    { recipe: 'balm', count: 2 }),
+  makeJob('ord-tisane', '学院へ薬湯を届ける', '調剤', 'claire', 330, 12,
+    { 品位: 45 }, [],
+    '徹夜の続く季節。教授たちが飲むものが要る。',
+    { recipe: 'tisane', count: 2 }),
+  makeJob('ord-sleeper', '眠り薬を納める', '調剤', 'claire', 430, 12,
+    { 品位: 35 }, [],
+    '眠れない人がいる。それだけの話だと、まだ思える。',
+    { recipe: 'sleeper', count: 2 }),
+  makeJob('ord-perfume', '伯爵家へ香油を用立てる', '調剤', 'guillaume', 340, 14,
+    { 品位: 55, 威厳: 48 }, [],
+    '家令は香りで値踏みをする。ラティエ家の名で通る、最後の品。',
+    { recipe: 'perfume', count: 1 }),
+  makeJob('ord-tonic', '気付け薬を届ける', '調剤', 'count', 400, 14,
+    { 品位: 58, 威厳: 58 }, [],
+    '夜会で倒れる貴婦人のために。銀砂が要る、高い薬。',
+    { recipe: 'tonic', count: 1 }),
+  makeJob('ord-philtre', '「例のもの」を用意する', '調剤', 'marc', 520, 10,
+    {}, [{ axis: '威厳', amount: 10 }],
+    '誰に使うのかは訊かない。訊けば、作れなくなる。',
+    { recipe: 'philtre', count: 1 }),
+  makeJob('ord-abortive', '名の無い薬を頼まれる', '調剤', 'jean', 430, 10,
+    {}, [{ axis: '威厳', amount: 6 }, { axis: '品位', amount: 6 }],
+    '若旦那は名前を出さなかった。誰のためかは、察しがついた。',
+    { recipe: 'abortive', count: 1 }),
+
   // 親交 ── まともに扱われているうちしか呼ばれない。実入りは薄いが、関係が速く進む。
   makeJob('salon', '学院の読書会に招かれる', '親交', 'claire', 120, 16,
     { 品位: 72, 貞操: 65 }, [],
@@ -249,10 +431,11 @@ export const jobs: Job[] = [
     '伯爵の連れとして立つ。何の連れかは、誰も口に出さない。'),
 
   // 実務 ── 誰にも見られない仕事。差し出すものは無いが、安い。
-  makeJob('copyist', '学院文書の筆耕', '実務', 'claire', 175, 20,
+  makeJob('copyist', '学院文書の筆耕', '実務', 'claire', 120, 20,
     { 品位: 70, 貞操: 60 }, [],
-    '筆写するだけの静かな仕事。誰も彼女の素性を訊かない。'),
-  makeJob('ledger', '商会の帳簿整理', '実務', 'vernet', 130, 24,
+    '筆写するだけの静かな仕事。写している束は、古い処方集だった。',
+    { teaches: 'perfume' }),
+  makeJob('ledger', '商会の帳簿整理', '実務', 'vernet', 90, 24,
     { 品位: 40, 貞操: 25 }, [],
     '数字は多いが、日が暮れるまでに終えれば約束の額になる。'),
 
@@ -294,6 +477,9 @@ export const initialState: GameState = {
   dignityCap: 100,
   axes: { 貞操: 100, 品位: 100, 威厳: 100 },
   relations: { vernet: 0, jean: 0, claire: 0, guillaume: 0, count: 0, marc: 0 },
+  materials: { rose: 0, wax: 0, poppy: 0, wormwood: 0, ambergris: 0, silversand: 0 },
+  stock: {},
+  known: [...INITIAL_RECIPES],
   recent: [],
   log: ['返済期限まで、あと14日。まだ、どこへでも行ける。'],
   ended: false,
@@ -308,7 +494,10 @@ export const midGameState: GameState = {
   stamina: 44,
   dignityCap: 74,
   axes: { 貞操: 62, 品位: 51, 威厳: 47 },
-  relations: { vernet: 1, jean: 0, claire: 0, guillaume: 2, count: 1, marc: 1 },
+  relations: { vernet: 1, jean: 0, claire: 1, guillaume: 2, count: 1, marc: 1 },
+  materials: { rose: 3, wax: 1, poppy: 2, wormwood: 2, ambergris: 0, silversand: 0 },
+  stock: { tisane: 1 },
+  known: ['tisane', 'balm', 'sleeper', 'tonic'],
   recent: ['guillaume', 'vernet'],
   log: ['五日が過ぎた。差し出したものは、もう帳簿には戻らない。'],
 };
@@ -337,9 +526,14 @@ export function notYetFallen(job: Job, state: GameState): boolean {
   });
 }
 
+/** 処方を知らない注文は、そもそも回ってこない（尊厳で閉じたのとは別）。 */
+export function unknownRecipe(job: Job, state: GameState): boolean {
+  return job.recipe !== undefined && !state.known.includes(job.recipe);
+}
+
 /** いま受けられるか。上の仕事は尊厳で閉じ、裏の仕事は落ちて初めて開く。 */
 export function isOpen(job: Job, state: GameState): boolean {
-  return meetsNeeds(job, state) && !notYetFallen(job, state);
+  return meetsNeeds(job, state) && !notYetFallen(job, state) && !unknownRecipe(job, state);
 }
 
 /** 尊厳が足りずに閉じた軸。跡の表示に使う（まだ現れていない依頼は跡ではない）。 */
@@ -357,6 +551,71 @@ export function countsByKind(state: GameState): Record<JobKind, number> {
 /** いま受けられる依頼すべて。仕事メニューはここから作る。 */
 export function openJobs(state: GameState): Job[] {
   return jobs.filter((job) => isOpen(job, state));
+}
+
+/* ================= 調剤のルール =================
+   SYSTEM_PLAN.md §2。素材は買う／採る／貰う、調合は体力と素材、納品が1日。 */
+
+
+/** その処方をいま調合できるか。素材と体力の両方が要る。 */
+export function canBrew(recipe: Recipe, state: GameState): boolean {
+  if (!state.known.includes(recipe.id)) return false;
+  if (state.stamina < recipe.stamina) return false;
+  return materialIds.every((id) => state.materials[id] >= (recipe.needs[id] ?? 0));
+}
+
+/** 素材だけは足りているか（体力不足と区別して見せるため）。 */
+export function hasMaterialsFor(recipe: Recipe, state: GameState): boolean {
+  return materialIds.every((id) => state.materials[id] >= (recipe.needs[id] ?? 0));
+}
+
+/** 1回調合する。日は消費しない ── 減るのは体力と素材。 */
+export function brewOnce(state: GameState, id: RecipeId): GameState {
+  const recipe = recipeOf(id);
+  const nextMaterials = { ...state.materials };
+  materialIds.forEach((m) => { nextMaterials[m] -= recipe.needs[m] ?? 0; });
+  return {
+    ...state,
+    stamina: state.stamina - recipe.stamina,
+    materials: nextMaterials,
+    stock: { ...state.stock, [id]: (state.stock[id] ?? 0) + 1 },
+  };
+}
+
+/** 納品に足りる在庫があるか。 */
+export function hasStockFor(job: Job, state: GameState): boolean {
+  if (!job.recipe) return true;
+  return (state.stock[job.recipe] ?? 0) >= (job.count ?? 1);
+}
+
+/** 採集地で1回に採れるもの。 */
+export function gatherYield(place: Place): { id: MaterialId; amount: number }[] {
+  return materialIds
+    .filter((id) => (place.gathers?.[id] ?? 0) > 0)
+    .map((id) => ({ id, amount: place.gathers?.[id] ?? 0 }));
+}
+
+/** 行ける採集地。堕ちて開く場所がある(§6-B)。 */
+export function gatherPlaces(state: GameState): Place[] {
+  return places.filter((p) => p.kind === 'gather' && placeOpen(p, state));
+}
+
+/** そこで買える素材（値がついているものだけ）。 */
+export function sellsAt(place: Place): Material[] {
+  return (place.sells ?? []).map(materialOf).filter((m) => m.buy !== undefined);
+}
+
+/** 関係が新しい段階に入って教わる処方。まだ知らないものだけ返す。 */
+export function recipesTaughtBy(person: PersonId, before: number, after: number, known: RecipeId[]): RecipeId[] {
+  const p = personOf(person);
+  return (p.teaches ?? [])
+    .filter((t) => t.stage > before && t.stage <= after && !known.includes(t.recipe))
+    .map((t) => t.recipe);
+}
+
+/** レシピ帳。覚えた順ではなく、格の順に並べる。 */
+export function knownRecipes(state: GameState): Recipe[] {
+  return recipes.filter((r) => state.known.includes(r.id));
 }
 
 /** その場所で、いま受けられる依頼の数。 */
@@ -524,6 +783,27 @@ const scriptByAxis: Record<Axis, SceneLine[]> = {
   ],
 };
 
+/** 薬を納める日。格ごとに、渡した相手の顔が違う。 */
+const brewScript: Record<Grade, SceneLine[]> = {
+  上: [
+    { text: '包みを解かないまま、相手は代金を数えた。' },
+    { text: '「ラティエ家の手のものなら、間違いはないでしょう」' },
+    { speaker: HEROINE, text: '「……ありがとうございます」' },
+    { text: '名前がまだ効いている。それが、いつまでかは分からない。' },
+  ],
+  中: [
+    { text: '中身を確かめてから、相手は頷いた。' },
+    { text: '「効けばいい。誰が作ったかは、こっちには関係ない」' },
+    { text: '関係ない、と言われたことに、少しだけ救われた。' },
+  ],
+  下: [
+    { text: '相手は包みを開けず、そのまま懐に入れた。' },
+    { text: '「何に使うか、訊かないのがいい」' },
+    { speaker: HEROINE, text: '「……訊きません」' },
+    { text: '作れる、と知られた。もう、知らなかったことにはできない。' },
+  ],
+};
+
 const plainScript: SceneLine[] = [
   { text: '言われた通りに、言われた分だけ働いた。' },
   { text: '誰も彼女を見なかった。' },
@@ -534,6 +814,8 @@ const plainScript: SceneLine[] = [
 export function sceneScript(job: Job): SceneLine[] {
   const person = personOf(job.person);
   const opening: SceneLine = { text: `${placeOf(person.place).name}／${job.title}。` };
+  // 薬を納める日は、削る軸ではなく品の格が場面を決める。
+  if (job.recipe) return [opening, ...brewScript[recipeOf(job.recipe).grade]];
   if (job.costs.length === 0) return [opening, ...plainScript];
   const ordered = axes.filter((axis) => job.costs.some((c) => c.axis === axis));
   return [opening, ...ordered.flatMap((axis) => scriptByAxis[axis])];

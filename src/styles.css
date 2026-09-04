@@ -299,6 +299,7 @@ img { display: block; max-width: 100%; }
   display: inline-block; margin-right: 6px; padding: 0 6px;
   border-radius: 3px; font-style: normal; font-size: 10px; font-weight: 700;
 }
+.k-調剤 { color: #8fc9c2; border-color: #8fc9c24d; background: #8fc9c21f; }
 .k-親交 { color: #e7c98a; border-color: #d9b76a4d; background: #d9b76a1f; }
 .k-社交 { color: #a9bde4; border-color: #a9bde44d; background: #a9bde41f; }
 .k-実務 { color: #8fc7b4; border-color: #8fc7b44d; background: #8fc7b41f; }
@@ -477,12 +478,24 @@ img { display: block; max-width: 100%; }
 .jobcard2.paper .ledger-none { color: #2d6a49; }
 
 /* 印判の色。種別バーの k-* はガラスのタブ用なので、紙の上には別の色を使う */
+.stamp-調剤 { color: #2f5b55; }
 .stamp-親交 { color: #8a6a1f; }
 .stamp-社交 { color: #364a6e; }
 .stamp-実務 { color: #33302a; }
 .stamp-人前 { color: #8a4a1f; }
 .stamp-労務 { color: #55503f; }
 .stamp-裏   { color: #6e2430; }
+
+/* 調剤 ── 薬包紙。処方箋の体裁。上端に一本、封をした跡の線が走る */
+.paper-調剤 {
+  background:
+    linear-gradient(180deg, #2f5b5522 0 3px, #0000 3px),
+    repeating-linear-gradient(90deg, #00000008 0 1px, #0000 1px 4px),
+    linear-gradient(165deg, #eef0e6, #dfe3d5);
+  border: 1px solid #9aa693;
+  border-radius: 2px;
+}
+.paper-調剤 .jc-name b { font-family: var(--font-serif-jp); letter-spacing: .02em; }
 
 /* 親交 ── 上質紙。招かれている、ということが形で分かる */
 .paper-親交 {
@@ -946,4 +959,114 @@ img { display: block; max-width: 100%; }
 @media (pointer: coarse) and (max-height: 560px) {
   .btn.xs, .btn.sm { min-height: 36px; }
   .btn.icon { width: 36px; height: 36px; }
+}
+
+
+/* ================= 調剤 ================= */
+
+/* 手持ちの素材。画面の上に常に出しておく ── 何が足りないかが選択の中身なので */
+.matbar {
+  position: relative; z-index: 1;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  width: min(1180px, 100%); margin: 0 auto 8px;
+}
+.matchip {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  padding: 2px 9px; border-radius: 3px;
+  background: #ffffff10; border: 1px solid var(--line);
+  font-size: var(--fs-xs); color: var(--ink-2);
+}
+.matchip b { font-weight: 600; }
+.matchip i { font-style: normal; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.matchip small { color: var(--ink-3); font-size: 10px; }
+.matchip.none { opacity: .4; }
+
+/* 処方の札。依頼状と同じ紙だが、押すのは中のボタン */
+.brewcard { cursor: default; }
+.brewcard:hover:not(.disabled) { transform: none; box-shadow: 0 3px 10px #00000059; filter: none; }
+.jobgrid .brewcard:hover:not(.disabled) { transform: rotate(.15deg); }
+.brewcard.disabled { opacity: .55; filter: grayscale(.25); }
+.brewcard .jc-ledger { gap: 1px; }
+.mat-name { flex-shrink: 0; font-size: var(--fs-sm); }
+.brewcard .ledger-row.short { color: var(--bad); }
+.brewcard .ledger-row.short .ledger-after { color: var(--bad); font-weight: 700; }
+.req-note.held { color: var(--good); font-weight: 700; }
+.req-note.stocked { color: var(--good); }
+.req-note.stocked em, .req-note.bad em { font-size: 10px; margin-left: 2px; opacity: .85; }
+/* 処方の出どころは、この画面のいちばん言いたいこと。省略せず2行まで出す */
+.brewcard .jc-name i { white-space: normal; overflow: visible; line-height: 1.35; }
+
+/* 採集地 */
+.gatherbox {
+  position: relative; z-index: 1;
+  width: min(560px, 100%); margin: 0 auto;
+  padding: 14px 16px; border-radius: 4px;
+  background: var(--panel); border: 1px solid var(--line);
+}
+.gatherbox h3 { font-size: var(--fs-sm); color: var(--gold); margin-bottom: 8px; }
+.gatherbox .matrow { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 9px; }
+.gather-note { font-size: var(--fs-xs); color: var(--ink-3); line-height: 1.6; margin-bottom: 11px; }
+.gather-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.gather-cost {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--fs-sm); color: var(--ink-2); font-variant-numeric: tabular-nums;
+}
+.gather-cost .mark { width: 14px; height: 14px; }
+.gather-cost.bad { color: var(--bad); font-weight: 700; }
+.gatherpin .marker-pin { border-color: #8fc9c266; }
+.marker-flags .flag.bad { color: var(--bad); border-color: #e0808c66; }
+.marker-flags .flag .mark { width: 10px; height: 10px; margin-right: 2px; }
+
+/* 仕入れ棚 */
+.supply {
+  padding: 11px 13px; border-radius: 4px; margin-bottom: 8px;
+  background: var(--panel-2); border: 1px solid var(--line);
+}
+.supply-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px; }
+.supply-head h3 { font-size: var(--fs-sm); color: var(--gold); }
+.supply-head span { font-size: var(--fs-xs); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.supply-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 4px 14px; }
+.supply-row { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); }
+.sup-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; }
+.sup-name i { font-style: normal; font-size: 10px; color: var(--ink-3); white-space: nowrap; }
+.sup-price { flex-shrink: 0; color: var(--gold); font-variant-numeric: tabular-nums; }
+.sup-step { flex-shrink: 0; display: inline-flex; align-items: center; gap: 2px; }
+.sup-step button {
+  width: 22px; height: 22px; border-radius: 3px; padding: 0;
+  background: #ffffff14; border: 1px solid var(--line); cursor: pointer;
+  font-size: var(--fs-sm); line-height: 1;
+}
+.sup-step button:disabled { opacity: .3; cursor: not-allowed; }
+.sup-step b { min-width: 18px; text-align: center; font-variant-numeric: tabular-nums; }
+.supply-foot {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line);
+}
+.sup-total { font-size: var(--fs-sm); font-weight: 700; font-variant-numeric: tabular-nums; }
+.sup-total.bad { color: var(--bad); }
+.supply-foot .btn small { font-size: 10px; font-weight: 400; opacity: .8; margin-left: 2px; }
+
+/* 契約シート：納める品 */
+.confirm-deliver {
+  margin: 0 0 8px; padding: 6px 10px; border-radius: 3px;
+  background: #8fc9c214; border: 1px solid #8fc9c23d;
+  font-size: var(--fs-sm);
+}
+.confirm-deliver b { color: #a8ded6; }
+.confirm-deliver em { font-style: normal; color: var(--ink-3); font-size: var(--fs-xs); margin-left: 6px; }
+
+/* 結果：覚えた処方 */
+.result-block.learned { margin-top: 9px; background: #8fc9c214; border-color: #8fc9c23d; }
+.result-block.learned h3 { color: #a8ded6; }
+.result-block.learned p { font-size: var(--fs-sm); }
+.result-block.learned strong { color: #a8ded6; }
+
+@media (max-height: 560px) {
+  .matbar { gap: 4px; margin-bottom: 6px; }
+  .matchip { padding: 1px 7px; }
+  .gatherbox { padding: 10px 12px; }
+  .gather-note { margin-bottom: 8px; }
+  .supply { padding: 8px 10px; }
+  .supply-rows { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+  .sup-step button { width: 20px; height: 20px; }
 }
