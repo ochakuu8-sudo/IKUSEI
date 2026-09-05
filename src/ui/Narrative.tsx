@@ -153,7 +153,6 @@ export function Dialogue({
         </button>
       ) : (
         <>
-          <div className="scenario-caption">{title}</div>
           {log ? (
             <section className="scenario-log" aria-label="会話ログ">
               <header>

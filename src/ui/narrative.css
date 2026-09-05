@@ -1,4 +1,4 @@
-/* The scenario owns the viewport; the game underneath is inert while reading. */
+/* Fullscreen art with compact, unframed subtitles. */
 .dialog.scenario-dialog {
   position: fixed;
   inset: 0;
@@ -11,7 +11,7 @@
   border: 0;
   border-radius: 0;
   background: #1e1925;
-  color: #fff6ed;
+  color: #fff;
   overflow: hidden;
 }
 .scenario-dialog[open] {
@@ -41,101 +41,90 @@
   object-position: center top;
   filter: drop-shadow(0 4px 14px #28182950);
 }
-.scenario-caption {
-  position: absolute;
-  top: max(16px, env(safe-area-inset-top));
-  left: max(20px, env(safe-area-inset-left));
-  max-width: calc(100% - 40px);
-  padding: 6px 18px;
-  border-radius: 20px;
-  background: #251c32ce;
-  font-size: 13px;
-  pointer-events: none;
+.scenario-message,
+.scenario-log,
+.scenario-restore {
+  text-shadow:
+    -1px -1px 1px #191320,
+    1px -1px 1px #191320,
+    -1px 1px 1px #191320,
+    1px 1px 1px #191320,
+    0 2px 4px #000;
 }
 .scenario-message {
   position: absolute;
-  bottom: max(20px, env(safe-area-inset-bottom));
+  bottom: max(8px, env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
-  width: min(1100px, calc(100% - 48px));
-  padding: 18px 24px 8px;
-  border: 1px solid #edcba79c;
-  border-radius: 16px;
-  background: linear-gradient(110deg, #271f35f2, #39273beb);
-  box-shadow:
-    0 6px 30px #130e2450,
-    inset 0 0 0 3px #ffe2ba0b;
+  width: min(1000px, calc(100% - 48px));
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .scenario-speaker {
-  position: absolute;
-  top: -20px;
-  left: 24px;
-  padding: 4px 28px;
-  border: 1px solid #e6c597;
-  border-radius: 12px 12px 4px 4px;
-  background: #60394f;
-  color: #fff4d8;
-  font-size: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 4px;
 }
 .scenario-text {
   display: block;
+  align-content: start;
   width: 100%;
-  min-height: 110px;
-  max-height: 26dvh;
+  min-height: 44px;
+  max-height: min(5em, 23dvh);
   overflow: auto;
   border: 0;
-  padding: 6px 8px;
+  padding: 2px 4px;
   background: transparent;
   color: inherit;
-  font-size: 21px;
-  line-height: 1.85;
+  font-size: 18px;
+  line-height: 1.65;
   text-align: left;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  scrollbar-width: thin;
 }
 .scenario-next {
-  color: #f1c49b;
-  font-size: 14px;
-  margin-left: 14px;
+  font-size: 12px;
+  margin-left: 10px;
 }
 .scenario-controls {
   display: flex;
   align-items: center;
   gap: 8px;
-  border-top: 1px solid #d5b8a32b;
-  padding-top: 4px;
 }
 .scenario-controls button,
-.scenario-restore {
+.scenario-restore,
+.scenario-log .button {
   min-height: 44px;
-  padding: 8px 14px;
-  border: 1px solid transparent;
-  border-radius: 9px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 0;
   background: transparent;
-  color: #f4ddce;
-  font-size: 13px;
+  box-shadow: none;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
 }
-.scenario-controls button:hover {
-  background: #ffffff17;
+.scenario-controls button:hover,
+.scenario-restore:hover,
+.scenario-log .button:hover {
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 .scenario-controls .scenario-forward {
-  min-width: 110px;
-  border-color: #e3c29670;
-  background: #f4dcc016;
-  color: #fff5de;
-  font-weight: 600;
+  min-width: 96px;
 }
 .scenario-position {
   margin-left: auto;
-  color: #d8bebe;
   font-size: 12px;
 }
 .scenario-restore {
   position: absolute;
-  bottom: max(16px, env(safe-area-inset-bottom));
-  right: max(16px, env(safe-area-inset-right));
-  background: #251c32df;
-  border-color: #e3c29670;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  right: max(12px, env(safe-area-inset-right));
 }
 .scenario-dialog button:focus-visible {
   outline-color: #ffe0a9;
@@ -143,13 +132,10 @@
 }
 .scenario-log {
   position: absolute;
-  inset: 60px max(24px, calc((100vw - 1000px) / 2)) 24px;
+  inset: max(24px, env(safe-area-inset-top))
+    max(24px, calc((100vw - 1000px) / 2)) 24px;
   display: flex;
   flex-direction: column;
-  padding: 20px;
-  border: 1px solid #ddbc94;
-  border-radius: 16px;
-  background: #271f35f5;
 }
 .scenario-log header {
   display: flex;
@@ -159,21 +145,20 @@
 }
 .scenario-log h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
 }
 .scenario-log-lines {
   overflow: auto;
   min-height: 0;
-  margin-top: 16px;
+  margin-top: 8px;
+  scrollbar-width: thin;
 }
 .scenario-log p {
-  padding: 12px 8px;
-  border-bottom: 1px solid #d5b8a340;
+  padding: 4px;
   font-size: 16px;
 }
 .scenario-log b {
   display: block;
-  color: #f3cfaa;
 }
 @media (max-width: 720px) and (min-height: 501px) {
   .scenario-portrait {
@@ -183,68 +168,34 @@
     height: 85%;
   }
   .scenario-message {
-    width: calc(100% - 20px);
-    bottom: max(12px, env(safe-area-inset-bottom));
-    padding: 16px 12px 6px;
+    width: calc(100% - 24px);
   }
   .scenario-text {
-    font-size: 17px;
-    min-height: 110px;
-    max-height: 30dvh;
-    padding: 6px 4px;
-  }
-  .scenario-speaker {
-    left: 16px;
-    font-size: 14px;
-    padding: 4px 20px;
+    font-size: 16px;
   }
   .scenario-controls {
-    gap: 3px;
+    gap: 2px;
     flex-wrap: wrap;
   }
   .scenario-controls button {
-    font-size: 12px;
-    padding: 8px;
+    padding: 6px;
   }
   .scenario-controls .scenario-forward {
     min-width: 84px;
   }
-  .scenario-caption {
-    left: 12px;
-    top: max(12px, env(safe-area-inset-top));
-    font-size: 12px;
-  }
   .scenario-log {
-    inset: 56px 10px 12px;
-    padding: 14px;
+    inset: max(16px, env(safe-area-inset-top)) 14px 12px;
   }
 }
 @media (max-height: 500px) {
-  .scenario-caption {
-    top: 8px;
-    left: max(12px, env(safe-area-inset-left));
-    font-size: 12px;
-    padding: 4px 12px;
-  }
   .scenario-message {
-    bottom: max(8px, env(safe-area-inset-bottom));
-    width: calc(100% - 48px);
-    padding: 8px 16px 4px;
+    bottom: max(4px, env(safe-area-inset-bottom));
   }
   .scenario-text {
     font-size: 16px;
-    min-height: 62px;
-    max-height: 24dvh;
-    line-height: 1.7;
-    padding: 4px;
-  }
-  .scenario-speaker {
-    font-size: 13px;
-    top: -26px;
-    padding: 3px 20px;
+    max-height: 20dvh;
   }
   .scenario-log {
-    inset: 42px 24px 8px;
-    padding: 12px 18px;
+    inset: 8px max(24px, env(safe-area-inset-left)) 8px;
   }
 }
