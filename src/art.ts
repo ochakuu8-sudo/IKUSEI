@@ -16,8 +16,8 @@ import type { Axis, Job, PersonId, PlaceId } from './game';
 
 const BASE = import.meta.env.BASE_URL;
 
-/** 素材が未実装のあいだ表示する仮画像。 */
-export const PLACEHOLDER = `${BASE}lady-at-ledger.png`;
+/** 個別素材が未実装の画面に共通で表示する、採用予定の主人公キービジュアル。 */
+export const PLACEHOLDER = `${BASE}hero-key-visual.webp`;
 
 /** 立ち絵の段階。3軸の最も低いものが、見た目の段階を決める。 */
 export type PortraitStage = 'intact' | 'worn' | 'fallen' | 'ruined';

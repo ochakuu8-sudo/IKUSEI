@@ -93,6 +93,8 @@ img { display: block; max-width: 100%; }
   filter: drop-shadow(0 10px 30px #000a);
 }
 .figure.dim { filter: brightness(.4) blur(1px); }
+/* 正方形のキービジュアルは、顔が下部のステータス欄に隠れない位置へ。 */
+.figure[src$="hero-key-visual.webp"] { object-position: center 20%; }
 
 /* ================= HUD ================= */
 .hud {
@@ -929,6 +931,7 @@ img { display: block; max-width: 100%; }
   .hud { grid-template-columns: 1fr auto auto; row-gap: 7px; }
   .hud-quota { grid-column: 1 / -1; order: 3; }
   .figure { left: 50%; transform: translateX(-50%); height: 62%; max-width: 92vw; }
+  .figure[src$="hero-key-visual.webp"] { top: 108px; bottom: auto; height: calc(52dvh - 100px); width: 92vw; object-position: top center; }
   .figure-status { left: 12px; right: 12px; width: auto; bottom: auto; top: calc(62% - 84px); }
   .command {
     top: auto; bottom: 0; left: 0; right: 0; width: 100%; height: auto; max-height: 52dvh;
