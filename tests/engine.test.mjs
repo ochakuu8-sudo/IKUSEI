@@ -356,3 +356,31 @@ test('malformed v9 schedules, rewards, queues and counters are rejected', () => 
   }
 });
 console.log(`${checks} engine checks passed`);
+import {parseUI, freshUI} from '@game/uiState';
+import {cleanSelection, preparationNeeds, previewAction, brewCapacity} from '@game/presentation';
+test('bulk brewing equals repeated individual brewing with no extra day or economic effects',()=>{
+ for(const recipe of G.recipes){const s=fresh();s.known=G.recipes.map(r=>r.id);s.stamina=100;for(const id of G.materialIds)s.materials[id]=50;
+ const count=3;const batch=currentAction(s,{type:'brew',recipe:recipe.id,quantity:count});assert.equal(batch.error,undefined);let singles=s;for(let i=0;i<count;i++)singles=currentAction(singles,{type:'brew',recipe:recipe.id}).state;assert.deepEqual(batch.state,singles);assert.equal(batch.state.day,s.day);assert.equal(batch.state.money,s.money);assert.equal(brewCapacity(s,recipe.id),Math.floor(100/recipe.stamina));}
+});
+test('bulk brewing rejects invalid count and all shortages atomically',()=>{
+ const s=fresh();s.materials.rose=4;s.materials.wormwood=2;
+ for(const quantity of [0,-1,1.5,NaN,Infinity,3,100000000000000000]){const r=currentAction(s,{type:'brew',recipe:'tisane',quantity});assert.ok(r.error);assert.strictEqual(r.state,s);}
+ s.stamina=16;assert.strictEqual(currentAction(s,{type:'brew',recipe:'tisane',quantity:2}).state,s);
+});
+test('action preview is nonmutating and exactly matches committed outcome',()=>{
+ const s=fresh();const before=structuredClone(s);const p=previewAction(s,{type:'rest'});assert.deepEqual(s,before);assert.deepEqual(p.state,currentAction(s,{type:'rest'}).state);assert.equal(p.stamina,18);assert.equal(p.day,2);
+});
+test('UI storage parses separately and rejects corrupt quantities and unknown references',()=>{
+ assert.deepEqual(parseUI('{broken'),freshUI());const u=parseUI(JSON.stringify({memo:['ord-tisane','wrong','ord-tisane'],quantity:-8,recipe:'fake',basket:{rose:1.5,wax:2},selection:{ordinary:['wrong'],promises:[null,{id:'x',option:'y'}]}}));assert.deepEqual(u.memo,['ord-tisane']);assert.equal(u.recipe,'tisane');assert.equal(u.quantity,1);assert.deepEqual(u.basket,{wax:2});assert.equal(u.selection.promises.length,1);
+});
+test('preparation survives UI roundtrip and stale selections are removed without creating obligations',()=>{
+ const s=fresh();const ui=freshUI();ui.memo=['ord-tisane'];ui.selection.ordinary=['ord-tisane','ord-balm'];const u=parseUI(JSON.stringify(ui));const selection=cleanSelection(s,u.selection);assert.deepEqual(selection.ordinary,['ord-tisane']);assert.deepEqual(preparationNeeds(s,selection,u.memo),{tisane:2});assert.equal(s.obligations.length,0);assert.deepEqual(s.stock,{});
+ const a=currentAction({...s,day:2},{type:'accept',offer:'special-a'}).state;assert.equal(preparationNeeds(a,{ordinary:[],promises:[]},[]).tisane,2);assert.deepEqual(cleanSelection(a,{ordinary:[],promises:[{id:a.obligations[0].id,option:a.obligations[0].terms.options[0].id}]}).promises,[]);
+});
+console.log(`${checks} total checks passed including UI helpers and bulk brewing`);
+import {preparationMaterials} from '@game/presentation';
+test('preparation basket sums shared ingredients and subtracts existing medicine/material stock',()=>{
+ const s=fresh();s.known.push('balm');s.stock.tisane=1;s.materials.rose=1;s.materials.wormwood=2;
+ assert.deepEqual(preparationMaterials(s,{ordinary:['ord-tisane','ord-balm'],promises:[]},['ord-tisane']),{rose:1,wormwood:3,wax:2});
+});
+console.log(`${checks} final engine and presentation checks passed`);

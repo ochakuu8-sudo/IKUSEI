@@ -1,66 +1,26 @@
-// 絵の置き場所と差し替え規約。
-// このゲームの本体は絵なので、UI側は「どの絵を出すか」を必ずここ経由で決める。
-//
-// 実素材は public/art/ 以下に置く。まだ無いものは placeholder に落ちる
-// （<img onError> で拾う）ので、描けたぶんから1枚ずつ差し込める。
-//
-//   public/art/bg/<id>.png            背景        16:9 推奨 (1920x1080)
-//   public/art/portrait/<stage>.png   立ち絵      縦長・背景透過 (1024x1536)
-//   public/art/place/<placeId>.png    場所の背景  16:9 (1920x1080)
-//   public/art/person/<personId>.png  依頼人の顔  正方形・背景透過 (512x512)
-//   public/art/map.png                街の地図    16:9 (1920x1080)
-//   public/art/scene/<jobId>.png      イベントCG  16:9 (1920x1080)
-//   public/art/scene/<jobId>-<axis>.png  軸ごとの差分（あれば優先）
-
-import type { Axis, Job, PersonId, PlaceId } from './game';
-
-const BASE = import.meta.env.BASE_URL;
-
-/** 個別素材が未実装の画面に共通で表示する、採用予定の主人公キービジュアル。 */
-export const PLACEHOLDER = `${BASE}hero-key-visual.webp`;
-
-/** 立ち絵の段階。3軸の最も低いものが、見た目の段階を決める。 */
-export type PortraitStage = 'intact' | 'worn' | 'fallen' | 'ruined';
-
-export function portraitStage(axes: Record<Axis, number>): PortraitStage {
-  const lowest = Math.min(axes.貞操, axes.品位, axes.威厳);
-  if (lowest >= 76) return 'intact';
-  if (lowest >= 51) return 'worn';
-  if (lowest >= 26) return 'fallen';
-  return 'ruined';
+import type {
+  Axis,
+  Job,
+  MaterialId,
+  PersonId,
+  PlaceId,
+  RecipeId,
+} from "./game";
+const base = import.meta.env.BASE_URL;
+export const heroSrc = `${base}art/hero.png`;
+export const PLACEHOLDER = `${base}hero-key-visual.webp`;
+export const backgroundSrc = (id: string) =>
+  `${base}art/backgrounds/${["title", "home", "ending", "settlement"].includes(id) ? "estate" : id}.webp`;
+export const placeSrc = (id: PlaceId) => backgroundSrc(id);
+export const mapSrc = () => backgroundSrc("map");
+export const itemSrc = (id: RecipeId | MaterialId) =>
+  `${base}art/items/${id}.svg`;
+export const personSrc = (id: PersonId) => `${base}art/crests/${id}.svg`;
+export type PortraitStage = "intact" | "worn" | "fallen" | "ruined";
+export function portraitStage(_axes: Record<Axis, number>): PortraitStage {
+  return "intact";
 }
-
-export function portraitSrc(stage: PortraitStage): string {
-  return `${BASE}art/portrait/${stage}.png`;
-}
-
-export function backgroundSrc(id: string): string {
-  return `${BASE}art/bg/${id}.png`;
-}
-
-/** 街の地図。マーカーはこの絵に対する割合で置いてあるので、差し替えても合う。 */
-export function mapSrc(): string {
-  return `${BASE}art/map.png`;
-}
-
-/** 場所ごとの背景。 */
-export function placeSrc(id: PlaceId): string {
-  return `${BASE}art/place/${id}.png`;
-}
-
-/** 依頼人の顔。無ければ頭文字の丸を出すので、仮画像には落とさない。 */
-export function personSrc(id: PersonId): string {
-  return `${BASE}art/person/${id}.png`;
-}
-
-/** イベントCG。軸ごとの差分があればそれを、無ければ依頼共通の絵を指す。 */
-export function sceneSrc(job: Job, axis: Axis | null): string {
-  return axis
-    ? `${BASE}art/scene/${job.id}-${axis}.png`
-    : `${BASE}art/scene/${job.id}.png`;
-}
-
-/** 差分が無いときに1段階だけ戻すための控え。 */
-export function sceneFallbackSrc(job: Job): string {
-  return `${BASE}art/scene/${job.id}.png`;
-}
+export const portraitSrc = (_stage: PortraitStage) => heroSrc;
+export const sceneSrc = (_job: Job, _axis: Axis | null) =>
+  backgroundSrc("estate");
+export const sceneFallbackSrc = (_job: Job) => backgroundSrc("estate");

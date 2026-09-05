@@ -459,3 +459,13 @@
 人物イベントの回数制御はcadenceを差し替える。イベント報酬の定義・適用、未再生の本文と再生済みIDは保存する。新規場所はワールドマップの行き先を追加し、歩行型マップは作らない。
 
 完了基準：通常販売で資金を回し、指定日の特別依頼達成によって新しい人物・採集地・出来事へ進む流れを仮データで確認できること。今回の自動シミュレーションではA/B両方を達成している。現在の数値の強弱はVALIDATION.mdに記録し、返済ノルマの本編向け確定とは分ける。
+
+## 11. 表示層の再構成
+
+Appはセーブ・画面遷移・確認・行動実行を接続する。src/ui内のShell、HomeScreen、TitleScreen、Orders、Brewing、Journal、World、Narrative、SettlementScreen、EndingScreenと共通componentsに表示を分離。
+
+presentation.tsはperformActionの非破壊実行による見込み、調合可能数、選択の再検証、準備対象の合算を担当。uiState.tsは別保存領域ikusei-ui-v1の型と検証。経済処理は引き続きengine.tsのみ。
+
+確認はnative dialogでフォーカスを閉じ込め、閉じた後は元の操作へ戻す。成功した確認オブジェクトは再実行できない。次の新しい行動をタイマーで止めない。
+
+画像パスはart.tsに集約。場所ごとのWebP、薬と素材のSVG、人物の紋章を使い分け、失敗時は専用の代替表示を使う。

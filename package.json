@@ -10,7 +10,8 @@
     "deploy": "bash scripts/deploy.sh",
     "sim": "node scripts/run.mjs sim",
     "test": "node scripts/run.mjs test",
-    "test:ui": "node scripts/run.mjs ui"
+    "test:ui": "node scripts/run.mjs ui",
+    "test:touch": "node tests/touch.smoke.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

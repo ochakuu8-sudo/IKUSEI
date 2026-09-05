@@ -20,7 +20,7 @@ export type Action =
   | { type: 'job'; id: string } | { type: 'rest' }
   | { type: 'network'; person: PersonId } | { type: 'gather'; place: PlaceId }
   | { type: 'buy'; place: PlaceId; basket: Partial<Record<MaterialId, number>> }
-  | { type: 'brew'; recipe: RecipeId } | { type: 'settle' }
+  | { type: 'brew'; recipe: RecipeId; quantity?: number } | { type: 'settle' }
   | { type: 'accept' | 'decline'; offer: string }
   | { type: 'fulfill'; id: string; option: string }
   | { type: 'pay' | 'cancel' | 'renegotiate'; id: string };
@@ -82,8 +82,13 @@ export function performAction(before: GameState, action: Action, offers: Support
     }
     if (action.type === 'brew') {
       const recipe = recipes.find(r => r.id === action.recipe);
-      if (!recipe || !canBrew(recipe, s)) fail('処方・素材・体力を確認してください');
-      return { state: brewOnce(s, action.recipe) };
+      const quantity = action.quantity ?? 1;
+      if (!Number.isSafeInteger(quantity) || quantity < 1 || !recipe || !canBrew(recipe, s)
+        || s.stamina < recipe.stamina * quantity
+        || Object.entries(recipe.needs).some(([id, n]) => s.materials[id as MaterialId] < n! * quantity)) fail('指定数の処方・素材・体力を確認してください');
+      let next = s;
+      for (let i = 0; i < quantity; i++) next = brewOnce(next, action.recipe);
+      return { state: next };
     }
     if (action.type === 'deliver' || (action.type === 'job' && jobs.find(j => j.id === action.id)?.category === 'ordinary')) {
       const selection = action.type === 'deliver' ? action : { ordinary: [action.id], promises: [] };
