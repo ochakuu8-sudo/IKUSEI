@@ -139,11 +139,10 @@
   --nav: 208px;
   /* 狭い画面だけ下段のコマンドバーぶんの行を確保する。広い画面では0。 */
   --cmdbar: 0px;
-  --routebar: 52px;
   position: relative;
   isolation: isolate;
   grid-template-columns: var(--nav) minmax(0, 1fr);
-  grid-template-rows: var(--hud) var(--routebar) minmax(0, 1fr) var(--cmdbar);
+  grid-template-rows: var(--hud) minmax(0, 1fr) var(--cmdbar);
 }
 .command-app.no-sidebar {
   grid-template-columns: minmax(0, 1fr);
@@ -154,7 +153,7 @@
 }
 .command-app > .content {
   grid-column: 2;
-  grid-row: 3;
+  grid-row: 2;
 }
 .command-app.no-sidebar > .content {
   grid-column: 1;
@@ -189,38 +188,9 @@
   margin-bottom: 12px;
   padding-bottom: 4px;
 }
-.route-bar {
-  grid-column: 2;
-  grid-row: 2;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 24px;
-  min-width: 0;
-  color: #fff7ee;
-  background: #302433e8;
-  border-bottom: 1px solid #e0bc8970;
-}
-.route-bar > span {
-  flex: 1;
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.route-bar .button {
-  border: 1px solid #f0d2ae55;
-  background: #fff5e912;
-  color: inherit;
-  padding: 8px 12px;
-  box-shadow: none;
-}
-.route-home {
-  display: none;
-}
 .action-sidebar {
   grid-column: 1;
-  grid-row: 2 / span 2;
+  grid-row: 2;
   background: linear-gradient(160deg, #382737f5, #251e30eb);
   color: #fff5e9;
   padding: 16px 12px;
@@ -705,20 +675,17 @@
   bottom: calc(var(--cmdbar) + 12px);
 }
 .command-app.save-failed {
-  grid-template-rows: var(--hud) auto var(--routebar) minmax(0, 1fr) var(--cmdbar);
+  grid-template-rows: var(--hud) auto minmax(0, 1fr) var(--cmdbar);
 }
 .command-app.save-failed > .command-bar {
-  grid-row: 5;
-}
-.command-app.save-failed > .route-bar {
-  grid-row: 3;
+  grid-row: 4;
 }
 .command-app.save-failed > .content {
-  grid-row: 4;
+  grid-row: 3;
   grid-column: 2;
 }
 .command-app.save-failed > .action-sidebar {
-  grid-row: 2 / span 3;
+  grid-row: 2 / span 2;
 }
 .command-app.save-failed.no-sidebar {
   grid-template-rows: var(--hud) auto minmax(0, 1fr);
@@ -735,7 +702,7 @@
 .command-bar {
   display: none;
   grid-column: 1 / -1;
-  grid-row: 4;
+  grid-row: 3;
 }
 @media (max-width: 1050px) {
   .command-app {
@@ -756,13 +723,8 @@
     background: #241a28f2;
     border-top: 1px solid #e0bc8955;
   }
-
-  .command-app > .content,
-  .route-bar {
+  .command-app > .content {
     grid-column: 1;
-  }
-  .route-home {
-    display: inline-flex;
   }
   .command-app .home-stage {
     gap: 22px;
@@ -841,7 +803,7 @@
   }
 
   .command-app {
-    grid-template-rows: var(--hud) 52px minmax(0, 1fr);
+    grid-template-rows: var(--hud) minmax(0, 1fr) var(--cmdbar);
   }
   .command-app.no-sidebar {
     grid-template-rows: var(--hud) minmax(0, 1fr);
@@ -949,16 +911,6 @@
   }
   .first-hint {
     font-size: 12px;
-  }
-  .route-bar {
-    padding: 4px 10px;
-    gap: 5px;
-  }
-  .route-bar > span {
-    font-size: 12px;
-  }
-  .route-bar .button {
-    font-size: 13px;
   }
   .order-workspace,
   .brew-workspace.detail-open {
@@ -1174,17 +1126,12 @@
 /* 横持ちは高さが足りない。見出し・説明・余白を削って、一覧を折り返しの上に出す。 */
 @media (max-height: 500px) {
   .command-app {
-    --routebar: 42px;
-  }
-  .route-bar {
-    padding: 2px 14px;
   }
   .command-app .content-inner {
     margin: 6px auto;
     padding: 10px 16px 14px;
   }
-  /* 画面名は route-bar が出しているので、横持ちでは見出しを畳む。
-     Heading の extra（まとめ納品などの操作）だけは残す。 */
+  /* 横持ちは見出しを1行に詰める。extra（まとめ納品など）は残す。 */
   .command-app .page-heading {
     margin: 0 0 6px;
     padding: 0;

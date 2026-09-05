@@ -288,9 +288,7 @@ export function Orders({
       >
         依頼
       </Heading>
-      <p className="intro">
-        薬を揃えて納品します。通常依頼は何度でも利用できます。
-      </p>
+      <p className="intro">薬を揃えて納品します。</p>
       <Tabs
         value={ui.orderTab === "batch" ? "all" : ui.orderTab}
         onChange={(orderTab) => patch({ orderTab, orderId: null })}
@@ -448,8 +446,20 @@ export function Orders({
             key={ui.orderId ?? "batch"}
           >
             <div className="work-detail-body">
-              <h2>{detailTitle}</h2>
-              <small className="detail-date">{dateLabel(today)}</small>
+              <header className="contract-head">
+                <Art
+                  src={personSrc(row?.person ?? "vernet")}
+                  className="contract-crest"
+                />
+                <div>
+                  <h2>{detailTitle}</h2>
+                  <small className="detail-date">
+                    {dateLabel(today)}
+                    {row && ` ／ ${personOf(row.person).name}`}
+                  </small>
+                </div>
+                <Seal costs={row ? rowTerms(row).costs : []} />
+              </header>
               {batch ? (
                 <>
                   {plan?.lines.map((l) => (

@@ -224,7 +224,7 @@ export function Modal({
   children: ReactNode;
   onClose: () => void;
   footer?: ReactNode;
-  variant?: "window" | "scenario";
+  variant?: "window" | "scenario" | "result";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const close = useRef(onClose);
@@ -241,7 +241,7 @@ export function Modal({
   return createPortal(
     <dialog
       ref={ref}
-      className={`dialog ${variant === "scenario" ? "scenario-dialog" : ""}`}
+      className={`dialog ${variant === "scenario" ? "scenario-dialog" : ""} ${variant === "result" ? "result-dialog" : ""}`}
       onKeyDown={(e) => {
         if (e.key !== "Tab") return;
         const elements = [
@@ -273,12 +273,14 @@ export function Modal({
         close.current();
       }}
     >
-      {variant === "window" && (
+      {variant !== "scenario" && (
         <header>
           <h2>{title}</h2>
-          <Button aria-label="閉じる" onClick={onClose}>
-            <X size={20} />
-          </Button>
+          {variant === "window" && (
+            <Button aria-label="閉じる" onClick={onClose}>
+              <X size={20} />
+            </Button>
+          )}
         </header>
       )}
       <div className="dialog-body">{children}</div>

@@ -468,8 +468,7 @@
 
 /* ==== 横持ちのアイコンレール ====
    横持ちは幅が800〜915pxあるのに高さが300〜356pxしかない。
-   route-bar(42px)と下段バー(50px)で縦を92px使うのをやめ、
-   幅60pxの左レールに寄せる ── 縦の消費がゼロになる。 */
+   ナビが縦を1pxも使わないよう、幅64pxの左レールに寄せる。 */
 .rail-only {
   display: none;
 }
@@ -477,7 +476,6 @@
   .command-app {
     --nav: 64px;
     --hud: 46px;
-    --routebar: 0px;
     --cmdbar: 0px;
     grid-template-columns: var(--nav) minmax(0, 1fr);
     grid-template-rows: var(--hud) minmax(0, 1fr);
@@ -486,7 +484,6 @@
     grid-column: 2;
     grid-row: 2;
   }
-  .command-app > .route-bar,
   .command-app > .command-bar {
     display: none;
   }
@@ -746,7 +743,7 @@
     margin-top: 2px;
   }
   .command-app .home-utilities button {
-    min-height: 38px;
+    min-height: 44px;
   }
   .command-app .character-status .axis-panel {
     gap: 2px 8px;
@@ -771,5 +768,562 @@
   .command-app .home-utilities button {
     min-height: 34px;
     font-size: 11px;
+  }
+}
+
+/* ==== HUD ── 左「いまの制約」／右「章の圧力」 ====
+   4つの数値を等価に並べていたのをやめ、意味で2つの塊にする。
+   日数はドット、スタミナはゲージ。形で読ませて数字を減らす。 */
+.hud-clock,
+.hud-stamina,
+.hud-purse,
+.hud-debt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  padding: 2px 4px;
+  position: relative;
+}
+.hud-clock,
+.hud-debt {
+  cursor: pointer;
+  border-radius: 10px;
+}
+.hud-clock:hover,
+.hud-debt:hover {
+  background: #ffffff14;
+}
+.hud-chapter {
+  font-size: 11px;
+  color: #e6cacf;
+  white-space: nowrap;
+}
+.hud-days {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+.hud-days i {
+  width: 4px;
+  height: 12px;
+  border-radius: 1px;
+  background: #e8b877;
+}
+.hud-days i.spent {
+  background: #ffffff26;
+}
+.hud-clock b {
+  font-size: 15px;
+  white-space: nowrap;
+}
+.hud-clock b small {
+  font-size: 10px;
+  color: #e6cacf;
+  margin-left: 3px;
+}
+.hud-clock .date-alert {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  font-style: normal;
+  font-size: 10px;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 8px;
+  background: var(--red);
+  color: #fff;
+}
+.hud-stamina .mark {
+  width: 15px;
+  height: 15px;
+  fill: #f0a1bc;
+}
+.hud-gauge {
+  display: block;
+  width: 88px;
+  height: 8px;
+  border-radius: 4px;
+  background: #ffffff26;
+  overflow: hidden;
+}
+.hud-gauge i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #b45779, #f0a1bc);
+  transition: width 0.35s ease;
+}
+.hud-stamina b {
+  font-size: 15px;
+  min-width: 2.2em;
+}
+.hud-spacer {
+  flex: 1;
+  min-width: 8px;
+}
+.hud-purse {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+}
+.hud-purse small {
+  font-size: 10px;
+  color: #e6cacf;
+}
+.hud-purse b {
+  font-size: 17px;
+  white-space: nowrap;
+}
+.hud-debt {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+  border-left: 1px solid #d2aa8560;
+  padding-left: 16px;
+  margin-left: 8px;
+}
+[data-motion="reduced"] .hud-gauge i {
+  transition: none;
+}
+@media (max-width: 1050px) {
+  .hud-gauge {
+    width: 62px;
+  }
+  .hud-purse b {
+    font-size: 15px;
+  }
+}
+@media (max-width: 720px) and (min-height: 501px) {
+  .hud-days {
+    display: none;
+  }
+  .hud-debt {
+    padding-left: 10px;
+    margin-left: 0;
+  }
+}
+@media (max-height: 500px) {
+  .hud-days i {
+    height: 9px;
+    width: 3px;
+  }
+  .hud-gauge {
+    width: 54px;
+    height: 6px;
+  }
+  .hud-clock b,
+  .hud-stamina b {
+    font-size: 13px;
+  }
+  .hud-purse b {
+    font-size: 14px;
+  }
+}
+
+/* ==== 下段バーの両端（戻る・自室） ==== */
+.command-bar .bar-edge {
+  display: none;
+}
+@media (max-width: 1050px) {
+  .command-app .command-bar .bar-edge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    height: 100%;
+    min-height: 0;
+    padding: 4px 2px;
+    border: 1px solid #d5b79555;
+    border-radius: 12px;
+    background: #fff3e910;
+    color: #fff5e9;
+  }
+  .command-app .command-bar .bar-edge b {
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .command-app .command-bar .bar-edge svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* ==== 立ち絵の常設レイヤー ====
+   自室だけが正しいレイアウト（絵が主役・UIは横に浮く）だったので、
+   その骨格を作業画面にも広げる。三軸は立ち絵の足元に常駐させ、
+   「彼女が何を失ったか」を常に見せる。 */
+.stage {
+  display: block;
+  min-height: 0;
+}
+.stage.with-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.4fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+  height: 100%;
+  min-height: 0;
+}
+.stage-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0;
+  min-height: 0;
+  padding-bottom: 6px;
+}
+.stage-portrait {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 12%;
+  /* 素材が背景ごと描かれた1枚絵なので、縁を羽化して「板」に見せない。
+     背景透過の切り抜きが入ったらこのマスクは外してよい（ART_MANIFEST参照）。 */
+  -webkit-mask-image: radial-gradient(
+    74% 66% at 50% 36%,
+    #000 56%,
+    #0000 100%
+  );
+  mask-image: radial-gradient(74% 66% at 50% 36%, #000 56%, #0000 100%);
+  filter: drop-shadow(0 18px 26px #1a0f1f66);
+  pointer-events: none;
+}
+.stage-hero .axis-panel {
+  position: relative;
+  z-index: 1;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: #2a1f2ecc;
+  backdrop-filter: blur(6px);
+  color: #fff2e6;
+  border: 1px solid #e0bc8955;
+}
+.stage-hero .axis-panel small {
+  color: #e2c9ab;
+}
+.stage-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+}
+.stage-main > .content-inner {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.stage.with-hero .content-inner {
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+}
+/* 立ち絵が出る画面では、背景の絵と二重写りしないよう奥を沈める。 */
+.screen-orders .game-backdrop,
+.screen-brew .game-backdrop,
+.screen-map .game-backdrop,
+.screen-inventory .game-backdrop,
+.screen-journal .game-backdrop {
+  filter: brightness(0.62) saturate(0.8) blur(2px);
+}
+@media (max-width: 1050px) {
+  .stage.with-hero {
+    grid-template-columns: minmax(0, 0.34fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+/* 縦持ちは横に置く余裕がないので、上に帯として敷く。 */
+@media (max-width: 720px) and (min-height: 501px) {
+  .stage.with-hero {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 152px minmax(0, 1fr);
+    gap: 8px;
+  }
+  .stage-portrait {
+    object-position: 50% 8%;
+    -webkit-mask-image: radial-gradient(
+      54% 120% at 50% 30%,
+      #000 46%,
+      #0000 100%
+    );
+    mask-image: radial-gradient(54% 120% at 50% 30%, #000 46%, #0000 100%);
+  }
+  .stage-hero .axis-panel {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .stage.with-hero {
+    grid-template-columns: minmax(0, 0.3fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+  .stage-hero .axis-panel {
+    padding: 4px 8px;
+    font-size: 11px;
+    gap: 2px 8px;
+  }
+}
+/* 380px以下の縦持ちでは立ち絵の帯も畳む。 */
+@media (max-width: 380px) and (min-height: 501px) {
+  .stage.with-hero {
+    grid-template-rows: 118px minmax(0, 1fr);
+  }
+}
+
+/* ==== 依頼状（全画面の契約シート） ====
+   代償と納める品を断言して見せる場所。一覧の帯と並べる場所ではない。 */
+.contract-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #e0c8a8;
+}
+.contract-head > div {
+  flex: 1;
+  min-width: 0;
+}
+.contract-head h2 {
+  margin: 0;
+}
+.contract-crest {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid #d8bf9c;
+  background: #fff6e9;
+  flex-shrink: 0;
+}
+.contract-head .jc-seal {
+  position: static;
+  transform: none;
+  width: 40px;
+  height: 40px;
+  opacity: 0.16;
+  flex-shrink: 0;
+}
+.work-detail {
+  background:
+    radial-gradient(120% 90% at 50% 0%, #fffdf7, #fdf4e6 62%, #f6e8d2),
+    #fffaf3;
+  box-shadow: inset 0 0 0 1px #ffffffb0;
+}
+.work-detail-body {
+  padding: 20px 24px;
+}
+@media (max-height: 500px) {
+  .contract-head {
+    gap: 10px;
+    padding-bottom: 7px;
+  }
+  .contract-crest {
+    width: 34px;
+    height: 34px;
+  }
+  .contract-head .jc-seal {
+    width: 28px;
+    height: 28px;
+  }
+  .work-detail-body {
+    padding: 10px 14px;
+  }
+}
+
+/* ==== 作業画面の見出しを1行に ====
+   route-bar を畳んだので画面名はここが担う。説明文は最小限に。 */
+.work-screen > .page-heading {
+  align-items: baseline;
+}
+.work-screen > .intro {
+  margin: 0 0 6px;
+  color: var(--muted);
+}
+
+/* ==== 準備ストリップ ====
+   依頼詳細・調合・収集の3画面に散っていた「あと何が足りないか」を1本に。 */
+.prep-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  flex-shrink: 0;
+  margin-bottom: 8px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  border: 1px solid #e0bc8970;
+  background: #2a1f2edd;
+  backdrop-filter: blur(6px);
+  color: #fff2e6;
+  font-size: 13px;
+}
+.prep-strip > b {
+  font-family: var(--serif, inherit);
+  color: #e8c188;
+  letter-spacing: 0.06em;
+}
+.prep-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+}
+.prep-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.prep-item .item-art {
+  width: 22px;
+  height: 22px;
+}
+.prep-item i {
+  font-style: normal;
+  color: #f3a9b6;
+  font-weight: 700;
+}
+.prep-lack {
+  flex: 1;
+  min-width: 0;
+  color: #e2c9ab;
+}
+.prep-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.prep-actions .button {
+  min-height: 34px;
+  padding: 4px 14px;
+  font-size: 12px;
+}
+@media (max-height: 500px) {
+  .prep-strip {
+    gap: 3px 10px;
+    padding: 4px 10px;
+    margin-bottom: 5px;
+    font-size: 11px;
+  }
+  .prep-item .item-art {
+    width: 18px;
+    height: 18px;
+  }
+  .prep-actions .button {
+    min-height: 30px;
+    padding: 3px 10px;
+    font-size: 11px;
+  }
+  .prep-lack {
+    display: none;
+  }
+}
+
+/* ==== 結果画面 ====
+   確認→シーン→結果とダイアログが3枚重なっていた。結果は画面として出す。 */
+.result-dialog {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background:
+    radial-gradient(120% 80% at 50% 0%, #3a2a3a, #221a26 60%, #171018);
+  color: #fff3e6;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.result-dialog::backdrop {
+  background: #0d0810;
+}
+.result-hero {
+  position: absolute;
+  right: -4%;
+  bottom: 0;
+  height: 96%;
+  width: auto;
+  max-width: 52%;
+  object-fit: contain;
+  opacity: 0.5;
+  -webkit-mask-image: radial-gradient(66% 62% at 52% 38%, #000 52%, #0000 100%);
+  mask-image: radial-gradient(66% 62% at 52% 38%, #000 52%, #0000 100%);
+  pointer-events: none;
+}
+.result-dialog > header {
+  position: relative;
+  z-index: 1;
+  padding: 18px 28px 10px;
+  border-bottom: 1px solid #e0bc8955;
+  background: none;
+}
+.result-dialog > header h2 {
+  font-family: var(--serif, inherit);
+  font-size: 24px;
+  color: #f3dcc0;
+}
+.result-dialog > .dialog-body {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 28px;
+  max-width: 720px;
+}
+.result-dialog .stats {
+  border-color: #ffffff26;
+}
+.result-dialog .stats small,
+.result-dialog details summary,
+.result-dialog p {
+  color: #e2c9ab;
+}
+.result-dialog .stats b {
+  color: #fff6ea;
+}
+.result-dialog .unlock {
+  color: #f3dcc0;
+  border-left: 3px solid #d9a05f;
+  padding-left: 10px;
+  margin: 6px 0;
+}
+.result-dialog > footer {
+  position: relative;
+  z-index: 1;
+  padding: 12px 28px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid #e0bc8955;
+  background: none;
+  display: flex;
+  justify-content: flex-end;
+}
+@media (max-height: 500px) {
+  .result-dialog > header {
+    padding: 8px 18px 6px;
+  }
+  .result-dialog > header h2 {
+    font-size: 18px;
+  }
+  .result-dialog > .dialog-body {
+    padding: 10px 18px;
+  }
+  .result-dialog > footer {
+    padding: 8px 18px;
   }
 }

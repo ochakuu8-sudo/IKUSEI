@@ -3,7 +3,6 @@ export type Route =
   | "home"
   | "orders"
   | "brew"
-  | "inventory"
   | "map"
   | "journal"
   | "settlement"

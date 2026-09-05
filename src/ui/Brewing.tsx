@@ -27,7 +27,6 @@ export function Brewing({
   source,
   back,
   open,
-  inventory = false,
   deliver,
 }: {
   s: GameState;
@@ -37,9 +36,10 @@ export function Brewing({
   source: (p: PlaceId, id: MaterialId, n: number) => void;
   back: () => void;
   open: (p: Partial<UIState>) => void;
-  inventory?: boolean;
   deliver: () => void;
 }) {
+  // 持ち物は調合の「棚」。別画面に分けると、作るものと持ち物が離れる。
+  const inventory = ui.brewTab !== "recipes";
   const r = recipeOf(ui.recipe),
     capacity = brewCapacity(s, r.id);
   const needs = preparationNeeds(s, ui.selection, ui.memo);
@@ -63,23 +63,16 @@ export function Brewing({
     });
   return (
     <>
-      <Heading eyebrow="THE APOTHECARY">
-        {inventory ? "持ち物" : "調合する"}
-      </Heading>
-      {inventory ? (
-        <Tabs
-          value={ui.brewTab}
-          onChange={(brewTab) => patch({ brewTab })}
-          options={[
-            ["potions", "所持薬"],
-            ["materials", "素材"],
-          ]}
-        />
-      ) : (
-        <p className="intro">
-          作る薬と数量を選びます。素材とスタミナを使います。
-        </p>
-      )}
+      <Heading eyebrow="THE APOTHECARY">調合</Heading>
+      <Tabs
+        value={ui.brewTab}
+        onChange={(brewTab) => patch({ brewTab })}
+        options={[
+          ["recipes", "処方"],
+          ["potions", "所持薬"],
+          ["materials", "素材"],
+        ]}
+      />
       {!inventory && (
         <div className={`brew-workspace ${ui.brewDetail ? "detail-open" : ""}`}>
           <section className="recipe-list" aria-label="薬の一覧">

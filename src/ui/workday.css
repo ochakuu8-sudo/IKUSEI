@@ -88,15 +88,21 @@
   font-size: 12px;
   min-height: 36px;
 }
+/* 1画面につき仕事は1つ（企画書）。詳細は分割ビューではなく、
+   一覧と入れ替わる全画面の「依頼状」にする。 */
 .work-layout {
   display: grid;
-  grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   flex: 1;
   min-height: 0;
 }
-.work-screen:not(.has-detail) .work-layout {
-  grid-template-columns: minmax(0, 1fr);
+.work-screen.has-detail > .page-heading,
+.work-screen.has-detail > .intro,
+.work-screen.has-detail > .tabs,
+.work-screen.has-detail > .work-filters,
+.work-screen.has-detail .work-list {
+  display: none;
 }
 .work-list {
   overflow: auto;
@@ -401,32 +407,9 @@
   }
 }
 @media (max-width: 720px) and (min-height: 501px) {
-  /* 縦持ちは route-bar を下に貼る。コマンドバーはその更に下の行を取る。 */
-  .command-app {
-    grid-template-rows: var(--hud) minmax(0, 1fr) var(--cmdbar);
-  }
-  .command-app > .content {
-    grid-row: 2;
-  }
+  /* 縦持ちのナビは下段バー1本だけ。 */
   .command-app > .command-bar {
     grid-row: 3;
-  }
-  .command-app .route-bar {
-    position: fixed;
-    bottom: var(--cmdbar);
-    left: 0;
-    right: 0;
-    height: auto;
-    min-height: 60px;
-    padding: 7px 12px max(7px, env(safe-area-inset-bottom));
-    z-index: 20;
-    border-top: 1px solid #c3a087;
-  }
-  .command-app .route-bar > span {
-    text-align: center;
-  }
-  .command-app:has(.action-dock) > .route-bar {
-    display: none;
   }
   .command-app .screen-home .content-inner {
     padding: 10px 14px;

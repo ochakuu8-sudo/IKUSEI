@@ -25,11 +25,20 @@ import {
 import { actionLabel } from "./workflow";
 import { DeadlineWarning } from "./ui/ActionDock";
 import { Brewing } from "./ui/Brewing";
-import { Button, Modal, money, Preview, AxisPanel } from "./ui/components";
+import {
+  Art,
+  Button,
+  Modal,
+  money,
+  Preview,
+  AxisPanel,
+} from "./ui/components";
+import { heroSrc } from "./art";
 import type { HomeAction } from "./ui/Actions";
 import { EndingScreen } from "./ui/EndingScreen";
 import { HomeScreen } from "./ui/HomeScreen";
 import { Journal } from "./ui/Journal";
+import { PreparationStrip } from "./ui/PreparationStrip";
 import { Dialogue, ResultDetails } from "./ui/Narrative";
 import { OfferDetails, Orders } from "./ui/Orders";
 import type { Route } from "./ui/routes";
@@ -254,7 +263,7 @@ export default function App() {
     go("journal");
   }
   function inventory() {
-    go("inventory", { brewTab: "potions", preparing: false });
+    go("brew", { brewTab: "potions", brewDetail: false, preparing: false });
   }
   /** 解禁された人物・場所・出来事の「新着」を、実際に見た時点で降ろす。 */
   function markSeen(id: PlaceId) {
@@ -393,16 +402,7 @@ export default function App() {
     event =
       route !== "title" && !scene && !resultOpen ? s?.eventQueue[0] : undefined;
   const pendingPreview = pending && s ? previewAction(s, pending.action) : null;
-  const routeLabel =
-    route === "brew"
-      ? `調合する${ui.brewDetail ? ` › ${recipeOf(ui.recipe).name}` : ""}`
-      : route === "orders"
-        ? "依頼"
-        : route === "map"
-          ? `収集${ui.placeMode === "supply" ? " › 仕入れ" : ""}`
-          : route === "inventory"
-            ? "持ち物"
-            : "約束帳";
+  const onStage = ["orders", "brew", "map", "journal"].includes(route);
   return (
     <div
       className={`app command-app ${route === "title" ? "title-app" : ""} ${route === "home" || s?.ended || s?.awaitingSettlement ? "no-sidebar" : ""} ${saveError ? "save-failed" : ""}`}
@@ -424,7 +424,6 @@ export default function App() {
               choose={choose}
               home={() => go("home")}
               back={back}
-              trail={routeLabel}
               journal={journal}
               inventory={inventory}
               settings={() => setSettings(true)}
@@ -434,7 +433,31 @@ export default function App() {
               ref={content}
               id="main-content"
             >
-              <div className="content-inner">
+              {/* 立ち絵は常設レイヤー。作業画面からヒロインが消えると、
+                  育成SLGではなく管理ツールに見える。三軸もここに常駐させる。 */}
+              <div className={`stage ${onStage ? "with-hero" : ""}`}>
+                {onStage && (
+                  <aside className="stage-hero" aria-label="エレオノールの様子">
+                    <Art
+                      src={heroSrc}
+                      className="stage-portrait"
+                      alt="エレオノール"
+                    />
+                    <AxisPanel state={s} />
+                  </aside>
+                )}
+                <div className="stage-main">
+                  {onStage && (
+                    <PreparationStrip
+                      s={s}
+                      ui={ui}
+                      toCollect={() => go("map", { preparing: true })}
+                      toBrew={() =>
+                        go("brew", { brewDetail: true, brewTab: "recipes" })
+                      }
+                    />
+                  )}
+                  <div className="content-inner">
                 {error && !pending && (
                   <p className="error" role="alert">
                     {error}
@@ -485,7 +508,7 @@ export default function App() {
                     journal={() => go("journal")}
                   />
                 )}
-                {(route === "brew" || route === "inventory") && (
+                {route === "brew" && (
                   <Brewing
                     s={s}
                     ui={ui}
@@ -493,10 +516,7 @@ export default function App() {
                     confirm={ask}
                     source={source}
                     back={back}
-                    open={(changes) =>
-                      route === "brew" ? patch(changes) : go("brew", changes)
-                    }
-                    inventory={route === "inventory"}
+                    open={(changes) => patch(changes)}
                     deliver={() => resume("orders", { preparing: false })}
                   />
                 )}
@@ -506,9 +526,6 @@ export default function App() {
                     ui={ui}
                     confirm={ask}
                     patch={patch}
-                    toBrew={() =>
-                      go("brew", { brewDetail: true, brewTab: "recipes" })
-                    }
                     seen={markSeen}
                     back={back}
                   />
@@ -540,6 +557,8 @@ export default function App() {
                 {route === "ending" && (
                   <EndingScreen s={s} setRoute={setRoute} />
                 )}
+                  </div>
+                </div>
               </div>
             </main>
             {receipt && !resultOpen && !scene && (
@@ -796,6 +815,7 @@ export default function App() {
       {resultOpen && receipt && !scene && (
         <Modal
           title={receipt.title}
+          variant="result"
           onClose={finishResult}
           footer={
             <Button primary onClick={finishResult}>
@@ -803,6 +823,12 @@ export default function App() {
             </Button>
           }
         >
+          {/* 小さな箱を重ねるのではなく、シーンの余韻を受ける画面として出す。 */}
+          <Art
+            src={heroSrc}
+            className="result-hero"
+            alt=""
+          />
           <ResultDetails before={receipt.before} outcome={receipt.outcome} />
         </Modal>
       )}

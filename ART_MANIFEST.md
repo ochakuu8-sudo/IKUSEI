@@ -1,37 +1,232 @@
-# 素材マニフェスト
+# 素材マニフェスト ── どこに、どんな画像が必要か
 
-## 主人公
+**この文書は「絵を発注するための仕様書」です。** UIは画像が無くても壊れないように
+作ってあり（各項目に「無いときの表示」を書いてある）、**描けたぶんから1枚ずつ
+置くだけで反映されます。コード側の変更は不要です。**
 
-- 原本: `public/hero-key-visual.webp`（ユーザー提供、変更なし）
-- 表示: `public/art/hero.png`（RGBA・実透明）
-- 背景除去の生成試行2点は、透明ピクセルではなくチェック柄が描かれたため不採用。
-- 採用マスク: `public/art/hero-matte.png`。built-in imagegenで原画像の前景を白・背景を黒にした輪郭マスクを生成し、元画像へ適用。顔・髪・衣装・ポーズの再設計、全身の描き足しは行っていない。
-- 生成指示: Precise extraction matte of supplied original. Same square composition. Entire girl, hair, clothing, lace and ribbons solid white; exterior solid black. No internal details, no text, exact original outer contours.
-- 透過検証: 240,585ピクセルが完全透明、793,050ピクセルが完全不透明。不透明部分のRGBは原画像と全画素一致（変更0）。顔・白衣装・レースの確認点はalpha255。暗い背景に重ねて拡大確認。
+参照の入口は `src/art.ts` に集約してあります。ここを通さない画像参照は作らないこと。
 
-## 背景
+---
 
-`public/art/backgrounds/` に各場所9点、調合机1点、街の地図1点。
-制作: built-in imagegen。PNGの生成原本を保持し、Web配信用に幅1600px以下・WebP品質84へ変換。
-共通プロンプト: One finished wide 16:9 game background illustration. Elegant Japanese visual novel environment painting, clean fine linework and soft painterly shading, matching a blonde aristocratic heroine with black ribbons and antique gold roses. Ivory #F6F0E4, ink #25212A, antique gold #A28550, small wine red #8F3046 accents. Authored composition, architectural perspective, detailed focal props, quiet spaces. No text or UI, no panels or collage, no people.
+## 0. 最優先の1枚 ── 立ち絵の切り抜き
 
-| ID | 個別の制作指示 |
+いま**唯一これだけが、無いことで見た目を壊しています。**
+
+現在の `public/art/hero.png` は「背景ごと描かれた1枚絵」です。UIはこれを
+タイトル・自室・作業画面・シーンの4か所に置くので、**背景の上に四角い板が乗った
+状態**になります（タイトル右端の直線、シーン画面で部屋が二重に写る現象）。
+
+暫定処置として `mask-image` で縁を羽化してありますが、これは**切り抜きが来たら
+外すべき応急処置**です（`src/ui/stamina.css` の `.stage-portrait` / `.result-hero`、
+`.scenario-portrait`）。
+
+| 項目 | 仕様 |
 |---|---|
-| estate | Noblewoman's bedroom and apothecary salon, ivory plaster, gold mouldings, black ribbon, antique desk and ledger, crimson rose, morning light |
-| arnaud | French trading house, dark wood counter, botanical ingredient drawers, parcels, brass scales, wine red drapery |
-| academy | Royal academy library, ivory arches, leather books, quiet reading table, golden lamp, muted sage |
-| valere | Count's French salon, ivory and gold panels, black carved furniture, crimson velvet, porcelain tea service |
-| guild | Guildhall timber beams, cream stone, worktable, blank sealed papers and ropes, warm practical atmosphere |
-| hill | Monastery hill, wild roses, stone abbey and bell tower, cream sky, olive herbs and meadows |
-| wood | Royal forest path, birches, ancient trees, red poppies and wormwood, warm sunlight |
-| backstreet | Narrow French backstreet at dusk, worn stone, amber lanterns, unmarked herbs, violet shadows |
-| garden | Walled herb garden, open wrought iron gate, silver herbs, pale roses, glass greenhouse |
-| brew | Marble mortar, glass bottles, rose petals, brass balance and blank recipe ledger on dark wooden desk |
-| map | Bird's-eye French fantasy town: mansion lower left, trading left center, academy upper center, count right center, guild lower center, monastery upper left, forest upper right, alleys bottom center, garden bottom right. Paths and gardens, no labels |
+| 置き場所 | `public/art/portrait/intact.png` |
+| サイズ | 1024×1536 |
+| 形式 | **PNG・背景完全透過（RGBA）** |
+| 構図 | 膝上〜全身。**上下左右に余白を持たせない**（UI側で切り出す） |
+| 光 | 特定の場所に依存しない均一光。影は落とさない（UIが `drop-shadow` を付ける） |
+| 禁止 | 背景・床・小物を描き込まない。半透明のチェック柄で代用しない |
 
-## SVGアイコンと紋章
+### 状態差分（三軸が動くようになったので、次に効くのはここ）
 
-- `public/art/items/`: 薬7点・素材6点。薬は容器の輪郭・色・ラベルの図形、素材は植物や物質の輪郭で区別。文字は焼き込まない。
-- `public/art/crests/`: 人物7名の紋章。顔や人物設定は追加しない。
-- 共通UI: lucide-reactの操作記号、CSSの紙面・封蝋・リボン・金枠。原寸44px以上の操作領域。
-- 読込失敗時: Artコンポーネントの専用紋章表示。背景に主人公を流用しない。
+3軸のうち**最も低いもの**で段階が決まります（`src/art.ts` の `portraitStage`）。
+
+| ファイル | 条件 | 方向性 |
+|---|---|---|
+| `portrait/intact.png` | 76〜100 | 令嬢として整っている |
+| `portrait/worn.png` | 51〜75 | 髪と衣装がわずかに乱れる |
+| `portrait/fallen.png` | 26〜50 | 装飾が減り、目線が落ちる |
+| `portrait/ruined.png` | 0〜25 | 見られることに慣れた立ち方 |
+
+**無いとき**：`intact` に、無ければ現行の `hero.png` にフォールバック。
+現状 `portraitStage()` は常に `intact` を返す実装なので、差分を入れる際に
+この関数の1行を戻す必要があります（コード側の作業は数行）。
+
+### 表情差分（あると会話が生きる。優先度は状態差分の次）
+
+`public/art/portrait/<stage>-<face>.png`
+`face` = `normal` / `smile` / `avert`（目を逸らす）/ `steel`（構える）
+
+---
+
+## 1. 立ち絵が出る場所（新しい配置）
+
+UIを作り直したので、立ち絵は**4か所すべてで常設**になりました。
+
+| 画面 | 表示のされ方 | 必要な素材 |
+|---|---|---|
+| タイトル | 画面左に大きく | 上記の切り抜き |
+| 自室 | 左カラム全体 ＋ 足元に三軸ゲージ | 同上 |
+| **依頼・調合・収集・約束帳** | **左カラムに常設**（今回追加） | 同上 |
+| 結果画面 | 右奥に薄く | 同上 |
+| シーン | 背景CGの上に重ねる | 同上 |
+
+---
+
+## 2. 背景（既存・追加は任意）
+
+`public/art/backgrounds/<id>.webp` ── 1600×900程度・WebP。
+
+既存11点：`estate` `arnaud` `academy` `valere` `guild` `hill` `wood` `backstreet`
+`garden` `brew` `map`
+
+**無いとき**：`.game-backdrop` が読み込みに失敗し、CSSのグラデーションが出ます。
+
+> **注意**：作業画面では背景を `brightness(0.62) blur(2px)` で沈めています。
+> 立ち絵と二重写りさせないための処理なので、背景は**細部で語らない絵**が向きます。
+
+### 追加すると効くもの
+
+| ID | 用途 |
+|---|---|
+| `title` | タイトル専用（いまは `estate` を流用） |
+| `ending` | 結末専用 |
+| `settlement` | 章末精算専用（いまは `estate` を流用） |
+
+---
+
+## 3. イベントCG（シーン）── 最も「アダルトゲームらしさ」に効く
+
+納品のたびにシーンが入る仕様になったので、**ここが本番**です。
+
+| 置き場所 | 用途 | サイズ |
+|---|---|---|
+| `public/art/scene/<jobId>.png` | 依頼共通のCG | 1920×1080 |
+| `public/art/scene/<jobId>-<axis>.png` | 軸ごとの差分（あれば優先） | 1920×1080 |
+
+`axis` = `貞操` / `品位` / `威厳`
+
+`jobId` は `src/game.ts` の `jobs[].id`。現在の主なもの：
+
+```
+ord-vernet-tisane   商会へ薬湯を届ける      （上の格・無償）
+ord-marc-tisane     組合へ薬湯を届ける      （上の格・無償）
+ord-tisane          学院へ薬湯を届ける      （上の格・無償）
+ord-balm            傷薬をまとめて納める    （中の格・無償）
+ord-sleeper         眠り薬を納める          （中の格・無償）
+ord-perfume         伯爵家へ香油を用立てる  （上の格・無償）
+ord-tonic           気付け薬を届ける        （上の格・無償）
+ord-philtre         「例のもの」を用意する  （下の格・威厳−10）★
+ord-abortive        名の無い薬を頼まれる    （下の格・威厳−6 品位−6）★
+```
+
+★の2件が**代償を伴う納品**＝このジャンルの見せ場です。**CGを1枚だけ描くなら
+`ord-philtre` から。**
+
+**無いとき**：場所の背景＋立ち絵の合成で代用します（＝いまの状態）。
+
+---
+
+## 4. 依頼状（新しい画面）
+
+依頼詳細を全画面の「依頼状」に作り替えました。いまはCSSの紙で描いています。
+
+| 置き場所 | 用途 | サイズ | 優先 |
+|---|---|---|---|
+| `public/art/paper/contract.png` | 依頼状の紙の地（繰り返しタイル可） | 512×512 | 低 |
+| `public/art/paper/seal-<axis>.png` | 封蝋（軸ごとに色を変える） | 256×256 | 中 |
+
+**無いとき**：CSSのグラデーション紙＋`marks.tsx` の紋の透かし（現状）。
+
+---
+
+## 5. 依頼人の顔
+
+`public/art/person/<personId>.png` ── 512×512
+
+`personId` = `vernet` `jean` `claire` `guillaume` `count` `marc` `herbalist`
+
+依頼状の左上と、依頼カードに出ます。
+
+**無いとき**：`public/art/crests/<personId>.svg`（紋章・既存）が出ます。
+**7人全員が同じ絵になるくらいなら、紋章のままの方が良い**ので、
+描くなら7人まとめて入れてください。
+
+---
+
+## 6. アイテムと素材（既存・差し替え可）
+
+`public/art/items/<id>.svg` ── 薬7点・素材6点
+
+```
+薬   tisane（薬湯） balm（傷薬） perfume（香油） sleeper（眠り薬）
+     tonic（気付け薬） philtre（媚薬） abortive（堕胎薬）
+素材 rose（野薔薇） wax（蜜蝋） poppy（乾燥ケシ） wormwood（苦艾）
+     ambergris（竜涎） silversand（銀砂）
+```
+
+いまは輪郭中心のSVG。**現状これが「カジュアルなスマホゲーム」寄りに見える一因**
+なので、質感のある小さな絵（128×128 PNG）に置き換える価値があります。
+
+---
+
+## 7. 紋（軸の記号）── 画像ではなくコード
+
+`src/marks.tsx` のインラインSVG。**画像ファイルにしないこと。**
+`fill: currentColor` で置いた場所の色を継ぐ設計です。
+
+| 名前 | 紋 |
+|---|---|
+| 貞操 | 百合 |
+| 品位 | 小冠 |
+| 威厳 | 盾に横帯 |
+| 体力（スタミナ） | 砂時計 |
+| 関係 | 二つの輪 |
+
+**HUDとコマンドの線画アイコン（lucide）を紋に置き換える**なら、ここに追加します。
+「日付」「所持金」「残債」「依頼」「収集」「調合」の6つが候補です。
+
+---
+
+## 8. UIの装飾（あると格が上がる・優先度は低い）
+
+| 置き場所 | 用途 |
+|---|---|
+| `public/art/ui/corner.svg` | パネル四隅の角飾り |
+| `public/art/ui/rule.svg` | 金の細罫 |
+| `public/art/ui/grain.png` | 紙目のノイズ（タイル・512×512・アルファ薄く） |
+
+**無いとき**：装飾なし（現状）。
+
+---
+
+## 9. 音（画像ではないが、体感品質への寄与が最も大きい）
+
+いま**完全に無音**です。このジャンルでは無音は「未完成」に見えます。
+
+| 置き場所 | 用途 | 長さ |
+|---|---|---|
+| `public/audio/bgm-day.ogg` | 日常のループ | 60〜120秒 |
+| `public/audio/bgm-scene.ogg` | シーンのループ | 60〜120秒 |
+| `public/audio/se-confirm.ogg` | 決定 | 〜0.3秒 |
+| `public/audio/se-back.ogg` | 戻る | 〜0.3秒 |
+| `public/audio/se-deliver.ogg` | 納品成立 | 〜1秒 |
+
+※ 再生側は未実装です。素材が来た時点で `<audio>` と音量設定を足します。
+
+---
+
+## 優先順位まとめ
+
+| 順 | 素材 | 効果 |
+|---|---|---|
+| **1** | 立ち絵の切り抜き `portrait/intact.png` | ★★★ いま唯一、無いことで見た目を壊している |
+| **2** | `ord-philtre` のイベントCG | ★★★ 代償を払う瞬間の絵 |
+| **3** | 立ち絵の状態差分（worn / fallen / ruined） | ★★★ 三軸が動くようになったので効く |
+| **4** | 音（BGM 2本＋SE 3点） | ★★★ 無音は未完成に見える |
+| **5** | 依頼人の顔 7点 | ★★☆ 7人まとめて |
+| **6** | アイテムの質感差し替え | ★★☆ カジュアル感の解消 |
+| **7** | 表情差分 | ★★☆ |
+| **8** | 封蝋・角飾り・紙目 | ★☆☆ |
+
+---
+
+## 守ること
+
+- **背景と依頼人の顔を仮画像で埋めない。** 背景は立ち絵と二重に写り、顔は
+  7人全員が同じ絵になります。無いときのフォールバックの方が良い状態です。
+- **`Art` は候補URLを重複除去してから順に試します。** 同じURLが並ぶと `src` が
+  変わらず `onError` が起きず、候補送りがそこで止まります。
+- 画像の参照は必ず `src/art.ts` を経由すること。

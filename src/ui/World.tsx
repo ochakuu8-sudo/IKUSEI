@@ -30,7 +30,6 @@ export function World({
   ui,
   confirm,
   patch,
-  toBrew,
   back,
   seen,
 }: {
@@ -38,7 +37,6 @@ export function World({
   ui: UIState;
   confirm: (a: Action, title: string) => void;
   patch: (p: Partial<UIState>) => void;
-  toBrew: () => void;
   back: () => void;
   /** 解禁されたばかりの採集地の「新着」を降ろす。 */
   seen: (id: PlaceId) => void;
@@ -51,29 +49,6 @@ export function World({
   return (
     <div className="collection-screen">
       <Heading eyebrow="GATHERING">収集</Heading>
-      {ui.preparing && (
-        <div className="preparation-line">
-          <b>
-            準備中：{recipe.name} ×{ui.quantity}
-          </b>
-          {missing.length ? (
-            <span>
-              {missing
-                .map(
-                  ([id, n]) =>
-                    materialOf(id as MaterialId).name +
-                    " あと" +
-                    (n! * ui.quantity - s.materials[id as MaterialId]),
-                )
-                .join(" ／ ")}
-            </span>
-          ) : (
-            <Button primary onClick={toBrew}>
-              調合へ
-            </Button>
-          )}
-        </div>
-      )}
       <Tabs
         value={ui.placeMode === "supply" ? "supply" : "menu"}
         onChange={(placeMode) =>
