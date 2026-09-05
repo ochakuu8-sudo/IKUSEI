@@ -1,5 +1,21 @@
 # CLAUDE.md
 
+## 現行システムの追補（2026-09-05）
+
+この追補は下記の古い構成・セーブ・収入の説明に優先する。
+
+- 人物・素材・処方は仮データ。支援の割当は src/content/support.ts、型は supportTypes.ts。
+- 状態更新は engine.ts の performAction、約束の判定は contracts.ts。App.tsxで資源更新を複製しない。
+- 現行仕様と仮数値は GAME_DESIGN.md §14、SYSTEM_PLAN.md §10。
+- 支援と約束の条件・履行方法は受諾前に明示する。イベントシーンは結果を見る場。
+- 保存は ikusei-prototype-save-v8。save.tsでv7を移行し、義務や履歴は空で補う。
+- npm test / npm run sim はNodeとTypeScriptで動作し、bashやesbuildの追加取得は不要。
+- npm run test:ui は起動中のローカルViteへ接続する。初回のみ npx playwright install chromium。
+- 結果と章末の長い説明は1か所でスクロールし、進むボタンは常に表示する。ページ全体はスクロールさせない。
+- 既存ノルマは暫定維持。旧simの「清廉なら248G余り」は現在の難易度の結論として扱わない。
+- 竜涎の関係供給は未実装。今回の一般的な素材支援機構と、個別素材の供給データを混同しない。
+
+
 このリポジトリで作業するときの前提。**特にデプロイ周りは間違えやすいので、着手前に必ず読むこと。**
 
 ## 何のリポジトリか

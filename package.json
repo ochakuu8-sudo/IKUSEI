@@ -8,7 +8,9 @@
     "build": "tsc --noEmit -p tsconfig.app.json && vite build",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy.sh",
-    "sim": "bash scripts/sim.sh"
+    "sim": "node scripts/run.mjs sim",
+    "test": "node scripts/run.mjs test",
+    "test:ui": "node scripts/run.mjs ui"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
@@ -20,6 +22,7 @@
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "playwright": "^1.63.0",
     "typescript": "~5.7.2"
   }
 }

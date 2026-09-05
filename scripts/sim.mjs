@@ -1,169 +1,84 @@
-// 段階E：調剤ラインが入ったあとの「1章で稼げる額」を実測する。
-// 正攻法＝尊厳を1点も払わない打ち方。これに対する比率で QUOTAS を引き直す。
-import * as G from './game.built.mjs';
+// 方針の比較。最適収入の証明ではない。UIと同じperformActionで購入・期限・精算も処理する。
+import * as G from '@game/game';
+import { performAction } from '@game/engine';
+import { supportOffers } from '@game/content/support';
+import { offerReason, outstandingTotal, absoluteDay } from '@game/contracts';
+import assert from 'node:assert/strict';
 
-const CHAPTER_DAYS = G.CHAPTER_DAYS;
-
-function clone(s) {
-  return JSON.parse(JSON.stringify(s));
-}
-
-/** その日にできる「納品」候補。純利益ではなく単純な受取額で見る。 */
-function deliverable(s, allowCost) {
-  return G.jobs.filter((j) => G.isOpen(j, s) && G.hasStaminaFor(j, s) && G.hasStockFor(j, s))
-    .filter((j) => allowCost || j.costs.length === 0)
-    .map((j) => ({ job: j, pay: G.payWithRelation(j, s) }))
-    .sort((a, b) => b.pay - a.pay);
-}
-
-/** いま調合できる処方のうち、まだ在庫が足りていない注文に効くもの。 */
-function usefulBrew(s, allowCost) {
-  const wanted = new Map();
-  G.jobs.filter((j) => j.recipe && G.isOpen(j, s))
-    .filter((j) => allowCost || j.costs.length === 0)
-    .forEach((j) => {
-      const need = (j.count ?? 1) - (s.stock[j.recipe] ?? 0);
-      if (need > 0) wanted.set(j.recipe, Math.max(wanted.get(j.recipe) ?? 0, G.payWithRelation(j, s)));
-    });
-  return G.recipes.filter((r) => wanted.has(r.id) && G.canBrew(r, s))
-    .map((r) => ({ recipe: r, worth: wanted.get(r.id) }))
-    .sort((a, b) => b.worth - a.worth);
-}
-
-/** 素材が足りない注文のために、どこへ行くのが一番効くか。 */
-function bestGather(s, allowCost) {
-  const short = new Set();
-  G.jobs.filter((j) => j.recipe && G.isOpen(j, s))
-    .filter((j) => allowCost || j.costs.length === 0)
-    .forEach((j) => {
-      const r = G.recipeOf(j.recipe);
-      if (!s.known.includes(r.id)) return;
-      if ((s.stock[j.recipe] ?? 0) >= (j.count ?? 1)) return;
-      G.materialIds.forEach((m) => { if (s.materials[m] < (r.needs[m] ?? 0)) short.add(m); });
-    });
-  if (!short.size) return null;
-  return G.gatherPlaces(s)
-    .filter((p) => s.stamina >= (p.gatherStamina ?? 20))
-    .map((p) => ({ place: p, hits: G.gatherYield(p).filter((g) => short.has(g.id)).length }))
-    .filter((p) => p.hits > 0)
-    .sort((a, b) => b.hits - a.hits)[0]?.place ?? null;
-}
-
-function applyDay(s, patch, worked, publicWork) {
-  const next = { ...s, ...patch };
-  next.axes = { ...s.axes, ...(patch.axes ?? {}) };
-  if (!publicWork) next.axes.威厳 = Math.min(100, next.axes.威厳 + 2);
-  next.axes.品位 = Math.min(next.axes.品位, patch.dignityCap ?? s.dignityCap);
-  next.recent = [worked, ...s.recent].slice(0, 6);
-  next.day = s.day + 1;
-  return next;
-}
-
-function takeJob(s, job) {
-  const pay = G.payWithRelation(job, s);
-  const axes = { ...s.axes };
-  job.costs.forEach((c) => { axes[c.axis] = Math.max(0, axes[c.axis] - c.amount); });
-  const cap = G.capDropOf(job);
-  const relBefore = s.relations[job.person];
-  const relAfter = Math.min(3, relBefore + (job.bond ?? 1));
-  const stock = { ...s.stock };
-  if (job.recipe) stock[job.recipe] = (stock[job.recipe] ?? 0) - (job.count ?? 1);
-  const learned = [
-    ...G.recipesTaughtBy(job.person, relBefore, relAfter, s.known),
-    ...(job.teaches && !s.known.includes(job.teaches) ? [job.teaches] : []),
-  ];
-  return applyDay(s, {
-    money: s.money + pay, stamina: s.stamina - job.stamina, axes,
-    dignityCap: Math.max(0, s.dignityCap - cap),
-    relations: { ...s.relations, [job.person]: relAfter },
-    stock, known: [...s.known, ...learned],
-  }, job.person, job.costs.some((c) => c.axis === '威厳'));
-}
-
-function doGather(s, place) {
-  const materials = { ...s.materials };
-  G.gatherYield(place).forEach((g) => { materials[g.id] += g.amount; });
-  return applyDay(s, { stamina: s.stamina - (place.gatherStamina ?? 20), materials }, 'none', false);
-}
-
-/** 顔を出して関係を進める。次の段階で処方を教わるなら、これが一番効く。 */
-function worthNetwork(s) {
-  if (s.money < G.NETWORK_COST || s.stamina < G.NETWORK_STAMINA) return null;
-  return G.people.find((p) => {
-    const rel = s.relations[p.id];
-    if (rel >= 3) return false;
-    return G.recipesTaughtBy(p.id, rel, rel + 1, s.known).length > 0;
-  }) ?? null;
-}
-
-function doNetwork(s, person) {
-  const before = s.relations[person.id];
-  const after = Math.min(3, before + 1);
-  const learned = G.recipesTaughtBy(person.id, before, after, s.known);
-  return applyDay(s, {
-    money: s.money - G.NETWORK_COST, stamina: s.stamina - G.NETWORK_STAMINA,
-    relations: { ...s.relations, [person.id]: after },
-    known: [...s.known, ...learned],
-  }, 'none', false);
-}
-
-function doRest(s) {
-  const after = Math.min(s.dignityCap, s.axes.品位 + 6);
-  return applyDay(s, {
-    stamina: Math.min(G.MAX_STAMINA, s.stamina + G.REST_RECOVERY),
-    axes: { ...s.axes, 品位: after },
-  }, 'none', false);
-}
-
-/** 1章まわす。allowCost=false が正攻法（尊厳を1点も払わない）。 */
-function runChapter(state, allowCost) {
-  let s = clone(state);
-  const start = s.money;
-  while (s.day <= CHAPTER_DAYS) {
-    const d = deliverable(s, allowCost);
-    const b = usefulBrew(s, allowCost);
-    // 在庫があるなら納める。調合は日を使わないので、先に打てるだけ打つ。
-    while (b.length && G.canBrew(b[0].recipe, s)) { s = G.brewOnce(s, b[0].recipe.id); b.shift(); }
-    const d2 = deliverable(s, allowCost);
-    if (d2.length) { s = takeJob(s, d2[0].job); continue; }
-    // 処方が開くなら、顔を出すのが最優先（レシピは金では買えない）
-    const n = worthNetwork(s);
-    if (n && !allowCost) { s = doNetwork(s, n); continue; }
-    const g = bestGather(s, allowCost);
-    if (g) { s = doGather(s, g); continue; }
-    if (d.length) { s = takeJob(s, d[0].job); continue; }
-    if (n) { s = doNetwork(s, n); continue; }
-    s = doRest(s);
+function step(s, a) { const out=performAction(s,a); assert.equal(out.error,undefined,JSON.stringify(a)); return out.state; }
+function prepare(s, recipe, count, stamina) {
+  const r=G.recipeOf(recipe), held=s.stock[recipe]??0;
+  if(held>=count && s.stamina>=stamina) return {ready:true};
+  if(held>=count || s.stamina < r.stamina+stamina) return {action:{type:'rest'}};
+  if(G.canBrew(r,s)) return {action:{type:'brew',recipe}};
+  const basket={};
+  for(const id of G.materialIds) {
+    const n=Math.max(0,(r.needs[id]??0)*(count-held)-s.materials[id]);
+    if(n) basket[id]=n;
   }
-  return { earned: s.money - start, state: s };
+  const spend=Object.entries(basket).reduce((sum,[id,n])=>sum+(G.materialOf(id).buy??Infinity)*n,0);
+  if(spend>0 && spend<=s.money) return {action:{type:'buy',place:'arnaud',basket}};
+  const gather=G.gatherPlaces(s).filter(p=>s.stamina>=(p.gatherStamina??20))
+    .sort((a,b)=>Object.keys(b.gathers).filter(id=>basket[id]).length-Object.keys(a.gathers).filter(id=>basket[id]).length)[0];
+  if(gather && Object.keys(gather.gathers).some(id=>basket[id])) return {action:{type:'gather',place:gather.id}};
+  return null;
 }
-
-function run(allowCost) {
-  let s = clone(G.initialState);
-  s.money = 0;
-  const rows = [];
-  for (let ch = 1; ch <= G.CHAPTERS; ch++) {
-    s.chapter = ch; s.day = 1;
-    const r = runChapter(s, allowCost);
-    rows.push(r.earned);
-    s = r.state;
-    s.stamina = G.MAX_STAMINA;
-    s.axes.威厳 = Math.min(100, s.axes.威厳 + 6);
+function choose(s, policy) {
+  if(s.awaitingSettlement) {
+    const pay=s.obligations.find(o=>o.outstanding>0 && (o.status!=='active'||o.terms.kind==='credit') && s.money>=o.outstanding);
+    return pay && policy!=='independent' ? {type:'pay',id:pay.id} : {type:'settle'};
   }
-  return { rows, final: s };
+  const offerId=policy==='advance'?'reservation':policy==='credit'?'supply-credit':null;
+  const offer=supportOffers.find(o=>o.id===offerId);
+  if(offer && !offerReason(s,offer)) return {type:'accept',offer:offer.id};
+  const obligation=s.obligations.find(o=>o.status==='active' && o.terms.kind==='advance');
+  if(obligation) {
+    const c=obligation.terms.options[0];
+    const prepared=prepare(s,c.recipe,c.count,c.stamina);
+    if(prepared?.ready) return {type:'fulfill',id:obligation.id,option:c.id};
+    if(prepared?.action) return prepared.action;
+  }
+  const repay=s.obligations.find(o=>o.outstanding>0 && o.terms.kind==='credit' && s.money>=o.outstanding+120);
+  if(repay) return {type:'pay',id:repay.id};
+  // 初回の筆耕で処方を知る。その後は手持ちと純利益で注文を比較する。
+  if(!s.known.includes('perfume') && G.isOpen(G.jobs.find(j=>j.id==='copyist'),s) && s.stamina>=20) return {type:'job',id:'copyist'};
+  const candidates=G.jobs.filter(j=>G.isOpen(j,s)&&(policy==='short-term'||!j.costs.length));
+  const ready=candidates.filter(j=>G.hasStaminaFor(j,s)&&G.hasStockFor(j,s)).sort((a,b)=>G.payWithRelation(b,s)-G.payWithRelation(a,s));
+  if(ready[0]?.recipe || (policy==='short-term' && ready[0]?.costs.length)) return {type:'job',id:ready[0].id};
+  const orders=candidates.filter(j=>j.recipe).sort((a,b)=>net(b,s)-net(a,s));
+  const order=orders[0];
+  if(order && net(order,s)>=(ready[0]?G.payWithRelation(ready[0],s):0)) {
+    const p=prepare(s,order.recipe,order.count??1,order.stamina);
+    if(p?.ready) return {type:'job',id:order.id};
+    if(p?.action) return p.action;
+  }
+  if(ready.length) return {type:'job',id:ready[0].id};
+  return {type:'rest'};
 }
-
-const honest = run(false);
-const fallen = run(true);
-console.log('正攻法（尊厳を1点も払わない）章ごとの稼ぎ:', honest.rows.map((r) => Math.round(r)));
-console.log('  合計', Math.round(honest.rows.reduce((a, b) => a + b, 0)));
-console.log('  終了時の3軸', honest.final.axes, '品位上限', honest.final.dignityCap);
-console.log('  覚えた処方', honest.final.known.join(','));
-console.log('堕ちる（何でも受ける）章ごとの稼ぎ:', fallen.rows.map((r) => Math.round(r)));
-console.log('  合計', Math.round(fallen.rows.reduce((a, b) => a + b, 0)));
-console.log('  終了時の3軸', fallen.final.axes);
-const total = honest.rows.reduce((a, b) => a + b, 0);
-console.log('QUOTAS', G.QUOTAS.join(' / '), '計', G.TOTAL_DEBT);
-console.log('達成率（正攻法の稼ぎ ÷ ノルマ）',
-  G.QUOTAS.map((q, i) => Math.round(honest.rows[i] / q * 100) + '%').join(' → '));
-console.log('清廉プレイの余り', Math.round(total - G.TOTAL_DEBT) + 'G');
+function net(j,s) {
+  const r=G.recipeOf(j.recipe);
+  return G.payWithRelation(j,s)-Object.entries(r.needs).reduce((sum,[id,n])=>sum+(G.materialOf(id).buy??100)*n,0)*(j.count??1);
+}
+function simulate(policy, chapters) {
+  let s=structuredClone(G.initialState), iterations=0;
+  const rows=[], counts={}; let start=s.money;
+  while(!s.ended && s.chapter<=chapters) {
+    assert.ok(++iterations<2000,'policy loop');
+    const a=choose(s,policy), previous=s;
+    s=step(s,a); counts[a.type]=(counts[a.type]??0)+1;
+    if(a.type==='settle') {
+      const sheet=G.settlementOf(previous);
+      rows.push({chapter:previous.chapter,netBeforeSettlement:previous.money-start,paid:sheet.paid,shortfall:sheet.shortfall});
+      start=s.money;
+      if(previous.chapter===chapters) break;
+    }
+  }
+  return {policy,days:chapters*14,money:s.money,debt:s.debt,unsettled:outstandingTotal(s),
+    fulfilled:s.obligations.filter(o=>o.status==='fulfilled').length,
+    defaults:s.obligations.filter(o=>o.status==='defaulted').length,
+    capabilities:s.capabilities,axes:s.axes,counts,rows};
+}
+for(const chapters of [2,6]) {
+  console.log(`\n${chapters*14}日間：仮データと行動方針の比較（前金は純利益ではありません）`);
+  for(const policy of ['independent','advance','credit','short-term']) console.log(JSON.stringify(simulate(policy,chapters)));
+}

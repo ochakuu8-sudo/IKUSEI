@@ -1070,3 +1070,97 @@ img { display: block; max-width: 100%; }
   .supply-rows { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
   .sup-step button { width: 20px; height: 20px; }
 }
+/* 支援と約束：1枚ずつ読む書類。人物・素材を差し替えても使う共通画面。 */
+.support-screen { display: flex; flex-direction: column; padding: var(--pad); gap: 6px; }
+.support-screen > .hud { position: relative; flex-shrink: 0; padding: 0; }
+.support-panel { position: relative; z-index: 1; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.support-panel .topbar { margin: 0; padding: 0; flex-shrink: 0; }
+.support-nav { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.support-nav > span { color: var(--ink-2); font-size: var(--fs-xs); }
+.support-sheet { background: var(--panel); border: 1px solid var(--line-strong); padding: 16px; border-radius: 6px; flex: 1; min-height: 0; }
+.support-sheet header { margin-bottom: 12px; }
+.support-sheet header small { color: var(--gold); }
+.support-sheet h3 { font-size: var(--fs-xl); }
+.support-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; font-size: var(--fs-sm); line-height: 1.5; }
+.support-columns > div { min-width: 0; }
+.support-columns dl { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; margin: 10px 0; }
+.support-columns dt { color: var(--ink-2); }
+.support-columns dd { margin: 0; }
+.support-note { color: var(--ink-2); font-size: var(--fs-xs); margin-top: 8px; }
+.support-option { border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 8px; }
+.support-action { margin-top: 6px; }
+.support-action small { display: block; color: var(--ink-3); font-size: 11px; line-height: 1.3; }
+.support-notice { color: var(--gold); margin-bottom: 8px; }
+.support-pages { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.support-empty { flex: 1; padding: 30px; background: var(--panel); }
+.support-allocation { color: var(--gold); font-size: var(--fs-xs); }
+.support-confirm { position: fixed; inset: 0; z-index: 40; background: #03060be6; display: grid; place-items: center; padding: 15px; }
+.support-confirm > div { width: min(520px, 100%); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px; padding: 20px; }
+.support-confirm p { margin: 12px 0; }
+.support-confirm > div > div { display: flex; gap: 10px; justify-content: flex-end; }
+.promise-ticker { width: 100%; border: 1px solid var(--line-strong); background: var(--panel); color: var(--gold); font-size: var(--fs-xs); padding: 4px 8px; text-align: left; cursor: pointer; }
+.result-notices { font-size: var(--fs-xs); color: var(--gold); }
+.ending-obligations { font-size: var(--fs-sm); color: var(--gold); }
+@media (max-height: 560px) {
+  .support-screen { padding: 7px 12px; gap: 4px; }
+  .support-panel { gap: 4px; }
+  .support-panel .btn.sm { min-height: 25px; padding: 3px 8px; font-size: 11px; }
+  .support-sheet { padding: 6px 10px; }
+  .support-sheet header { margin-bottom: 4px; display: flex; gap: 10px; align-items: baseline; }
+  .support-sheet header small, .support-columns, .support-note { font-size: 11px; line-height: 1.35; }
+  .support-sheet h3 { font-size: 14px; }
+  .support-columns { gap: 14px; }
+  .support-columns dl { margin: 4px 0; gap: 3px 8px; }
+  .support-columns > div > p:first-child { display: none; }
+  .support-note, .support-action { margin-top: 3px; }
+  .support-option { margin-bottom: 3px; padding-bottom: 3px; }
+  .support-notice { margin-bottom: 3px; }
+  .support-nav > span { font-size: 10px; }
+  .support-panel .topbar h2 { font-size: 15px; }
+  .support-pages { font-size: 11px; }
+  .promise-ticker { padding: 1px 6px; }
+  .support-allocation { line-height: 1.2; font-size: 10px; }
+}
+@media (max-aspect-ratio: 3/4) {
+  .support-columns { grid-template-columns: 1fr; gap: 12px; }
+  .support-sheet { padding: 10px; }
+  .support-nav { flex-wrap: wrap; gap: 4px; }
+  .support-nav > span { width: 100%; font-size: 10px; }
+  .support-columns { font-size: 12px; }
+  .support-columns dl { margin: 6px 0; gap: 4px 10px; }
+  .support-panel .topbar { gap: 6px; }
+  .support-panel .topbar h2 { font-size: 16px; }
+  .support-panel .topbar-sub { font-size: 10px; }
+  .support-note { font-size: 11px; margin-top: 5px; }
+}
+/* 長い結果も、操作ボタンは表示領域に固定する。スクロールは説明本文1か所だけ。 */
+.result { display: flex; flex-direction: column; overflow: hidden; }
+.result > :not(.result-details) { flex-shrink: 0; }
+.result-details { min-height: 0; overflow-y: auto; }
+.title-body.settle { display: flex; flex-direction: column; overflow: hidden; }
+.settle > :not(.settle-details) { flex-shrink: 0; }
+.settle-details { min-height: 0; overflow-y: auto; }
+.settle > .btn + .btn { margin-top: 6px; }
+.support-management { display: flex; gap: 8px; align-items: flex-start; }
+@media (max-height: 560px) {
+  .command { gap: 4px; }
+  .cmd { padding: 5px 10px; }
+  .ticker { padding: 3px 8px; font-size: 10px; line-height: 1.35; max-height: 30px; overflow: hidden; }
+  .support-columns > div > p:first-child { display: block; }
+  .support-columns .support-description { display: none; }
+  .result { padding: 8px 12px; }
+  .result-narrative { margin-bottom: 6px; }
+  .result-block { padding: 5px 8px; }
+  .result-block h3 { margin-bottom: 3px; }
+  .result .btn { margin-top: 6px; min-height: 32px; padding: 5px 10px; }
+  .title-body.settle { padding: 9px 12px; }
+  .settle > .btn { min-height: 30px; padding: 4px 8px; font-size: 12px; }
+}
+@media (max-height: 390px) and (min-aspect-ratio: 4/3) {
+  .support-panel { gap: 3px; }
+  .support-screen { padding-top: 5px; padding-bottom: 5px; }
+  .support-option { display: grid; grid-template-columns: 1fr auto; column-gap: 6px; }
+  .support-option > b, .support-option > p { grid-column: 1; }
+  .support-option > .support-action { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+  .support-option .support-action small { max-width: 115px; font-size: 10px; }
+}

@@ -4,17 +4,16 @@ import {
   FlaskConical, Flower2, Map as MapIcon, Moon, RotateCcw, Scale, Store, Trees,
 } from 'lucide-react';
 import {
-  CHAPTERS, CHAPTER_DAYS, MAX_STAMINA, NETWORK_COST, NETWORK_STAMINA, REST_RECOVERY,
-  TOTAL_DEBT, applySettlement, axes, axisStage, capDropOf, closedBy, closedJobsAt,
+  CHAPTERS, CHAPTER_DAYS, NETWORK_COST, NETWORK_STAMINA, REST_RECOVERY,
+  TOTAL_DEBT, axes, axisStage, capDropOf, closedBy, closedJobsAt,
   fatigueRate, hasStaminaFor, initialState, isOpen, jobsBy, listPrice, midGameState,
   openCountAt, openJobs, payWithRelation, peopleAt, personFatigue, personOf, placeOf,
-  countsByKind, jobKinds, kindNote, primaryAxis, quotaOf, relationStage, sceneScript,
-  settlementOf, stageUpLine, workPlaces,
-  brewOnce, canBrew, gatherPlaces, gatherYield, hasMaterialsFor, hasStockFor,
-  knownRecipes, materialIds, materialOf, placeOpen, places, recipeOf,
-  recipesTaughtBy, sellsAt, RECIPE_SOURCE,
-  type Axis, type DayResult, type GameState, type Job, type MaterialId, type PersonId,
-  type PlaceId, type Recipe, type RecipeId, type SceneLine, type Settlement,
+  countsByKind, jobKinds, kindNote, primaryAxis, quotaOf, relationStage, settlementOf, workPlaces,
+  gatherPlaces, gatherYield, hasMaterialsFor, hasStockFor,
+  knownRecipes, materialIds, materialOf, recipeOf,
+  sellsAt, RECIPE_SOURCE,
+  type DayResult, type GameState, type Job, type MaterialId, type PersonId,
+  type PlaceId, type RecipeId, type SceneLine, type Settlement,
 } from './game';
 import {
   PLACEHOLDER, backgroundSrc, mapSrc, personSrc, placeSrc, portraitSrc, portraitStage,
@@ -22,7 +21,11 @@ import {
 } from './art';
 import { Mark } from './marks';
 
-const SAVE_KEY = 'ikusei-prototype-save-v7';
+import { performAction, type Action } from './engine';
+import { parseSave, SAVE_KEY, LEGACY_SAVE_KEY } from './save';
+import { SupportPanel } from './SupportPanel';
+import { dueSoon, dateLabel, outstandingTotal, offerReason } from './contracts';
+import { supportOffers } from './content/support';
 
 const PLACE_ICON: Record<PlaceId, typeof Store> = {
   estate: Landmark, arnaud: Store, academy: BookOpen, valere: Landmark, guild: Scale,
@@ -102,28 +105,32 @@ type View =
   | { kind: 'home' }
   | { kind: 'jobs' }
   | { kind: 'brew' }
+  | { kind: 'support'; offer?: string; obligation?: string }
   | { kind: 'map' }
   | { kind: 'place'; place: PlaceId }
   | { kind: 'contract'; job: Job; from: 'jobs' | 'place' }
-  | { kind: 'scene'; job: Job; script: SceneLine[]; line: number; result: DayResult }
+  | { kind: 'scene'; job?: Job; script: SceneLine[]; line: number; result: DayResult }
   | { kind: 'result'; result: DayResult; back: View }
   | { kind: 'settlement' }
   | { kind: 'ending' };
 
 function loadGame(): GameState | null {
   if (typeof window === 'undefined') return null;
-  const saved = localStorage.getItem(SAVE_KEY);
-  if (!saved) return null;
-  try { return JSON.parse(saved) as GameState; } catch { return null; }
+  try {
+    return parseSave(localStorage.getItem(SAVE_KEY)) ?? parseSave(localStorage.getItem(LEGACY_SAVE_KEY));
+  } catch { return null; }
 }
 
 export default function App() {
   const [game, setGame] = useState<GameState | null>(loadGame);
-  const [view, setView] = useState<View>({ kind: 'home' });
+  const [view, setView] = useState<View>(() => { const saved = loadGame(); return { kind: saved?.ended ? 'ending' : saved?.awaitingSettlement ? 'settlement' : 'home' }; });
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (game) localStorage.setItem(SAVE_KEY, JSON.stringify(game));
-    else localStorage.removeItem(SAVE_KEY);
+    try {
+      if (game) localStorage.setItem(SAVE_KEY, JSON.stringify(game));
+      else { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(LEGACY_SAVE_KEY); }
+    } catch { setError('保存できませんでした。ブラウザの空き容量を確認してください。'); }
   }, [game]);
 
   if (!game) {
@@ -136,162 +143,33 @@ export default function App() {
   const stage = portraitStage(game.axes);
   const reset = () => setGame(null);
 
-  /** 1日を消費する。演出は呼び出し側が View で見せる。 */
-  function commit(patch: Partial<GameState>, narrative: string, worked: PersonId | 'none', publicWork = false) {
-    setGame((current) => {
-      if (!current) return current;
-      const nextAxes = { ...current.axes, ...patch.axes };
-      if (!publicWork) nextAxes.威厳 = Math.min(100, nextAxes.威厳 + 2);
-      const nextCap = patch.dignityCap ?? current.dignityCap;
-      nextAxes.品位 = Math.min(nextAxes.品位, nextCap);
-      const lastDay = current.day >= CHAPTER_DAYS;
-      return {
-        ...current, ...patch,
-        axes: nextAxes,
-        recent: [worked, ...current.recent].slice(0, 6),
-        day: lastDay ? CHAPTER_DAYS : current.day + 1,
-        awaitingSettlement: lastDay,
-        log: [narrative, ...current.log].slice(0, 8),
-      };
-    });
-  }
-
-  function acceptJob(job: Job) {
+  function act(action: Action, back: View = { kind: 'home' }) {
     if (!game) return;
-    const total = payWithRelation(job, game);
-    const nextAxes = { ...game.axes };
-    const drops: { axis: Axis; amount: number }[] = [];
-    job.costs.forEach((c) => {
-      nextAxes[c.axis] = Math.max(0, nextAxes[c.axis] - c.amount);
-      drops.push({ axis: c.axis, amount: c.amount });
-    });
-    const capDrop = capDropOf(job);
-    const relBefore = game.relations[job.person];
-    const relAfter = Math.min(3, relBefore + (job.bond ?? 1));
-    // 納品ぶんの在庫を引く。
-    const nextStock = { ...game.stock };
-    if (job.recipe) nextStock[job.recipe] = (nextStock[job.recipe] ?? 0) - (job.count ?? 1);
-    // 処方は関係の段階と、依頼そのものの両方から入る(§2-1)。
-    const learned = [
-      ...recipesTaughtBy(job.person, relBefore, relAfter, game.known),
-      ...(job.teaches && !game.known.includes(job.teaches) ? [job.teaches] : []),
-    ];
-    const result: DayResult = {
-      kind: 'job', title: job.title,
-      narrative: job.recipe
-        ? `${job.title}。調合したものを納めて、${total}Gを得た。`
-        : job.costs.length
-          ? `${job.title}。差し出すものを差し出して、${total}Gを得た。`
-          : `${job.title}。何も失わずに、${total}Gを得た。`,
-      basePay: total, relationBonus: 0, paidTerms: [],
-      moneyDelta: total, staminaDelta: -job.stamina,
-      axisDrops: drops, axisGains: [], dignityCapDrop: capDrop,
-      relationUp: relAfter > relBefore
-        ? { name: personOf(job.person).name, stage: relationStage(relAfter) }
-        : undefined,
-      delivered: job.recipe ? { recipe: job.recipe, count: job.count ?? 1 } : undefined,
-      learned: learned.length ? learned : undefined,
-    };
-    commit({
-      money: game.money + total,
-      stamina: game.stamina - job.stamina,
-      axes: nextAxes,
-      dignityCap: Math.max(0, game.dignityCap - capDrop),
-      relations: { ...game.relations, [job.person]: relAfter },
-      stock: nextStock,
-      known: [...game.known, ...learned],
-    }, result.narrative, job.person, job.costs.some((c) => c.axis === '威厳'));
-    setView({
-      kind: 'scene', job, line: 0, result,
-      script: [...sceneScript(job), ...stageUpLine(job.person, relBefore, relAfter)],
-    });
+    const outcome = performAction(game, action);
+    if (outcome.error) { setError(outcome.error); return; }
+    setError(''); setGame(outcome.state);
+    if (action.type === 'settle') { setView({ kind: outcome.state.ended ? 'ending' : 'home' }); return; }
+    if (outcome.scene && outcome.result) {
+      setView({ kind: 'scene', job: action.type === 'job' ? jobsByForScene(action.id) : undefined,
+        line: 0, script: outcome.scene, result: outcome.result });
+    } else if (outcome.result) setView({ kind: 'result', result: outcome.result, back });
   }
+  function jobsByForScene(id: string) { return openJobs(game!).find(j => j.id === id); }
+  function acceptJob(job: Job) { act({ type: 'job', id: job.id }); }
+  function rest() { act({ type: 'rest' }); }
+  function network(person: PersonId) { act({ type: 'network', person }, { kind: 'place', place: personOf(person).place }); }
+  function gather(place: PlaceId) { act({ type: 'gather', place }, { kind: 'map' }); }
+  function buy(place: PlaceId, basket: Partial<Record<MaterialId, number>>) { act({ type: 'buy', place, basket }, { kind: 'map' }); }
+  function brew(recipe: RecipeId) { act({ type: 'brew', recipe }); }
 
-  function rest() {
-    if (!game) return;
-    const before = game.axes.品位;
-    const after = Math.min(game.dignityCap, before + 6);
-    const next = Math.min(MAX_STAMINA, game.stamina + REST_RECOVERY);
-    const result: DayResult = {
-      kind: 'rest', title: '休養', narrative: '屋敷で静かに休み、身なりを整えた。',
-      basePay: 0, relationBonus: 0, paidTerms: [], moneyDelta: 0,
-      staminaDelta: next - game.stamina, axisDrops: [],
-      axisGains: after > before ? [{ axis: '品位' as Axis, amount: after - before }] : [],
-      dignityCapDrop: 0,
-    };
-    commit({ stamina: next, axes: { ...game.axes, 品位: after } }, result.narrative, 'none');
-    setView({ kind: 'result', result, back: { kind: 'home' } });
-  }
-
-  function network(id: PersonId) {
-    if (!game || game.money < NETWORK_COST || game.stamina < NETWORK_STAMINA) return;
-    const person = personOf(id);
-    const before = game.relations[id];
-    const after = Math.min(3, before + 1);
-    const learned = recipesTaughtBy(id, before, after, game.known);
-    const result: DayResult = {
-      kind: 'network', title: `${person.name}に会う`,
-      narrative: `${person.name}のもとに顔を出し、仕事の話をした。`,
-      basePay: 0, relationBonus: 0, paidTerms: [], moneyDelta: -NETWORK_COST,
-      staminaDelta: -NETWORK_STAMINA, axisDrops: [], axisGains: [], dignityCapDrop: 0,
-      relationUp: after > before ? { name: person.name, stage: relationStage(after) } : undefined,
-      learned: learned.length ? learned : undefined,
-    };
-    commit({
-      money: game.money - NETWORK_COST, stamina: game.stamina - NETWORK_STAMINA,
-      relations: { ...game.relations, [id]: after },
-      known: [...game.known, ...learned],
-    }, result.narrative, 'none');
-    setView({ kind: 'result', result, back: { kind: 'place', place: person.place } });
-  }
-
-  /** 採集に出る。1日と体力を払って、その土地のものを持ち帰る(§2-2)。 */
-  function gather(placeId: PlaceId) {
-    if (!game) return;
-    const place = placeOf(placeId);
-    const cost = place.gatherStamina ?? 20;
-    if (game.stamina < cost) return;
-    const got = gatherYield(place);
-    const nextMaterials = { ...game.materials };
-    got.forEach((g) => { nextMaterials[g.id] += g.amount; });
-    const result: DayResult = {
-      kind: 'gather', title: `${place.name}で採る`,
-      narrative: `${place.name}へ出て、${got.map((g) => materialOf(g.id).name).join('と')}を摘んだ。`,
-      basePay: 0, relationBonus: 0, paidTerms: [], moneyDelta: 0,
-      staminaDelta: -cost, axisDrops: [], axisGains: [], dignityCapDrop: 0,
-      materialDeltas: got,
-    };
-    commit({ stamina: game.stamina - cost, materials: nextMaterials }, result.narrative, 'none');
-    setView({ kind: 'result', result, back: { kind: 'map' } });
-  }
-
-  /** 仕入れて帰る。まとめ買いできるので、金があるほど日が浮く(§2-2)。 */
-  function buy(placeId: PlaceId, basket: Partial<Record<MaterialId, number>>) {
-    if (!game) return;
-    const bought = materialIds
-      .filter((id) => (basket[id] ?? 0) > 0)
-      .map((id) => ({ id, amount: basket[id] ?? 0 }));
-    if (!bought.length) return;
-    const spend = bought.reduce((sum, b) => sum + (materialOf(b.id).buy ?? 0) * b.amount, 0);
-    if (spend > game.money) return;
-    const nextMaterials = { ...game.materials };
-    bought.forEach((b) => { nextMaterials[b.id] += b.amount; });
-    const place = placeOf(placeId);
-    const result: DayResult = {
-      kind: 'buy', title: `${place.short}で仕入れる`,
-      narrative: `${place.name}で素材を買い付けた。${spend}Gが出ていった。`,
-      basePay: 0, relationBonus: 0, paidTerms: [], moneyDelta: -spend,
-      staminaDelta: 0, axisDrops: [], axisGains: [], dignityCapDrop: 0,
-      materialDeltas: bought,
-    };
-    commit({ money: game.money - spend, materials: nextMaterials }, result.narrative, 'none');
-    setView({ kind: 'result', result, back: { kind: 'map' } });
-  }
-
-  /** 1回調合する。日は消費しない ── 減るのは体力と素材(§2-3)。 */
-  function brew(id: RecipeId) {
-    setGame((current) => (current && canBrew(recipeOf(id), current) ? brewOnce(current, id) : current));
-  }
+  if (view.kind === 'support') return <div className="screen support-screen">
+    <div className="backdrop" />
+    <Hud game={game} onReset={reset} />
+    {error && <p role="alert">{error}</p>}
+    <SupportPanel game={game} allocation={game.awaitingSettlement} focusOffer={view.offer} focusObligation={view.obligation}
+      onBack={() => setView({ kind: game.awaitingSettlement ? 'settlement' : 'jobs' })}
+      onAction={a => act(a, view)} />
+  </div>;
 
   /** 結果を閉じたあとの行き先。14日目なら章末精算へ。 */
   function closeResult(back: View) {
@@ -300,16 +178,16 @@ export default function App() {
 
   /* ---- イベントシーン ---- */
   if (view.kind === 'scene') {
-    const axis = primaryAxis(view.job);
+    const axis = view.job ? primaryAxis(view.job) : null;
     const last = view.line >= view.script.length - 1;
     const line = view.script[view.line];
     return (
       <button className="screen scene" aria-label="タップして次へ"
         onClick={() => (last
-          ? setView({ kind: 'result', result: view.result, back: { kind: 'home' } })
+          ? setView({ kind: 'result', result: view.result, back: { kind: view.job ? 'home' : 'support' } })
           : setView({ ...view, line: view.line + 1 }))}>
-        <Art className="scene-art" alt={`${view.job.title}の情景`}
-          sources={[sceneSrc(view.job, axis), sceneFallbackSrc(view.job), PLACEHOLDER]} />
+        <Art className="scene-art" alt={`${view.result.title}の情景`}
+          sources={view.job ? [sceneSrc(view.job, axis), sceneFallbackSrc(view.job), PLACEHOLDER] : [PLACEHOLDER]} />
         <div className="scene-veil" />
         <div className="textbox">
           {line.speaker && <span className="textbox-name">{line.speaker}</span>}
@@ -330,10 +208,8 @@ export default function App() {
   if (view.kind === 'settlement') {
     const sheet = settlementOf(game);
     return (
-      <SettlementScreen settlement={sheet} onNext={() => {
-        setGame(applySettlement(game, sheet));
-        setView(sheet.finished ? { kind: 'ending' } : { kind: 'home' });
-      }} />
+      <SettlementScreen settlement={sheet} outstanding={outstandingTotal(game)}
+        onAllocate={() => setView({ kind: 'support' })} onNext={() => act({ type: 'settle' })} />
     );
   }
 
@@ -358,6 +234,7 @@ export default function App() {
             <ChevronLeft />戻る
           </Button>
           <h2>仕事を受ける</h2>
+          <Button size="sm" variant="outline" onClick={() => setView({ kind: 'support' })}>支援と約束</Button>
           <span className="topbar-sub">{list.length}件</span>
         </div>
         <div className="kindbar">
@@ -368,6 +245,22 @@ export default function App() {
           ))}
         </div>
         <div className="jobgrid">
+          {game.obligations.filter(o => o.status === 'active' || o.outstanding > 0).map(o => (
+            <button className="jobcard2 paper paper-調剤" key={o.id} onClick={() => setView({ kind: 'support', obligation: o.id })}>
+              <span className="stamp stamp-調剤">約束</span>
+              <span className="jc-name"><b>{o.terms.title}</b><i>{personOf(o.terms.person).name} ／ {o.status === 'active' ? dateLabel(o.due) + 'まで' : '未精算あり'}</i></span>
+              <div className="jc-ledger"><span>{o.terms.kind === 'advance' && o.status === 'active' ? o.terms.options.map(c => recipeOf(c.recipe).name + '×' + c.count).join(' ／ ') : '未精算 ' + o.outstanding + 'G'}</span></div>
+              <div className="jc-foot"><span>納品・支払い・条件の確認</span></div>
+            </button>
+          ))}
+          {supportOffers.filter(o => !offerReason(game, o)).map(o => (
+            <button className="jobcard2 paper paper-調剤" key={'offer-' + o.id} onClick={() => setView({ kind: 'support', offer: o.id })}>
+              <span className="stamp stamp-調剤">支援</span>
+              <span className="jc-name"><b>{o.title}</b><i>{personOf(o.person).name} ／ 提示は今章{o.closes}日まで</i></span>
+              <div className="jc-ledger"><span>{o.kind === 'advance' ? '前金' + o.money + 'G・納品の約束' : '素材を後払いで仕入れる'}</span><span>期限：受諾から{o.term}日 ／ 未精算{o.repayment}G</span></div>
+              <div className="jc-foot"><span>条件を読んで検討する</span></div>
+            </button>
+          ))}
           {list.map((job) => {
             const person = personOf(job.person);
             const tired = !hasStaminaFor(job, game);
@@ -747,6 +640,10 @@ export default function App() {
 
       <section className="command">
         <h2 className="command-title">今日をどう使う<small>1日 ＝ 1行動</small></h2>
+        {error && <p role="alert">{error}</p>}
+        <button className="promise-ticker" onClick={() => setView({ kind: 'support' })}>
+          {dueSoon(game) ? '次の約束：' + dateLabel(dueSoon(game)!.due) : '支援を相談する'} ／ 未精算{outstandingTotal(game)}G
+        </button>
         {game.log[0] && <p className="ticker">{game.log[0]}</p>}
         <div className="commands">
           <button className="cmd primary" onClick={() => setView({ kind: 'jobs' })}>
@@ -898,9 +795,10 @@ function ResultScreen({ result, stage, onClose }: { result: DayResult; stage: st
         <Art className="figure dim" sources={[portraitSrc(stage as never), PLACEHOLDER]} alt="" />
       </div>
       <section className="result">
-        <p className="result-eyebrow">本日の結果</p>
+        <p className="result-eyebrow">行動の結果 ／ {result.days ?? 1}日</p>
         <h2>{result.title}</h2>
         <p className="result-narrative">{result.narrative}</p>
+        <div className="result-details">
         <div className="result-cols">
           <div className="result-block">
             <h3>{result.kind === 'job' ? '報酬の内訳' : '収支'}</h3>
@@ -913,7 +811,7 @@ function ResultScreen({ result, stage, onClose }: { result: DayResult; stage: st
                 <div className="row total"><span>受取額</span><b>{result.moneyDelta.toLocaleString()}G</b></div>
               </>
             ) : (
-              <div className="row"><span>支出</span><b className="minus">{result.moneyDelta}G</b></div>
+              <div className="row"><span>収支</span><b className={result.moneyDelta < 0 ? "minus" : "plus"}>{result.moneyDelta}G</b></div>
             )}
           </div>
           <div className="result-block">
@@ -965,14 +863,16 @@ function ResultScreen({ result, stage, onClose }: { result: DayResult; stage: st
             <p>品位の<strong>上限</strong>が {result.dignityCapDrop} 下がった。休んでも、ここまでしか戻らない。</p>
           </div>
         )}
-        <Button size="lg" onClick={onClose}>次の日へ</Button>
+        <div className="result-notices">{result.notices?.map((n, i) => <p key={i}>{n}</p>)}</div>
+        </div>
+        <Button size="lg" onClick={onClose}>続ける</Button>
       </section>
     </div>
   );
 }
 
 /** 章末。納めた額と、足りなかった場合に何が起きるかを見せる。 */
-function SettlementScreen({ settlement, onNext }: { settlement: Settlement; onNext: () => void }) {
+function SettlementScreen({ settlement, onNext, outstanding, onAllocate }: { settlement: Settlement; onNext: () => void; outstanding: number; onAllocate: () => void }) {
   const s = settlement;
   const short = s.shortfall > 0;
   return (
@@ -985,6 +885,7 @@ function SettlementScreen({ settlement, onNext }: { settlement: Settlement; onNe
         <p className="title-eyebrow">第{s.chapter}章 章末</p>
         <h1>{short ? '足りない額が読み上げられた。' : '返済票に、印が押された。'}</h1>
 
+        <div className="settle-details">
         <div className="settle-rows">
           <div className="row"><span>今章のノルマ</span><b>{s.quota.toLocaleString()}G</b></div>
           <div className="row"><span>納めた額</span><b className="plus">{s.paid.toLocaleString()}G</b></div>
@@ -1014,6 +915,8 @@ function SettlementScreen({ settlement, onNext }: { settlement: Settlement; onNe
           <p className="settle-next">次章のノルマは <b>{s.nextQuota.toLocaleString()}G</b>。</p>
         )}
 
+        </div>
+        <Button variant="outline" size="sm" onClick={onAllocate}>返済前に約束の支払いを選ぶ（未精算{outstanding}G）</Button>
         <Button size="lg" onClick={onNext}>
           {s.finished ? '結末を見る' : `第${s.chapter + 1}章へ`}
         </Button>
@@ -1064,6 +967,7 @@ function EndingScreen({ game, onRestart }: { game: GameState; onRestart: () => v
             : `${game.debt.toLocaleString()}Gが残った。家は、彼女の手を離れる。`}
           {' '}最も傷ついたものは「{lowest}」だった。
         </p>
+        <p className="ending-obligations">約束の未精算：{outstandingTotal(game)}G ／ 履行済み：{game.obligations.filter(o => o.status === 'fulfilled').length}件</p>
         <div className="ending-stats">
           {axes.map((axis) => (
             <div key={axis}>

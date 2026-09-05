@@ -1,6 +1,8 @@
 // ゲームのルールとデータ。画面(App.tsx)からは、ここが返す値を表示するだけにする。
 // 数値の根拠は GAME_DESIGN.md。変更するときは企画書側と必ず揃える。
 
+import type { SupportState } from './supportTypes';
+import { emptySupportState } from './supportTypes';
 export type Axis = '貞操' | '品位' | '威厳';
 export type PlaceId =
   | 'estate' | 'arnaud' | 'academy' | 'valere' | 'guild'
@@ -313,7 +315,7 @@ export type Job = {
   teaches?: RecipeId;
 };
 
-export type GameState = {
+export type GameState = SupportState & {
   chapter: number;
   day: number;
   /** 前章の未達分（利息込み）。今章のノルマに上乗せされる。 */
@@ -341,7 +343,9 @@ export type GameState = {
 
 /** 1日の行動結果。結果画面(§10)がそのまま読める形で持つ。 */
 export type DayResult = {
-  kind: 'job' | 'rest' | 'network' | 'gather' | 'buy';
+  kind: 'job' | 'rest' | 'network' | 'gather' | 'buy' | 'support';
+  days?: number;
+  notices?: string[];
   title: string;
   narrative: string;
   basePay: number;
@@ -467,6 +471,7 @@ export const jobs: Job[] = [
 ];
 
 export const initialState: GameState = {
+  ...emptySupportState(),
   chapter: 1,
   day: 1,
   carryOver: 0,
