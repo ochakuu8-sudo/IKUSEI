@@ -7,10 +7,11 @@ import {
   Settings,
 } from "lucide-react";
 import { absoluteDay } from "../contracts";
+import { backgroundSrc } from "../art";
 import { quotaOf, type GameState } from "../game";
 import type { UIState } from "../uiState";
 import { Actions, Utilities, type HomeAction } from "./Actions";
-import { Button, money } from "./components";
+import { Art, Button, money } from "./components";
 import type { Route } from "./routes";
 
 export function Shell({
@@ -24,6 +25,7 @@ export function Shell({
   journal,
   inventory,
   settings,
+  place,
 }: {
   s: GameState;
   ui: UIState;
@@ -35,10 +37,23 @@ export function Shell({
   journal: (calendar?: boolean) => void;
   inventory: () => void;
   settings: () => void;
+  place: string;
 }) {
   const navigating = route !== "home" && !s.awaitingSettlement && !s.ended;
   return (
     <>
+      <Art
+        className="game-backdrop"
+        src={backgroundSrc(
+          route === "place"
+            ? place
+            : route === "brew"
+              ? "brew"
+              : route === "map"
+                ? "map"
+                : "home",
+        )}
+      />
       <header className="hud">
         <button
           className="hud-date"
@@ -54,14 +69,14 @@ export function Shell({
             </b>
           </span>
         </button>
-        <div className="hud-resource">
+        <div className="hud-resource hud-coins">
           <Coins />
           <span>
             <small>所持金</small>
             <b>{money(s.money)}</b>
           </span>
         </div>
-        <div className="hud-resource">
+        <div className="hud-resource hud-stamina">
           <Heart />
           <span>
             <small>体力</small>

@@ -1,4 +1,4 @@
-import { backgroundSrc, heroSrc } from "../art";
+import { heroSrc } from "../art";
 import { absoluteDay } from "../contracts";
 import type { GameState } from "../game";
 import type { UIState } from "../uiState";
@@ -31,7 +31,6 @@ export function HomeScreen({
     <div className="home-stage">
       <section className="home-character" aria-label="主人公の現在の状態">
         <div className="character-scene">
-          <Art src={backgroundSrc("home")} className="room-art" />
           <Art src={heroSrc} className="hero-art" alt="エレオノール" />
           <div className="character-name">エレオノール・ラティエ</div>
         </div>
@@ -45,8 +44,12 @@ export function HomeScreen({
       </section>
       <section className="home-decisions">
         <div className="command-heading">
-          <span className="eyebrow">ÉLÉONORE'S DAY</span>
-          <h1>今日、どうする？</h1>
+          <span className="speaker-name">エレオノール</span>
+          <h1>
+            {s.stamina < 30
+              ? "少し、ひと休みしようかしら。"
+              : "今日は、何をしようかしら。"}
+          </h1>
         </div>
         {due.length > 0 && (
           <button className="home-notice" onClick={journal}>

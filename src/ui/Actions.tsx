@@ -9,6 +9,8 @@ import {
   Settings,
 } from "lucide-react";
 import { specialOffers } from "../content/support";
+import { itemSrc } from "../art";
+import { Art } from "./components";
 import { absoluteDay, offerReason } from "../contracts";
 import { recipes, type GameState } from "../game";
 import { brewCapacity, preparationNeeds, previewAction } from "../presentation";
@@ -50,14 +52,14 @@ export function Actions({
     {
       id: "orders" as const,
       icon: ScrollText,
-      note: "薬を納める・特別な注文を引き受ける",
+      note: "薬の納品・特別な注文",
       status: due ? `本日納品 ${due}件` : offers ? `受付中 ${offers}件` : "",
       urgent: due > 0,
     },
     {
       id: "brew" as const,
       icon: FlaskConical,
-      note: "素材と体力を使って薬を作る",
+      note: "素材から薬をつくる",
       status: possible
         ? `調合可能 ${possible}種`
         : preparing
@@ -67,7 +69,7 @@ export function Actions({
     {
       id: "map" as const,
       icon: Map,
-      note: "素材を採る・買う・人物に会う",
+      note: "採集・買い物・交流",
       status: fresh ? `新着 ${fresh}件` : "場所を見るだけなら0日",
     },
     {
@@ -87,11 +89,18 @@ export function Actions({
           type="button"
           key={id}
           className={`command-button ${active === id ? "is-active" : ""}`}
+          data-action={id}
           aria-label={actionLabels[id]}
           aria-current={active === id ? "page" : undefined}
           onClick={() => choose(id)}
         >
-          <Icon aria-hidden="true" />
+          <span className="command-emblem" aria-hidden="true">
+            {!compact && (id === "orders" || id === "brew") ? (
+              <Art src={itemSrc(id === "orders" ? "perfume" : "tisane")} />
+            ) : (
+              <Icon />
+            )}
+          </span>
           <span className="command-copy">
             <b>{actionLabels[id]}</b>
             {!compact && <small>{note}</small>}

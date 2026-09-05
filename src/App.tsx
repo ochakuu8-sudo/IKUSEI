@@ -396,6 +396,7 @@ export default function App() {
           <>
             <Shell
               s={s}
+              place={place}
               ui={ui}
               route={route}
               choose={choose}

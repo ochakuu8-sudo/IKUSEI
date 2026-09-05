@@ -163,6 +163,7 @@ meter {
   display: block;
 }
 .button {
+  color: var(--ink);
   min-height: 44px;
   min-width: 44px;
   display: inline-flex;
@@ -170,18 +171,23 @@ meter {
   justify-content: center;
   gap: 8px;
   padding: 10px 17px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: #fffaf2;
+  border: 1px solid #cfb4a6;
+  border-radius: 14px;
+  background: linear-gradient(#fffdf7, #f4e6dc);
   line-height: 1.5;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
+  box-shadow:
+    0 3px 0 #cfb9af,
+    inset 0 1px #fff;
 }
 .button.primary {
-  background: var(--red);
-  border-color: var(--red);
+  background: linear-gradient(#b35378, #8b385e);
+  border-color: #e3acb8;
   color: #fff9ed;
-  box-shadow: inset 0 0 0 3px #ffffff10;
+  box-shadow:
+    0 3px 0 #5b2d48,
+    inset 0 1px #ffffff55;
 }
 .button.text-button {
   border: 0;
@@ -189,6 +195,7 @@ meter {
   color: var(--red);
   padding-left: 0;
   justify-content: flex-start;
+  box-shadow: none;
 }
 .button + .button {
   margin-left: 6px;
@@ -235,11 +242,13 @@ meter {
   background: #faecea;
 }
 .paper {
-  background: var(--paper);
-  border: 1px solid var(--line);
+  background: #fffaf4;
+  border: 1px solid #dec4b7;
   padding: 24px;
-  border-radius: 4px;
-  box-shadow: 0 4px 18px #49362607;
+  border-radius: 18px;
+  box-shadow:
+    0 4px 0 #d6c2b340,
+    inset 0 0 0 3px #fffdf6;
 }
 .paper.nested {
   background: #fffaf2;
@@ -300,24 +309,28 @@ meter {
   grid-column: 1/-1;
   display: flex;
   align-items: center;
-  gap: 28px;
-  padding: 12px 28px;
-  background: var(--paper);
-  border-bottom: 1px solid var(--line);
+  gap: 20px;
+  padding: 10px 24px;
+  background: linear-gradient(100deg, #302737f5, #52374cf0);
+  color: #fff1e3;
+  border-bottom: 2px solid #cda779;
   z-index: 10;
+  box-shadow: 0 4px 18px #24162a40;
 }
 .hud-date {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: none;
-  border: 0;
+  gap: 10px;
+  background: #ffefda10;
+  border: 1px solid #dbc09d70;
+  border-radius: 16px;
+  padding: 3px 12px;
   min-height: 44px;
   text-align: left;
 }
 .hud-date svg,
 .hud-resource > svg {
-  color: var(--gold);
+  color: #f1c581;
   width: 21px;
 }
 .hud-date span,
@@ -335,7 +348,7 @@ meter {
 .hud-resource {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 115px;
 }
 .hud-resource b {
@@ -343,13 +356,13 @@ meter {
   line-height: 1.4;
 }
 .hud-resource small {
-  color: var(--muted);
+  color: #e6cacf;
 }
 .hud-payment {
   margin-left: auto;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--line);
+  border-left: 1px solid #d2aa8560;
   padding-left: 24px;
   gap: 4px;
   font-size: 13px;
@@ -357,9 +370,23 @@ meter {
 .hud-payment small {
   margin-left: 12px;
 }
+.hud .text-crimson {
+  color: #ffc0c9;
+}
+.hud-stamina > svg {
+  color: #f0a1bc;
+  fill: #b4577940;
+}
+.hud-coins > svg {
+  color: #f1d08b;
+  fill: #f1d08b20;
+}
 .hud > .button {
   padding: 10px;
-  background: transparent;
+  background: #ffffff12;
+  color: #f4dfcb;
+  border-color: #e7caa15c;
+  box-shadow: none;
 }
 .main-nav {
   background: var(--ink);
@@ -427,24 +454,27 @@ meter {
 }
 .tabs {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
   margin: 0 0 22px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 0;
   padding-bottom: 8px;
 }
 .tabs button {
   min-height: 44px;
   min-width: 70px;
   padding: 10px 18px;
-  border: 0;
-  background: transparent;
-  border-radius: 3px;
-  color: var(--muted);
+  border: 1px solid #d8c0b0;
+  background: #f4e8de;
+  border-radius: 22px;
+  color: #796071;
+  box-shadow: inset 0 1px #fff;
 }
 .tabs button.active {
-  background: var(--ink);
-  color: var(--paper);
+  background: linear-gradient(#6b465e, #432c44);
+  border-color: #ae7f8e;
+  color: #fff1df;
+  box-shadow: 0 3px 0 #302336;
 }
 .filters {
   display: flex;
@@ -1130,7 +1160,12 @@ meter {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, #f6f0e410 0%, #f6f0e4ed 55%, #f6f0e4 100%);
+  background: linear-gradient(
+    90deg,
+    #35233510 20%,
+    #35233588 58%,
+    #30213bdd 100%
+  );
   z-index: -2;
 }
 .title-portrait {
@@ -1152,6 +1187,16 @@ meter {
   max-width: 520px;
   padding: 24px 10px;
   text-align: center;
+  color: #fff4e4;
+  text-shadow: 0 2px 6px #24142688;
+}
+.title-copy .eyebrow {
+  color: #f0c999;
+}
+.title-copy h1 {
+  text-shadow:
+    0 2px 0 #713c5b,
+    0 4px 18px #22162480;
 }
 .title-rose {
   width: 48px;
@@ -1176,7 +1221,7 @@ meter {
   letter-spacing: 0.1em;
 }
 .title-copy > p:not(.title-motto) {
-  color: var(--muted);
+  color: #f5d9cc;
   font-size: 13px;
 }
 .title-actions {
@@ -1189,16 +1234,18 @@ meter {
 .title-actions .button {
   margin: 0;
   min-height: 50px;
+  border-radius: 25px;
+  text-shadow: none;
 }
 .title-copy > small {
-  color: var(--muted);
+  color: #f4dacc;
 }
 .dialog {
   width: min(740px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   padding: 0;
   border: 1px solid var(--gold);
-  border-radius: 7px;
+  border-radius: 22px;
   color: var(--ink);
   background: var(--paper);
   box-shadow: 0 18px 80px #100b1466;
@@ -1834,7 +1881,7 @@ meter {
   }
   .title-screen:before {
     position: fixed;
-    background: linear-gradient(0deg, #f6f0e4 35%, #f6f0e433 100%);
+    background: linear-gradient(0deg, #30213bf5 35%, #30213b33 100%);
   }
   .title-portrait {
     position: relative;
