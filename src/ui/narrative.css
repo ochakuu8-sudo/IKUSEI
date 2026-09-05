@@ -1,0 +1,250 @@
+/* The scenario owns the viewport; the game underneath is inert while reading. */
+.dialog.scenario-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: #1e1925;
+  color: #fff6ed;
+  overflow: hidden;
+}
+.scenario-dialog[open] {
+  display: block;
+}
+.scenario-dialog > .dialog-body {
+  display: contents;
+}
+.scenario-art {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.scenario-background {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.scenario-portrait {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 100%;
+  width: min(100%, 1100px);
+  object-fit: contain;
+  object-position: center top;
+  filter: drop-shadow(0 4px 14px #28182950);
+}
+.scenario-caption {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  left: max(20px, env(safe-area-inset-left));
+  max-width: calc(100% - 40px);
+  padding: 6px 18px;
+  border-radius: 20px;
+  background: #251c32ce;
+  font-size: 13px;
+  pointer-events: none;
+}
+.scenario-message {
+  position: absolute;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1100px, calc(100% - 48px));
+  padding: 18px 24px 8px;
+  border: 1px solid #edcba79c;
+  border-radius: 16px;
+  background: linear-gradient(110deg, #271f35f2, #39273beb);
+  box-shadow:
+    0 6px 30px #130e2450,
+    inset 0 0 0 3px #ffe2ba0b;
+}
+.scenario-speaker {
+  position: absolute;
+  top: -20px;
+  left: 24px;
+  padding: 4px 28px;
+  border: 1px solid #e6c597;
+  border-radius: 12px 12px 4px 4px;
+  background: #60394f;
+  color: #fff4d8;
+  font-size: 16px;
+}
+.scenario-text {
+  display: block;
+  width: 100%;
+  min-height: 110px;
+  max-height: 26dvh;
+  overflow: auto;
+  border: 0;
+  padding: 6px 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 21px;
+  line-height: 1.85;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.scenario-next {
+  color: #f1c49b;
+  font-size: 14px;
+  margin-left: 14px;
+}
+.scenario-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid #d5b8a32b;
+  padding-top: 4px;
+}
+.scenario-controls button,
+.scenario-restore {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #f4ddce;
+  font-size: 13px;
+}
+.scenario-controls button:hover {
+  background: #ffffff17;
+}
+.scenario-controls .scenario-forward {
+  min-width: 110px;
+  border-color: #e3c29670;
+  background: #f4dcc016;
+  color: #fff5de;
+  font-weight: 600;
+}
+.scenario-position {
+  margin-left: auto;
+  color: #d8bebe;
+  font-size: 12px;
+}
+.scenario-restore {
+  position: absolute;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  right: max(16px, env(safe-area-inset-right));
+  background: #251c32df;
+  border-color: #e3c29670;
+}
+.scenario-dialog button:focus-visible {
+  outline-color: #ffe0a9;
+  outline-offset: -3px;
+}
+.scenario-log {
+  position: absolute;
+  inset: 60px max(24px, calc((100vw - 1000px) / 2)) 24px;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  border: 1px solid #ddbc94;
+  border-radius: 16px;
+  background: #271f35f5;
+}
+.scenario-log header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.scenario-log h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.scenario-log-lines {
+  overflow: auto;
+  min-height: 0;
+  margin-top: 16px;
+}
+.scenario-log p {
+  padding: 12px 8px;
+  border-bottom: 1px solid #d5b8a340;
+  font-size: 16px;
+}
+.scenario-log b {
+  display: block;
+  color: #f3cfaa;
+}
+@media (max-width: 720px) and (min-height: 501px) {
+  .scenario-portrait {
+    top: 5%;
+    width: 145vw;
+    max-width: none;
+    height: 85%;
+  }
+  .scenario-message {
+    width: calc(100% - 20px);
+    bottom: max(12px, env(safe-area-inset-bottom));
+    padding: 16px 12px 6px;
+  }
+  .scenario-text {
+    font-size: 17px;
+    min-height: 110px;
+    max-height: 30dvh;
+    padding: 6px 4px;
+  }
+  .scenario-speaker {
+    left: 16px;
+    font-size: 14px;
+    padding: 4px 20px;
+  }
+  .scenario-controls {
+    gap: 3px;
+    flex-wrap: wrap;
+  }
+  .scenario-controls button {
+    font-size: 12px;
+    padding: 8px;
+  }
+  .scenario-controls .scenario-forward {
+    min-width: 84px;
+  }
+  .scenario-caption {
+    left: 12px;
+    top: max(12px, env(safe-area-inset-top));
+    font-size: 12px;
+  }
+  .scenario-log {
+    inset: 56px 10px 12px;
+    padding: 14px;
+  }
+}
+@media (max-height: 500px) {
+  .scenario-caption {
+    top: 8px;
+    left: max(12px, env(safe-area-inset-left));
+    font-size: 12px;
+    padding: 4px 12px;
+  }
+  .scenario-message {
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: calc(100% - 48px);
+    padding: 8px 16px 4px;
+  }
+  .scenario-text {
+    font-size: 16px;
+    min-height: 62px;
+    max-height: 24dvh;
+    line-height: 1.7;
+    padding: 4px;
+  }
+  .scenario-speaker {
+    font-size: 13px;
+    top: -26px;
+    padding: 3px 20px;
+  }
+  .scenario-log {
+    inset: 42px 24px 8px;
+    padding: 12px 18px;
+  }
+}

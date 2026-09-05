@@ -214,11 +214,13 @@ export function Modal({
   children,
   onClose,
   footer,
+  variant = "window",
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   footer?: ReactNode;
+  variant?: "window" | "scenario";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const close = useRef(onClose);
@@ -235,7 +237,7 @@ export function Modal({
   return createPortal(
     <dialog
       ref={ref}
-      className="dialog"
+      className={`dialog ${variant === "scenario" ? "scenario-dialog" : ""}`}
       onKeyDown={(e) => {
         if (e.key !== "Tab") return;
         const elements = [
@@ -267,12 +269,14 @@ export function Modal({
         close.current();
       }}
     >
-      <header>
-        <h2>{title}</h2>
-        <Button aria-label="閉じる" onClick={onClose}>
-          <X size={20} />
-        </Button>
-      </header>
+      {variant === "window" && (
+        <header>
+          <h2>{title}</h2>
+          <Button aria-label="閉じる" onClick={onClose}>
+            <X size={20} />
+          </Button>
+        </header>
+      )}
       <div className="dialog-body">{children}</div>
       {footer && <footer>{footer}</footer>}
     </dialog>,

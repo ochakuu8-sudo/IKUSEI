@@ -10,7 +10,8 @@ import {
   type PlaceId,
   type SceneLine,
 } from "../game";
-import { Art, Badge, Button, Modal, money, sign } from "./components";
+import "./narrative.css";
+import { Art, Button, Modal, money, sign } from "./components";
 export function ResultDetails({
   before,
   outcome,
@@ -90,18 +91,22 @@ export function Dialogue({
   place,
   speed,
   onDone,
+  image,
 }: {
   title: string;
   lines: SceneLine[];
   place: PlaceId;
   speed: number;
   onDone: () => void;
+  /** A complete scene CG can replace the temporary background/portrait composition. */
+  image?: string;
 }) {
-  const [line, setLine] = useState(0),
-    [chars, setChars] = useState(0),
-    [log, setLog] = useState(false);
-  const current = lines[line],
-    full = chars >= current.text.length;
+  const [line, setLine] = useState(0);
+  const [chars, setChars] = useState(0);
+  const [log, setLog] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  const current = lines[line];
+  const full = chars >= current.text.length;
   useEffect(() => {
     setChars(speed === 0 ? current.text.length : 0);
     if (!speed) return;
@@ -111,57 +116,89 @@ export function Dialogue({
     );
     return () => clearInterval(timer);
   }, [line, current.text, speed]);
+  const next = () => {
+    if (!full) setChars(current.text.length);
+    else if (line + 1 < lines.length) {
+      setChars(speed === 0 ? lines[line + 1].text.length : 0);
+      setLine(line + 1);
+    } else onDone();
+  };
+  const nextLabel = !full
+    ? "全文を表示"
+    : line + 1 < lines.length
+      ? "次へ"
+      : "読み終える";
   return (
     <Modal
       title={title}
-      onClose={onDone}
-      footer={
-        <>
-          <Button onClick={() => setLog(!log)}>
-            {log ? "本文に戻る" : "会話ログ"}
-          </Button>
-          <span>
-            {line + 1} / {lines.length}
-          </span>
-          <Button
-            primary
-            onClick={() => {
-              if (!full) setChars(current.text.length);
-              else if (line + 1 < lines.length) setLine(line + 1);
-              else onDone();
-            }}
-          >
-            {!full
-              ? "全文を表示"
-              : line + 1 < lines.length
-                ? "次へ"
-                : "読み終える"}
-          </Button>
-        </>
-      }
+      variant="scenario"
+      onClose={() => {
+        if (log) setLog(false);
+        else setHidden((value) => !value);
+      }}
     >
-      <div className="dialogue-scene">
-        <Art src={placeSrc(place)} className="dialogue-bg" />
-        <Art src={heroSrc} className="dialogue-hero" alt="エレオノール" />
+      <div className="scenario-art" aria-label="シナリオ画像">
+        <Art
+          src={image ?? placeSrc(place)}
+          className="scenario-background"
+          alt={title}
+        />
+        {!image && (
+          <Art src={heroSrc} className="scenario-portrait" alt="エレオノール" />
+        )}
       </div>
-      {log ? (
-        <div className="conversation-log">
-          {lines.slice(0, line + 1).map((l, i) => (
-            <p key={i}>
-              <b>{l.speaker}</b> {l.text}
-            </p>
-          ))}
-        </div>
+      {hidden ? (
+        <button className="scenario-restore" onClick={() => setHidden(false)}>
+          セリフを表示
+        </button>
       ) : (
-        <div className="speech">
-          <Badge>{current.speaker ?? "記録"}</Badge>
-          <p aria-label={current.text}>
-            {current.text.slice(0, chars)}
-            <span className="cursor" aria-hidden="true">
-              ▎
-            </span>
-          </p>
-        </div>
+        <>
+          <div className="scenario-caption">{title}</div>
+          {log ? (
+            <section className="scenario-log" aria-label="会話ログ">
+              <header>
+                <h2>会話ログ</h2>
+                <Button onClick={() => setLog(false)}>本文に戻る</Button>
+              </header>
+              <div className="scenario-log-lines">
+                {lines.slice(0, line + 1).map((l, i) => (
+                  <p key={i}>
+                    {l.speaker && <b>{l.speaker}</b>}
+                    {l.text}
+                  </p>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <section className="scenario-message" aria-label="セリフ">
+              {current.speaker && (
+                <div className="scenario-speaker">{current.speaker}</div>
+              )}
+              <button
+                className="scenario-text"
+                onClick={next}
+                aria-label={current.text}
+              >
+                <span>{current.text.slice(0, chars)}</span>
+                {full && (
+                  <span className="scenario-next" aria-hidden="true">
+                    ▼
+                  </span>
+                )}
+              </button>
+              <nav className="scenario-controls" aria-label="シナリオ操作">
+                <button onClick={() => setLog(true)}>会話ログ</button>
+                <button onClick={() => setHidden(true)}>セリフを隠す</button>
+                <span className="scenario-position">
+                  {line + 1} / {lines.length}
+                </span>
+                <button className="scenario-forward" onClick={next}>
+                  {nextLabel} <span aria-hidden="true">▸</span>
+                </button>
+              </nav>
+            </section>
+          )}
+        </>
       )}
     </Modal>
   );

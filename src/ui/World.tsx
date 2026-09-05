@@ -40,7 +40,7 @@ export function World({
   visit: (id: PlaceId) => void;
 }) {
   const [mode, setMode] = useState("list");
-  const visible = places.filter((p) => placeOpen(p, s));
+  const visible = places.filter((p) => p.kind !== "home" && placeOpen(p, s));
   return (
     <>
       <Heading eyebrow="A TOWN OF POSSIBILITIES">出かける</Heading>
