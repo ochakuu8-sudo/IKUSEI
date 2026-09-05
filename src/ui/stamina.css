@@ -1563,3 +1563,67 @@
   margin-left: 7px;
   color: #e8c79a;
 }
+
+/* ==== 立ち絵に面積を返す ====
+   このジャンルの本体は絵。作業画面の立ち絵は257px＝画面の21%しかなく、
+   257x446（0.58:1）は元絵 1024x1536（0.67:1）より縦長なので左右が切れていた。
+   依頼行の中身は約600pxで content-inner 857px には250px余っていたため、
+   その余りを絵に回す。 */
+.stage.with-hero {
+  grid-template-columns: 380px minmax(0, 1fr);
+  gap: 10px;
+}
+
+/* ==== 自室の再配置 ====
+   決定側は器434pxのうち264pxしか使わず、align-self:start で上に寄るため
+   下に170pxの空白が一枚残っていた。器いっぱいに散らして中央に据える。
+   ボタンは中身が幅の4割しかない「横に伸びた空の箱」だったので、列を詰める。 */
+.command-app .home-stage {
+  grid-template-columns: minmax(0, 1fr) 452px;
+  gap: 22px;
+}
+.command-app .home-decisions {
+  align-self: stretch;
+  justify-content: center;
+  gap: 14px;
+}
+/* 3つしか選択肢が無い画面なので、1つを大きく見せて器を埋める。 */
+.command-app .day-commands:not(.compact-commands) .command-button {
+  min-height: 78px;
+}
+/* 立ち絵は器の全高を使う。横長の器に縦長の絵を入れて小さく見えていた。 */
+.command-app .character-scene {
+  flex: 1;
+  min-height: 0;
+}
+/* 三軸は独立した箱をやめ、絵の裾に半透明で重ねる（企画書「絵の邪魔をしない
+   位置に半透明で重ねる」）。器の28%を占めていた枠がそのまま絵に戻る。 */
+.command-app .character-status {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  padding: 26px 14px 10px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  /* backdrop-filter は帯の上端に硬いぼかし線が出て、絵に汚れが乗る。
+     グラデーションだけで沈める。 */
+  background: linear-gradient(#2a1f2e00, #2a1f2eb8 46%, #2a1f2eee);
+}
+/* ゲージが900px近くまで伸びると帯の中で目盛りが読めない。
+   下三分の一の字幕帯として、中身は左に寄せて幅を切る。 */
+.command-app .character-status .axis-panel {
+  max-width: 460px;
+}
+.command-app .character-name {
+  bottom: auto;
+  top: 10px;
+  left: auto;
+  right: 10px;
+  background: #2a1f2ecc;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 13px;
+}
