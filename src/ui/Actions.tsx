@@ -14,14 +14,11 @@ import { absoluteDay, offerReason } from "../contracts";
 import {
   isOpen,
   jobs,
-  people,
-  personOpen,
   personOf,
   recipeOf,
   type GameState,
 } from "../game";
 import { previewAction } from "../presentation";
-import type { UIState } from "../uiState";
 export type HomeAction = "orders" | "brew" | "map" | "rest";
 export const actionLabels = {
   orders: "依頼",
@@ -31,13 +28,11 @@ export const actionLabels = {
 };
 export function Actions({
   s,
-  ui,
   choose,
   active,
   compact = false,
 }: {
   s: GameState;
-  ui: UIState;
   choose: (a: HomeAction) => void;
   active?: HomeAction;
   compact?: boolean;
@@ -57,15 +52,6 @@ export function Actions({
         .error,
   );
   const prepare = jobs.find((j) => j.category === "ordinary" && isOpen(j, s));
-  const person =
-    people.find((p) => s.newPeople.includes(p.id) && personOpen(p, s)) ??
-    people.find(
-      (p) =>
-        personOpen(p, s) &&
-        jobs.some(
-          (j) => j.person === p.id && j.category === "personal" && isOpen(j, s),
-        ),
-    );
   const invitation = due
     ? `${personOf(due.terms.person).name}へ本日納品`
     : sale
@@ -132,17 +118,17 @@ export function Actions({
   );
 }
 export function Utilities({
-  brew,
+  endDay,
   inventory,
   settings,
 }: {
-  brew: () => void;
+  endDay: () => void;
   inventory: () => void;
   settings: () => void;
 }) {
   return (
     <nav className="home-utilities" aria-label="準備と管理">
-      <button type="button" aria-label="一日を終える" onClick={brew}>
+      <button type="button" aria-label="一日を終える" onClick={endDay}>
         <Moon size={17} />
         <span>一日を終える</span>
       </button>

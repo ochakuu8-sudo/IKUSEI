@@ -2,22 +2,13 @@ import {
   axes,
   jobs,
   people,
+  personOf,
   places,
   recipes,
   materialIds,
   CHAPTER_DAYS,
   CHAPTERS,
   MAX_STAMINA,
-  NETWORK_COST,
-  NETWORK_STAMINA,
-  REST_RECOVERY,
-  isOpen,
-  personOpen,
-  personalRunKey,
-  hasStaminaFor,
-  hasStockFor,
-  payWithRelation,
-  capDropOf,
   recipesTaughtBy,
   canBrew,
   brewOnce,
@@ -34,6 +25,7 @@ import {
   type PlaceId,
   type RecipeId,
   type MaterialId,
+  type SceneLine,
 } from "./game";
 import {
   absoluteDay,
@@ -67,7 +59,9 @@ export type Action =
 export type ActionOutcome = {
   state: GameState;
   result?: DayResult;
-  scene?: ReturnType<typeof sceneScript>;
+  scene?: SceneLine[];
+  /** 場面の背景に使う場所。画面側で推測させない。 */
+  scenePlace?: PlaceId;
   error?: string;
 };
 const fail = (message: string): never => {
@@ -115,6 +109,7 @@ export function performAction(
       worked: PersonId | "none" | PersonId[] = "none",
       publicWork = false;
     let scene: ActionOutcome["scene"];
+    let scenePlace: PlaceId | undefined;
     let delivered: DayResult["delivered"];
     let deliveries: DayResult["deliveries"];
     let relationUp: DayResult["relationUp"];
@@ -179,7 +174,7 @@ export function performAction(
           ([id, n]) => s.materials[id as MaterialId] < n! * quantity,
         )
       )
-        fail("指定数の処方・素材・体力を確認してください");
+        fail("指定数の処方・素材・スタミナを確認してください");
       let next = s;
       for (let i = 0; i < quantity; i++) next = brewOnce(next, action.recipe);
       return { state: next };
@@ -192,7 +187,9 @@ export function performAction(
       s.axes.品位 = Math.min(s.dignityCap, s.axes.品位 + 6);
       if (!s.today.publicWork) s.axes.威厳 = Math.min(100, s.axes.威厳 + 2);
       s.recent = [
-        s.today.worked.length ? [...s.today.worked].sort() : ("none" as const),
+        s.today.deliveries.length
+          ? [...s.today.deliveries].sort()
+          : ("none" as const),
         ...s.recent,
       ].slice(0, 6);
       notices.push(...expireObligations(s, absoluteDay(s)));
@@ -201,7 +198,12 @@ export function performAction(
         kind: "end-day",
         target: String(absoluteDay(s)),
       });
-      s.today = { worked: [], relationGranted: [], publicWork: false };
+      s.today = {
+        worked: [],
+        relationGranted: [],
+        publicWork: false,
+        deliveries: [],
+      };
       if (s.day === CHAPTER_DAYS) s.awaitingSettlement = true;
       else {
         s.day += 1;
@@ -237,6 +239,14 @@ export function performAction(
           if (!s.today.relationGranted.includes(id)) {
             advanceRelation(id, 1);
             s.today.relationGranted.push(id);
+            // 表では買えない素材が、関係の段階で届くようになる。1日1回だけ。
+            for (const gift of personOf(id).supplies ?? [])
+              if (s.relations[id] >= gift.stage) {
+                s.materials[gift.material] += gift.amount;
+                notices.push(
+                  `${personOf(id).name}から${materialOf(gift.material).name}×${gift.amount}`,
+                );
+              }
           }
         });
       for (const line of plan.lines) {
@@ -271,13 +281,28 @@ export function performAction(
           ]),
         ];
       }
+      s.today.deliveries = [
+        ...s.today.deliveries,
+        ...plan.lines.map((l) => l.person),
+      ].sort();
       const raised = (worked as PersonId[]).filter(
         (id) => s.relations[id] > before.relations[id],
       );
-      if (raised.length)
-        scene = raised.flatMap((id) =>
+      // 納品は必ず場面を挟む。ここが「観る場所」で、遊ぶ場所ではない。
+      scene = [
+        ...plan.lines.flatMap((l) =>
+          sceneScript({
+            title: l.title,
+            person: l.person,
+            recipe: l.recipe,
+            costs: l.costs,
+          }),
+        ),
+        ...raised.flatMap((id) =>
           stageUpLine(id, before.relations[id], s.relations[id]),
-        );
+        ),
+      ];
+      scenePlace = personOf(plan.lines[0].person).place;
       deliveries = plan.lines.map((l) => ({
         title: l.title,
         recipe: l.recipe,
@@ -362,6 +387,7 @@ export function performAction(
           { text: "支援の条件を読み、期限を確かめて受け取った。" },
           { text: narrative },
         ];
+        scenePlace = personOf(offer!.person).place;
       }
       s.history.push({
         day: absoluteDay(before),
@@ -472,7 +498,7 @@ export function performAction(
       deliveries,
       relationUp,
     };
-    return { state: s, result, scene };
+    return { state: s, result, scene, scenePlace };
   } catch (e) {
     return {
       state: before,

@@ -15,7 +15,9 @@ import {
 } from "../game";
 import { previewAction } from "../presentation";
 export const money = (n: number) => `${n.toLocaleString()} G`;
-export const sign = (n: number) => `${n > 0 ? "+" : ""}${n}`;
+// マイナスは全角。ASCIIハイフンと混ぜない。
+export const sign = (n: number) =>
+  n < 0 ? `−${Math.abs(n)}` : `${n > 0 ? "+" : ""}${n}`;
 export function Button({
   children,
   onClick,
@@ -305,7 +307,7 @@ export function Preview({
           <b>{sign(p.money)} G</b>
         </div>
         <div>
-          <small>体力の変化</small>
+          <small>スタミナの変化</small>
           <b>{sign(p.stamina)}</b>
         </div>
         <div>

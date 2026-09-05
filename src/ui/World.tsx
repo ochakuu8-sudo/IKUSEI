@@ -1,29 +1,21 @@
-import { mapSrc, personSrc } from "../art";
 import { supportOffers } from "../content/support";
 import { offerReason } from "../contracts";
 import type { Action } from "../engine";
 import {
   recipeOf,
   materialOf,
-  people,
   personOf,
-  personOpen,
-  personalJobsAt,
   placeOf,
   placeOpen,
   places,
-  relationStage,
   type GameState,
   type MaterialId,
-  type PersonId,
   type PlaceId,
 } from "../game";
 import { preparationMaterials, previewAction } from "../presentation";
-import { quoteSummary } from "../workflow";
 import type { UIState } from "../uiState";
 import {
   Tabs,
-  Art,
   Badge,
   Button,
   Empty,
@@ -31,7 +23,6 @@ import {
   Item,
   Quantity,
   money,
-  Preview,
 } from "./components";
 import { ActionDock } from "./ActionDock";
 export function World({
@@ -41,6 +32,7 @@ export function World({
   patch,
   toBrew,
   back,
+  seen,
 }: {
   s: GameState;
   ui: UIState;
@@ -48,9 +40,8 @@ export function World({
   patch: (p: Partial<UIState>) => void;
   toBrew: () => void;
   back: () => void;
-  shop: (id: PlaceId) => void;
-  viewPerson: (id: PersonId | null) => void;
-  personJobs: (id: PersonId) => void;
+  /** 解禁されたばかりの採集地の「新着」を降ろす。 */
+  seen: (id: PlaceId) => void;
 }) {
   const recipe = recipeOf(ui.recipe);
   const missing = Object.entries(recipe.needs).filter(
@@ -111,7 +102,10 @@ export function World({
                 preview = previewAction(s, action);
               return (
                 <article className="paper gather-card" key={p.id}>
-                  <h2>{p.name}</h2>
+                  <h2>
+                    {p.name}
+                    {s.newPlaces.includes(p.id) && <Badge tone="warn">新着</Badge>}
+                  </h2>
                   <div>
                     {Object.entries(p.gathers!).map(([id, n]) => (
                       <div className="item-row" key={id}>
@@ -127,7 +121,10 @@ export function World({
                   <Button
                     primary={!ui.preparing || missing.length > 0}
                     disabled={!!preview.error}
-                    onClick={() => confirm(action, p.name + "で採集する")}
+                    onClick={() => {
+                      seen(p.id);
+                      confirm(action, p.name + "で採集する");
+                    }}
                   >
                     採集する
                   </Button>

@@ -398,15 +398,19 @@
   }
 }
 @media (max-width: 720px) and (min-height: 501px) {
+  /* 縦持ちは route-bar を下に貼る。コマンドバーはその更に下の行を取る。 */
   .command-app {
-    grid-template-rows: var(--hud) minmax(0, 1fr);
+    grid-template-rows: var(--hud) minmax(0, 1fr) var(--cmdbar);
   }
   .command-app > .content {
     grid-row: 2;
   }
+  .command-app > .command-bar {
+    grid-row: 3;
+  }
   .command-app .route-bar {
     position: fixed;
-    bottom: 0;
+    bottom: var(--cmdbar);
     left: 0;
     right: 0;
     height: auto;
@@ -502,7 +506,7 @@
     top: calc(var(--hud) + 8px);
     left: 8px;
     right: 8px;
-    bottom: max(8px, env(safe-area-inset-bottom));
+    bottom: calc(var(--cmdbar) + max(8px, env(safe-area-inset-bottom)));
     z-index: 30;
     border-radius: 18px 18px 8px 8px;
   }
@@ -526,7 +530,7 @@
   .work-screen:not(.has-detail) > .action-dock,
   .shop-screen > .action-dock {
     position: fixed;
-    bottom: 0;
+    bottom: var(--cmdbar);
     left: 0;
     right: 0;
     padding-bottom: max(8px, env(safe-area-inset-bottom));
@@ -596,7 +600,7 @@
   .work-screen.has-detail .work-detail {
     position: fixed;
     top: calc(var(--hud) + 4px);
-    bottom: 4px;
+    bottom: calc(var(--cmdbar) + 4px);
     right: 8px;
     left: 30%;
     z-index: 30;
@@ -691,7 +695,7 @@
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: var(--cmdbar);
     z-index: 25;
     padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
@@ -720,4 +724,110 @@
   .home-decisions:has(.home-notice) .command-button {
     min-height: 60px;
   }
+}
+
+/* 章末：残債をこの画面で最も大きい数値にする(GAME_DESIGN §9)。 */
+.settlement-debt {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 10px;
+  padding: 10px 14px;
+  border: 2px solid #e6c79b;
+  border-radius: 14px;
+  background: #fffaf2;
+}
+.settlement-debt small {
+  color: var(--muted);
+  font-size: 13px;
+}
+.settlement-debt strong {
+  font-family: var(--serif, inherit);
+  font-size: clamp(30px, 6vw, 46px);
+  line-height: 1;
+  color: var(--red);
+  letter-spacing: 0.01em;
+}
+.settlement-penalty {
+  border-left: 3px solid var(--red);
+  background: #faecea;
+  padding: 8px 12px;
+  margin: 10px 0;
+  border-radius: 0 10px 10px 0;
+}
+.settlement-penalty b {
+  display: block;
+  margin-bottom: 4px;
+}
+.settlement-penalty span {
+  display: inline-block;
+  margin-right: 10px;
+  color: var(--red);
+  font-weight: 700;
+}
+.settlement-penalty small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+@media (max-height: 500px) {
+  .settlement-debt strong {
+    font-size: 28px;
+  }
+}
+
+/* 横持ちは一覧に使える高さが100px前後しかない。1枚が依頼状に見える範囲で
+   カードを詰めて、折り返しの上に2枚出す(CLAUDE.md「枚数を出す」)。 */
+@media (max-height: 500px) {
+  .work-choice {
+    min-height: 60px;
+    padding: 7px 10px;
+    gap: 8px;
+  }
+  .work-choice .item-art,
+  .work-choice .crest {
+    width: 32px;
+    height: 32px;
+  }
+  .work-choice b {
+    font-size: 14px;
+  }
+  .work-choice small {
+    font-size: 11px;
+  }
+  .work-row {
+    margin-bottom: 6px;
+  }
+  .work-filters select {
+    padding: 3px 6px;
+    font-size: 12px;
+  }
+  .work-filters label {
+    font-size: 11px;
+  }
+  .tabs button {
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+}
+
+/* 章末・結末の主要動作は、内容が長くても下端に残す。 */
+.settlement-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 0 2px;
+  background: linear-gradient(#fffaf200, #fffaf2 22%, #fffaf2);
+}
+.settlement-actions small {
+  flex: 1;
+  min-width: 160px;
+  color: var(--muted);
 }

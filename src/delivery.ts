@@ -103,12 +103,18 @@ export function planDelivery(s: GameState, selection: DeliverySelection) {
       0,
     ),
   }));
+  // 1件だけ選んでいるときに「まとめて」「合計」と言わない。
+  const many = lines.length > 1;
   const error = Object.entries(stock).some(
     ([id, count]) => (s.stock[id as RecipeId] ?? 0) < count!,
   )
-    ? "まとめて納めるための在庫が足りません"
+    ? many
+      ? "まとめて納めるための在庫が足りません"
+      : "納める薬の在庫が足りません"
     : s.stamina < stamina
-      ? "合計の体力が足りません"
+      ? many
+        ? "合計のスタミナが足りません"
+        : "スタミナが足りません"
       : undefined;
   return {
     lines,

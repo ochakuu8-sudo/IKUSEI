@@ -13,10 +13,13 @@ import {
 } from "./game";
 import { emptySupportState } from "./supportTypes";
 import { rewardValid } from "./rewards";
-export const SAVE_KEY = "ikusei-prototype-save-v10";
+export const SAVE_KEY = "ikusei-prototype-save-v11";
+export const V10_SAVE_KEY = "ikusei-prototype-save-v10";
 export const V9_SAVE_KEY = "ikusei-prototype-save-v9";
 export const PREVIOUS_SAVE_KEY = "ikusei-prototype-save-v8";
 export const LEGACY_SAVE_KEY = "ikusei-prototype-save-v7";
+/** v9以降は解禁と約束の形が同じ。v11は本日の納品回数だけを足している。 */
+const tracked = (n: unknown) => n === 9 || n === 10 || n === 11;
 
 /** v7は履歴や契約を捏造せず移行する。破損データはゲーム状態として使わない。 */
 export function parseSave(raw: string | null): GameState | null {
@@ -43,10 +46,7 @@ export function parseSave(raw: string | null): GameState | null {
     if (
       !axes.every((a) => number(v.axes?.[a], 100)) ||
       !people
-        .filter(
-          (p) =>
-            !p.requiresUnlock || v.saveVersion === 9 || v.saveVersion === 10,
-        )
+        .filter((p) => !p.requiresUnlock || tracked(v.saveVersion))
         .every((p) => number(v.relations?.[p.id], 3)) ||
       !materialIds.every((id) => number(v.materials?.[id]))
     )
@@ -79,11 +79,10 @@ export function parseSave(raw: string | null): GameState | null {
       v.saveVersion !== undefined &&
       v.saveVersion !== 7 &&
       v.saveVersion !== 8 &&
-      v.saveVersion !== 9 &&
-      v.saveVersion !== 10
+      !tracked(v.saveVersion)
     )
       return null;
-    if (v.saveVersion === 8 || v.saveVersion === 9 || v.saveVersion === 10) {
+    if (v.saveVersion === 8 || tracked(v.saveVersion)) {
       if (
         !Array.isArray(v.obligations) ||
         !Array.isArray(v.capabilities) ||
@@ -134,7 +133,7 @@ export function parseSave(raw: string | null): GameState | null {
           return null;
         if (
           t.schedule &&
-          ((v.saveVersion !== 9 && v.saveVersion !== 10) ||
+          (!tracked(v.saveVersion) ||
             !number(t.schedule.appears) ||
             t.schedule.appears < 1 ||
             !number(t.schedule.closes) ||
@@ -196,13 +195,13 @@ export function parseSave(raw: string | null): GameState | null {
     const next: GameState = {
       ...structuredClone(initialState),
       ...v,
-      ...(v.saveVersion === 8 || v.saveVersion === 9 || v.saveVersion === 10
+      ...(v.saveVersion === 8 || tracked(v.saveVersion)
         ? {}
         : emptySupportState()),
       relations: { ...initialState.relations, ...v.relations },
-      saveVersion: 10,
+      saveVersion: 11,
     };
-    if (v.saveVersion === 9 || v.saveVersion === 10) {
+    if (tracked(v.saveVersion)) {
       const strings = (x: unknown): x is string[] =>
         Array.isArray(x) &&
         x.every((id) => typeof id === "string") &&
@@ -278,7 +277,7 @@ export function parseSave(raw: string | null): GameState | null {
       Array.isArray(a) &&
       new Set(a).size === a.length &&
       a.every((id) => people.some((p) => p.id === id));
-    if (v.saveVersion === 10) {
+    if (v.saveVersion === 10 || v.saveVersion === 11) {
       if (
         !v.today ||
         !ids(v.today.worked) ||
@@ -286,8 +285,26 @@ export function parseSave(raw: string | null): GameState | null {
         typeof v.today.publicWork !== "boolean"
       )
         return null;
-      next.today = structuredClone(v.today);
-    } else next.today = { worked: [], relationGranted: [], publicWork: false };
+      // v11で足した納品回数。v10には無いので当日ぶんだけ空で始める。
+      const deliveries = v.today.deliveries;
+      if (
+        v.saveVersion === 11 &&
+        (!Array.isArray(deliveries) ||
+          !deliveries.every((id: unknown) => people.some((p) => p.id === id)))
+      )
+        return null;
+      next.today = {
+        ...structuredClone(v.today),
+        deliveries:
+          v.saveVersion === 11 ? structuredClone(deliveries) : ([] as never[]),
+      };
+    } else
+      next.today = {
+        worked: [],
+        relationGranted: [],
+        publicWork: false,
+        deliveries: [],
+      };
     return next;
   } catch {
     return null;

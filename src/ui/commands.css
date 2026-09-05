@@ -137,10 +137,13 @@
 /* Action-first game layout. Shared paper, type and illustration styles stay in styles.css. */
 .command-app {
   --nav: 208px;
+  /* 狭い画面だけ下段のコマンドバーぶんの行を確保する。広い画面では0。 */
+  --cmdbar: 0px;
+  --routebar: 52px;
   position: relative;
   isolation: isolate;
   grid-template-columns: var(--nav) minmax(0, 1fr);
-  grid-template-rows: var(--hud) 52px minmax(0, 1fr);
+  grid-template-rows: var(--hud) var(--routebar) minmax(0, 1fr) var(--cmdbar);
 }
 .command-app.no-sidebar {
   grid-template-columns: minmax(0, 1fr);
@@ -699,10 +702,13 @@
 }
 .command-app .receipt {
   max-width: calc(100vw - 32px);
-  bottom: 12px;
+  bottom: calc(var(--cmdbar) + 12px);
 }
 .command-app.save-failed {
-  grid-template-rows: var(--hud) auto 52px minmax(0, 1fr);
+  grid-template-rows: var(--hud) auto var(--routebar) minmax(0, 1fr) var(--cmdbar);
+}
+.command-app.save-failed > .command-bar {
+  grid-row: 5;
 }
 .command-app.save-failed > .route-bar {
   grid-row: 3;
@@ -724,14 +730,33 @@
 .command-app.no-sidebar > .save-error {
   grid-column: 1;
 }
+/* サイドバーが消える幅では、依頼→収集→調合の往復が毎回「自室へ」経由になる。
+   3コマンドを下段に常設して、そこを1タップに戻す。 */
+.command-bar {
+  display: none;
+  grid-column: 1 / -1;
+  grid-row: 4;
+}
 @media (max-width: 1050px) {
   .command-app {
     --nav: 0px;
+    --cmdbar: 64px;
     grid-template-columns: minmax(0, 1fr);
   }
   .action-sidebar {
     display: none;
   }
+  .command-bar {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 6px;
+    align-items: stretch;
+    padding: 6px 8px max(6px, env(safe-area-inset-bottom));
+    background: #241a28f2;
+    border-top: 1px solid #e0bc8955;
+  }
+
   .command-app > .content,
   .route-bar {
     grid-column: 1;
@@ -973,6 +998,11 @@
     flex-basis: 100%;
   }
 }
+@media (max-width: 1050px) and (max-height: 500px) {
+  .command-app {
+    --cmdbar: 50px;
+  }
+}
 @media (max-height: 500px) {
   .command-heading {
     padding: 5px 14px;
@@ -1138,5 +1168,43 @@
   }
   .command-button > svg:first-child {
     display: none;
+  }
+}
+
+/* 横持ちは高さが足りない。見出し・説明・余白を削って、一覧を折り返しの上に出す。 */
+@media (max-height: 500px) {
+  .command-app {
+    --routebar: 42px;
+  }
+  .route-bar {
+    padding: 2px 14px;
+  }
+  .command-app .content-inner {
+    margin: 6px auto;
+    padding: 10px 16px 14px;
+  }
+  /* 画面名は route-bar が出しているので、横持ちでは見出しを畳む。
+     Heading の extra（まとめ納品などの操作）だけは残す。 */
+  .command-app .page-heading {
+    margin: 0 0 6px;
+    padding: 0;
+    border: 0;
+    min-height: 0;
+  }
+  .command-app .page-heading > div {
+    display: none;
+  }
+  .command-app .content-inner {
+    width: calc(100% - 16px);
+  }
+  .command-app .content .intro {
+    display: none;
+  }
+  .command-app .tabs {
+    margin-bottom: 6px;
+    padding-bottom: 0;
+  }
+  .command-app .work-filters {
+    margin-bottom: 6px;
   }
 }

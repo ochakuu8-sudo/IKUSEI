@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(
+  process.env.IKUSEI_CHROMIUM ? { executablePath: process.env.IKUSEI_CHROMIUM } : {},
+);
 const output = resolve("../scenario-validation");
 mkdirSync(output, { recursive: true });
-const saveKey = "ikusei-prototype-save-v10";
+const saveKey = "ikusei-prototype-save-v11";
 try {
   const page = await browser.newPage({
     viewport: { width: 1280, height: 720 },

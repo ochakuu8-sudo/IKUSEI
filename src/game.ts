@@ -293,8 +293,6 @@ export const places: Place[] = [
   },
 ];
 
-export const workPlaces = places.filter((p) => p.kind === "work");
-
 /** その場所へ行けるか。採集地は堕ちて開くものがある。 */
 export function placeOpen(place: Place, state: GameState): boolean {
   if (place.requiresUnlock && !state.unlockedPlaces.includes(place.id))
@@ -327,6 +325,9 @@ export type Person = {
   stageLines: [string, string, string];
   /** この段階に達した日に教わる処方。レシピは金では買えない(§2-1)。 */
   teaches?: { stage: number; recipe: RecipeId }[];
+  /** この段階に達すると、通常納品の日に一度だけ分けてもらえる素材。
+      表で買えない品を「堕ちて開く道」と「育てて開く道」の両方に繋ぐ(§6-B)。 */
+  supplies?: { stage: number; material: MaterialId; amount: number }[];
 };
 
 export const people: Person[] = [
@@ -425,6 +426,7 @@ export const people: Person[] = [
       { stage: 2, recipe: "philtre" },
       { stage: 3, recipe: "abortive" },
     ],
+    supplies: [{ stage: 2, material: "ambergris", amount: 1 }],
   },
 ];
 
@@ -464,9 +466,13 @@ export const MAX_STAMINA = 100;
    調剤ラインを入れたあとの実測（段階E）:
      正攻法の稼ぎ  1701 / 2064 / 2164 / 2033 / 2068 / 2068  計 12,098G
      達成率        162% / 133% / 111% /  97% /  84% /  75%
-   合計 11,850G に対して、完全に清廉でも余りは +248G しかない。
 
-   依頼・処方・素材・報酬を触ったら、必ず測り直してここを引き直すこと。 */
+   スタミナ制（v10）で1日に何度でも納品できるようになって以降、この比率は
+   崩れている。買い叩きを納品回数で数えるようにした現在の実測（npm run sim）:
+     正攻法の稼ぎ  7671 / 8300 / 8388 / 8300 / 8388 / 8300  計 49,347G
+     達成率        730% / 535% / 430% / 395% / 342% / 302%
+   ノルマは仮データのまま据え置いてある。人物・依頼・処方が仮のうちに引き直しても
+   意味が無いので、コンテンツが入った時点で必ず測り直してここを引き直すこと。 */
 export const QUOTAS = [1050, 1550, 1950, 2100, 2450, 2750];
 export const TOTAL_DEBT = QUOTAS.reduce((a, b) => a + b, 0);
 
@@ -500,26 +506,6 @@ export type JobKind =
   | "人前"
   | "労務"
   | "裏";
-
-export const jobKinds: JobKind[] = [
-  "調剤",
-  "親交",
-  "社交",
-  "実務",
-  "人前",
-  "労務",
-  "裏",
-];
-
-export const kindNote: Record<JobKind, string> = {
-  調剤: "薬の注文。素材を集めて調合し、納める。日はかかるが身体は削らない",
-  親交: "人と親しくなるための席。まともに扱われているうちしか呼ばれない",
-  社交: "家名と作法で立つ仕事",
-  実務: "手を動かす仕事。誰にも見られない",
-  人前: "人目のある場所に立つ仕事",
-  労務: "身体だけで足りる仕事",
-  裏: "落ちた者にしか回ってこない仕事",
-};
 
 export type Job = {
   id: string;
@@ -1085,23 +1071,6 @@ export function closedBy(job: Job, state: GameState): Axis[] {
   return axes.filter((axis) => state.axes[axis] < (job.needs[axis] ?? 0));
 }
 
-/** 種別ごとに、いま受けられる件数。「何が回ってこなくなったか」を出すのに使う。 */
-export function countsByKind(state: GameState): Record<JobKind, number> {
-  const out = Object.fromEntries(jobKinds.map((k) => [k, 0])) as Record<
-    JobKind,
-    number
-  >;
-  jobs.forEach((job) => {
-    if (isOpen(job, state)) out[job.kind] += 1;
-  });
-  return out;
-}
-
-/** いま受けられる依頼すべて。仕事メニューはここから作る。 */
-export function openJobs(state: GameState): Job[] {
-  return jobs.filter((job) => isOpen(job, state));
-}
-
 /* ================= 調剤のルール =================
    SYSTEM_PLAN.md §2。素材は買う／採る／貰う、調合は体力と素材、納品が1日。 */
 
@@ -1109,13 +1078,6 @@ export function openJobs(state: GameState): Job[] {
 export function canBrew(recipe: Recipe, state: GameState): boolean {
   if (!state.known.includes(recipe.id)) return false;
   if (state.stamina < recipe.stamina) return false;
-  return materialIds.every(
-    (id) => state.materials[id] >= (recipe.needs[id] ?? 0),
-  );
-}
-
-/** 素材だけは足りているか（体力不足と区別して見せるため）。 */
-export function hasMaterialsFor(recipe: Recipe, state: GameState): boolean {
   return materialIds.every(
     (id) => state.materials[id] >= (recipe.needs[id] ?? 0),
   );
@@ -1142,23 +1104,9 @@ export function hasStockFor(job: Job, state: GameState): boolean {
   return (state.stock[job.recipe] ?? 0) >= (job.count ?? 1);
 }
 
-/** 採集地で1回に採れるもの。 */
-export function gatherYield(
-  place: Place,
-): { id: MaterialId; amount: number }[] {
-  return materialIds
-    .filter((id) => (place.gathers?.[id] ?? 0) > 0)
-    .map((id) => ({ id, amount: place.gathers?.[id] ?? 0 }));
-}
-
 /** 行ける採集地。堕ちて開く場所がある(§6-B)。 */
 export function gatherPlaces(state: GameState): Place[] {
   return places.filter((p) => p.kind === "gather" && placeOpen(p, state));
-}
-
-/** そこで買える素材（値がついているものだけ）。 */
-export function sellsAt(place: Place): Material[] {
-  return (place.sells ?? []).map(materialOf).filter((m) => m.buy !== undefined);
 }
 
 /** 関係が新しい段階に入って教わる処方。まだ知らないものだけ返す。 */
@@ -1176,35 +1124,25 @@ export function recipesTaughtBy(
     .map((t) => t.recipe);
 }
 
-/** レシピ帳。覚えた順ではなく、格の順に並べる。 */
-export function knownRecipes(state: GameState): Recipe[] {
-  return recipes.filter((r) => state.known.includes(r.id));
-}
-
-/** その場所で、いま受けられる依頼の数。 */
-export function openCountAt(place: PlaceId, state: GameState): number {
-  return jobsAt(place).filter((job) => isOpen(job, state)).length;
-}
-
-/** 紹介されなくなった依頼。消さずに跡として残す(§5)。 */
-export function closedJobsAt(place: PlaceId, state: GameState): Job[] {
-  // まだ現れていない依頼は「跡」ではないので除く
-  return jobsAt(place).filter(
-    (job) => !isOpen(job, state) && !notYetFallen(job, state),
-  );
-}
-
 /* --- 常設リストの単調さを防ぐ：同じ場所に通い詰めると買い叩かれる --- */
 
 export const RECENT_WINDOW = 3;
 const FATIGUE_RATE = [1, 0.82, 0.68, 0.58];
 
-/** 直近 RECENT_WINDOW 日のうち、その場所で働いた回数。 */
+/** 直近 RECENT_WINDOW 日と本日ぶんを合わせた、その人への納品回数。
+    同日の反復を許した以上、日単位で数えると買い叩きが一度も効かない。 */
 export function personFatigue(person: PersonId, state: GameState): number {
-  return state.recent
-    .slice(0, RECENT_WINDOW)
-    .filter((id) => (Array.isArray(id) ? id.includes(person) : id === person))
-    .length;
+  const past = state.recent.slice(0, RECENT_WINDOW).reduce(
+    (n, entry) =>
+      n +
+      (Array.isArray(entry)
+        ? entry.filter((id) => id === person).length
+        : entry === person
+          ? 1
+          : 0),
+    0,
+  );
+  return past + state.today.deliveries.filter((id) => id === person).length;
 }
 
 /** 通い詰めによる相場の下落率（1 = 定価）。 */
@@ -1212,12 +1150,6 @@ export function fatigueRate(person: PersonId, state: GameState): number {
   return FATIGUE_RATE[
     Math.min(personFatigue(person, state), FATIGUE_RATE.length - 1)
   ];
-}
-
-/** その場所の誰かが買い叩いてくる状態か。地図の表示に使う。 */
-export function placeDiscount(place: PlaceId, state: GameState): number {
-  const rates = peopleAt(place, state).map((p) => fatigueRate(p.id, state));
-  return rates.length ? Math.min(...rates) : 1;
 }
 
 /* ---------------- 章末精算 ---------------- */
@@ -1275,7 +1207,7 @@ export function applySettlement(state: GameState, s: Settlement): GameState {
     axes: axes2,
     carryOver: s.shortfall + s.interest,
     awaitingSettlement: false,
-    today: { worked: [], relationGranted: [], publicWork: false },
+    today: { worked: [], relationGranted: [], publicWork: false, deliveries: [] },
     chapter: s.finished ? state.chapter : state.chapter + 1,
     day: s.finished ? state.day : 1,
     stamina: s.finished ? state.stamina : MAX_STAMINA,
@@ -1317,10 +1249,6 @@ export function axisStage(axis: Axis, value: number): string {
   return bottom;
 }
 
-export function relationLabel(value: number): string {
-  return ["疎遠", "既知", "信頼", "懇意"][value] ?? "懇意";
-}
-
 /** その依頼で下がる品位の上限。品位を払う依頼だけ発生する。 */
 export function capDropOf(job: Job): number {
   const dignity = job.costs.find((c) => c.axis === "品位");
@@ -1341,10 +1269,6 @@ export function payWithRelation(job: Job, state: GameState): number {
 export function hasStaminaFor(job: Job, state: GameState): boolean {
   return state.stamina >= job.stamina;
 }
-
-export const NETWORK_COST = 20;
-export const NETWORK_STAMINA = 8;
-export const REST_RECOVERY = 58;
 
 /* ---------------- イベントシーン ----------------
    依頼を受けたあとに流れる「本番」。遊ぶ場所ではなく観る場所なので、
@@ -1403,22 +1327,29 @@ const plainScript: SceneLine[] = [
   { text: "それが、今日いちばんの収穫だった。" },
 ];
 
-/** 受けた依頼の台本。削る軸で決まる。複数なら軸の順に繋ぐ。 */
-export function sceneScript(job: Job): SceneLine[] {
-  const person = personOf(job.person);
-  const opening: SceneLine = {
-    text: `${placeOf(person.place).name}／${job.title}。`,
-  };
-  // 薬を納める日は、削る軸ではなく品の格が場面を決める。
-  if (job.recipe) return [opening, ...brewScript[recipeOf(job.recipe).grade]];
-  if (job.costs.length === 0) return [opening, ...plainScript];
-  const ordered = axes.filter((axis) => job.costs.some((c) => c.axis === axis));
-  return [opening, ...ordered.flatMap((axis) => scriptByAxis[axis])];
-}
+/** 台本を組む単位。通常依頼も特別依頼の納品も、同じ形にして渡す。 */
+export type SceneSubject = {
+  title: string;
+  person: PersonId;
+  recipe?: RecipeId;
+  costs: JobCost[];
+};
 
-/** 絵を決める主軸。 */
-export function primaryAxis(job: Job): Axis | null {
-  return axes.find((axis) => job.costs.some((c) => c.axis === axis)) ?? null;
+/** 納品1件ぶんの台本。品の格が場面を決め、差し出したものがあれば
+    そのぶんを最後に重ねる。まとめ納品は engine が全件を順に繋ぐ。 */
+export function sceneScript(subject: SceneSubject): SceneLine[] {
+  const opening: SceneLine = {
+    text: `${placeOf(personOf(subject.person).place).name}／${subject.title}。`,
+  };
+  const paid = axes.find((axis) =>
+    subject.costs.some((c) => c.axis === axis && c.amount > 0),
+  );
+  const body = subject.recipe
+    ? brewScript[recipeOf(subject.recipe).grade]
+    : plainScript;
+  return paid
+    ? [opening, ...body, ...scriptByAxis[paid]]
+    : [opening, ...body];
 }
 
 /** 関係が新しい段階に入った日の一言。上がっていなければ空。 */

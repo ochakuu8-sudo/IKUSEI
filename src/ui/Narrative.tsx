@@ -275,6 +275,8 @@ export function Dialogue({
               >
                 セリフを隠す
               </button>
+              {/* 納品のたびに場面が入るので、送りきる以外の出口を必ず用意する。 */}
+              <button onClick={onDone}>この場面をとばす</button>
               <button onClick={() => setMenu(false)}>本文に戻る</button>
             </nav>
           ) : (

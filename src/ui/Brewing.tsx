@@ -13,7 +13,7 @@ import {
   type PlaceId,
   type RecipeId,
 } from "../game";
-import { brewCapacity, preparationNeeds, previewAction } from "../presentation";
+import { brewCapacity, preparationNeeds } from "../presentation";
 import type { UIState } from "../uiState";
 import { Badge, Button, Heading, Item, Quantity, Tabs } from "./components";
 import { ActionDock } from "./ActionDock";
@@ -53,11 +53,6 @@ export function Brewing({
         ] as const,
     )
     .filter(([, n]) => n > 0);
-  const preview = previewAction(s, {
-    type: "brew",
-    recipe: r.id,
-    quantity: ui.quantity,
-  });
   const select = (id: RecipeId) =>
     open({
       recipe: id,
@@ -234,8 +229,8 @@ export function Brewing({
                           <span>
                             {p.sells
                               ? `${price}G`
-                              : `スタミナ −${p.gatherStamina}`}
-                            <small>体力 {p.gatherStamina ?? 0}</small>
+                              : `スタミナ −${p.gatherStamina ?? 0}`}
+                            <small>{p.sells ? "資金のみ" : "日は進まない"}</small>
                           </span>
                           <ArrowRight size={16} />
                         </button>

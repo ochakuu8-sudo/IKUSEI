@@ -93,3 +93,81 @@
   padding: 5px 9px;
   font-size: 12px;
 }
+
+/* ==== 下段コマンドバーの見た目 ====
+   .command-button と .command-status は commands.css / workday.css の
+   幅・縦持ちの各分岐で同じ強さで上書きされる。読み込み順が最後の
+   このファイルに置いて、バーの中だけを確定させる。 */
+@media (max-width: 1050px) {
+  .command-app .command-bar {
+    /* グリッド行はcmdbarぶんしか無い。中身の最小高で押し広げさせない。 */
+    min-height: 0;
+    height: var(--cmdbar);
+    overflow: hidden;
+  }
+  .command-app .command-bar .commands {
+    display: contents;
+  }
+  .command-app .command-bar .command-button {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+    align-content: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 0;
+    height: 100%;
+    padding: 4px 2px;
+    border-radius: 12px;
+    text-align: center;
+  }
+  .command-app .command-bar .command-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .command-app .command-bar .command-copy b {
+    flex: none;
+    align-self: center;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  .command-app .command-bar .command-status,
+  .command-app .command-bar .command-copy small,
+  .command-app .command-bar .command-arrow {
+    display: none;
+  }
+  .command-app .command-bar .command-emblem {
+    width: 22px;
+    height: 22px;
+    min-width: 0;
+    margin: 0;
+    border-radius: 7px;
+  }
+  .command-app .command-bar .command-emblem > svg,
+  .command-app .command-bar .command-button > svg:first-child {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+  }
+}
+@media (max-width: 1050px) and (max-height: 500px) {
+  .command-app .command-bar {
+    padding: 3px 6px;
+    gap: 4px;
+  }
+  .command-app .command-bar .command-copy b {
+    font-size: 11px;
+  }
+  .command-app .command-bar .command-emblem {
+    width: 17px;
+    height: 17px;
+  }
+  .command-app .command-bar .command-emblem > svg,
+  .command-app .command-bar .command-button > svg:first-child {
+    width: 13px;
+    height: 13px;
+  }
+}

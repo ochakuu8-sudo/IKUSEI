@@ -5,7 +5,6 @@ import { planDelivery, type DeliverySelection } from "../delivery";
 import type { Action } from "../engine";
 import {
   isOpen,
-  jobKinds,
   jobs,
   payWithRelation,
   personOf,
@@ -14,10 +13,11 @@ import {
   type GameState,
   type Job,
   type PersonId,
+  type PlaceId,
   type RecipeId,
 } from "../game";
 import { previewAction } from "../presentation";
-import { actionQuote, visibleJobs, workReason } from "../workflow";
+import { visibleJobs, workReason } from "../workflow";
 import type { Obligation, SupportOffer } from "../supportTypes";
 import type { UIState } from "../uiState";
 import {
@@ -54,6 +54,7 @@ export function Orders({
   prepare,
   journal,
   back,
+  seen,
 }: {
   s: GameState;
   ui: UIState;
@@ -62,6 +63,8 @@ export function Orders({
   prepare: (recipe: RecipeId, required: number, collect: boolean) => void;
   journal: () => void;
   back: () => void;
+  /** 解禁されたばかりの依頼人の「新着」を降ろす。 */
+  seen: (place: PlaceId) => void;
 }) {
   const listRef = useRef<HTMLElement>(null);
   const listKey =
@@ -280,6 +283,25 @@ export function Orders({
       />
       <div className="work-filters">
         <label>
+          相手
+          <select
+            value={ui.personFilter ?? "all"}
+            onChange={(e) =>
+              patch({
+                personFilter: e.target.value === "all" ? null : e.target.value,
+                orderId: null,
+              })
+            }
+          >
+            <option value="all">すべて</option>
+            {[...new Set(rows.map((r) => r.person))].map((id) => (
+              <option value={id} key={id}>
+                {personOf(id).name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
           状態
           <select
             value={ui.filter}
@@ -331,7 +353,11 @@ export function Orders({
                 <button
                   className="work-choice"
                   aria-pressed={row?.key === r.key}
-                  onClick={() => open(r.key)}
+                  onClick={() => {
+                    if (s.newPeople.includes(r.person))
+                      seen(personOf(r.person).place);
+                    open(r.key);
+                  }}
                 >
                   {r.job?.recipe ? (
                     <Item id={r.job.recipe} />
@@ -339,7 +365,12 @@ export function Orders({
                     <Art src={personSrc(r.person)} className="crest" />
                   )}
                   <span>
-                    <b>{r.title}</b>
+                    <b>
+                      {r.title}
+                      {s.newPeople.includes(r.person) && (
+                        <Badge tone="warn">新着</Badge>
+                      )}
+                    </b>
                     <small>
                       {personOf(r.person).name} ／ {r.job?.kind ?? "特別依頼"}
                     </small>
@@ -411,7 +442,6 @@ export function Orders({
                       state={s}
                       recipe={id as RecipeId}
                       required={n!}
-                      prepare={prepare}
                     />
                   ))}
                 </>
@@ -454,7 +484,6 @@ export function Orders({
                       state={s}
                       recipe={row.job.recipe}
                       required={row.job.count ?? 1}
-                      prepare={prepare}
                     />
                   )}
                   {!row.job.recipe && rowAction(row) && !reason(row) && (
@@ -537,7 +566,6 @@ export function Orders({
                             state={s}
                             recipe={o.recipe}
                             required={o.count}
-                            prepare={prepare}
                           />
                         ))}
                       <Button onClick={journal}>

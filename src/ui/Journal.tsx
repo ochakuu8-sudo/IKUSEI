@@ -3,25 +3,21 @@ import { useState } from "react";
 import { specialOffers } from "../content/support";
 import { absoluteDay, dateLabel } from "../contracts";
 import type { Action } from "../engine";
-import { personOf, recipeOf, type GameState, type RecipeId } from "../game";
+import { personOf, recipeOf, type GameState } from "../game";
 import { previewAction } from "../presentation";
 import { Badge, Button, Empty, Heading, money, Tabs } from "./components";
 import { OfferDetails } from "./Orders";
 export function Journal({
   s,
   confirm,
-  prepare,
+  openPromise,
   initialTab = "promises",
 }: {
   s: GameState;
   initialTab?: string;
   confirm: (a: Action, title: string) => void;
-  prepare: (
-    id: RecipeId,
-    n: number,
-    today: boolean,
-    promiseId?: string,
-  ) => void;
+  /** 依頼画面のその約束の詳細を開く。準備と納品はそちらで完結させる。 */
+  openPromise: (promiseId: string) => void;
 }) {
   const [filter, setFilter] = useState("active"),
     [selected, setSelected] = useState(""),
@@ -204,19 +200,7 @@ export function Journal({
                 </p>
                 {o.status === "active" && o.terms.kind === "advance" && (
                   <>
-                    <Button
-                      primary
-                      onClick={() => {
-                        const option = o.terms.options[0];
-                        if (option)
-                          prepare(
-                            option.recipe,
-                            option.count,
-                            o.due === today,
-                            o.id,
-                          );
-                      }}
-                    >
+                    <Button primary onClick={() => openPromise(o.id)}>
                       {o.due === today ? "まとめ納品へ" : "薬を準備する"}
                     </Button>
                     <div className="promise-actions">

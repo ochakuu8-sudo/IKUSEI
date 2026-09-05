@@ -41,9 +41,11 @@ export function EndingScreen({
             {s.obligations.filter((o) => o.status === "fulfilled").length}件 ／
             未精算 {money(outstandingTotal(s))}
           </p>
-          <Button primary onClick={() => setRoute("title")}>
-            タイトルへ
-          </Button>
+          <div className="settlement-actions">
+            <Button primary onClick={() => setRoute("title")}>
+              タイトルへ
+            </Button>
+          </div>
         </section>
       </div>
     </>

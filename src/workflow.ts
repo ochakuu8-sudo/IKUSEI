@@ -1,8 +1,7 @@
-import { specialOffers, supportOffers } from "./content/support";
+import { specialOffers } from "./content/support";
 import { absoluteDay, offerReason } from "./contracts";
 import type { Action } from "./engine";
 import {
-  axes,
   closedBy,
   isOpen,
   jobs,
@@ -34,10 +33,11 @@ export function actionQuote(s: GameState, action: Action) {
     ? actual
     : { ...quote, error: actual.error, state: actual.state };
 }
-export function actionDays(s: GameState, action: Action) {
+/** 日付が進むのは「一日を終える」だけ。他の行動はスタミナだけを使う。 */
+export function actionDays(action: Action) {
   return action.type === "end-day" ? 1 : 0;
 }
-export function actionLabel(s: GameState, a: Action) {
+export function actionLabel(a: Action) {
   const verbs: Record<Action["type"], string> = {
     "end-day": "一日を終える",
     deliver: "納品する",
@@ -60,7 +60,7 @@ export function actionLabel(s: GameState, a: Action) {
   return verbs[a.type];
 }
 export function deadlineWarnings(s: GameState, a: Action) {
-  const days = actionDays(s, a);
+  const days = actionDays(a);
   if (!days) return [];
   const preview = previewAction(s, a);
   const lastDay = absoluteDay(s) + days - 1;
@@ -112,5 +112,5 @@ export function visibleJobs(s: GameState, seen: string[]) {
 }
 export function quoteSummary(s: GameState, action: Action) {
   const q = actionQuote(s, action);
-  return `${q.money < 0 ? "費用" : "受取"} ${Math.abs(q.money).toLocaleString()}G・スタミナ ${q.stamina > 0 ? "+" : ""}${q.stamina}`;
+  return `${q.money < 0 ? "費用" : "受取"} ${Math.abs(q.money).toLocaleString()}G・スタミナ ${q.stamina < 0 ? `−${Math.abs(q.stamina)}` : `${q.stamina > 0 ? "+" : ""}${q.stamina}`}`;
 }

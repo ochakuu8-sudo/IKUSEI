@@ -1,6 +1,8 @@
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
-const browser = await chromium.launch();
+const browser = await chromium.launch(
+  process.env.IKUSEI_CHROMIUM ? { executablePath: process.env.IKUSEI_CHROMIUM } : {},
+);
 try {
   const p = await browser.newPage({
     viewport: { width: 390, height: 844 },
@@ -45,7 +47,7 @@ try {
     else await confirm("確認");
   }
   let s = await p.evaluate(() =>
-    JSON.parse(localStorage.getItem("ikusei-prototype-save-v10")),
+    JSON.parse(localStorage.getItem("ikusei-prototype-save-v11")),
   );
   assert.equal(s.day, 1);
   assert.equal(s.money, 450);
@@ -60,7 +62,7 @@ try {
   await confirm("一日を終える");
   await confirm("確認");
   s = await p.evaluate(() =>
-    JSON.parse(localStorage.getItem("ikusei-prototype-save-v10")),
+    JSON.parse(localStorage.getItem("ikusei-prototype-save-v11")),
   );
   assert.equal(s.day, 2);
   assert.equal(s.stamina, 100);

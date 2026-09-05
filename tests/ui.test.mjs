@@ -8,7 +8,7 @@ const { chromium } = createRequire(resolve("package.json"))("playwright");
 const out = resolve("../stamina-validation");
 mkdirSync(out, { recursive: true });
 const url = process.env.IKUSEI_TEST_URL ?? "http://127.0.0.1:5174/IKUSEI/",
-  key = "ikusei-prototype-save-v10";
+  key = "ikusei-prototype-save-v11";
 const b = (p, name) => p.getByRole("button", { name, exact: true });
 const read = (p) => p.evaluate((k) => JSON.parse(localStorage.getItem(k)), key);
 const row = (p, name) => p.locator(".work-choice").filter({ hasText: name });
@@ -65,7 +65,9 @@ async function inspect(p, name, selector) {
   assert.deepEqual(issues, [], name);
   await p.screenshot({ path: resolve(out, name + ".png") });
 }
-const browser = await chromium.launch();
+const browser = await chromium.launch(
+  process.env.IKUSEI_CHROMIUM ? { executablePath: process.env.IKUSEI_CHROMIUM } : {},
+);
 const errors = [],
   checks = [];
 try {

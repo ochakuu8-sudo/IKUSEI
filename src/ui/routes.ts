@@ -5,7 +5,6 @@ export type Route =
   | "brew"
   | "inventory"
   | "map"
-  | "place"
   | "journal"
   | "settlement"
   | "ending";

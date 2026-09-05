@@ -336,7 +336,7 @@ test("legacy save migration does not invent obligations", () => {
   ])
     delete old[k];
   const migrated = parseSave(JSON.stringify(old));
-  assert.equal(migrated.saveVersion, 10);
+  assert.equal(migrated.saveVersion, 11);
   assert.deepEqual(migrated.obligations, []);
   assert.equal(migrated.money, old.money);
 });
@@ -478,17 +478,37 @@ test("batch fails atomically for shared stock shortage, stamina, duplicate and i
   s.stamina = 23;
   assert.ok(currentAction(s, actions[0]).error);
 });
-test("ordinary same-person relation grows once and every batch participant counts in fatigue", () => {
+test("ordinary same-person relation grows once and fatigue counts deliveries, not days", () => {
   const s = ready(),
     n = now(s, batch(["ord-tisane", "ord-sleeper", "ord-balm"]));
   assert.equal(n.relations.claire, 1);
   assert.equal(n.relations.vernet, 1);
-  assert.equal(G.personFatigue("claire", n), 0);
-  assert.equal(G.personFatigue("vernet", n), 0);
+  // クレールへは2件、ヴェルネへは1件。日をまたぐ前から回数で数える。
+  assert.equal(G.personFatigue("claire", n), 2);
+  assert.equal(G.personFatigue("vernet", n), 1);
   const ended = now(n, { type: "end-day" });
-  assert.equal(G.personFatigue("claire", ended), 1);
+  assert.equal(G.personFatigue("claire", ended), 2);
   assert.equal(G.personFatigue("vernet", ended), 1);
+  // 各額は出発時点で確定するので、まとめ納品の中では下がらない。
   assert.equal(n.money - s.money, 330 + 430 + 360);
+});
+test("repeating the same order in one day is bought down without waiting for the next day", () => {
+  const s = ready();
+  s.stock.tisane = 8;
+  s.stamina = 100;
+  const quotes = [];
+  let cur = s;
+  for (let i = 0; i < 4; i++) {
+    quotes.push(
+      G.payWithRelation(
+        G.jobs.find((j) => j.id === "ord-vernet-tisane"),
+        cur,
+      ),
+    );
+    cur = now(cur, batch(["ord-vernet-tisane"]));
+  }
+  assert.deepEqual(quotes, [330, 291, 241, 206]);
+  assert.equal(G.personFatigue("vernet", cur), 4);
 });
 test("predeparture conditions and prices are unaffected by delivery ordering or rewards", () => {
   const s = ready();
@@ -714,7 +734,7 @@ test("v8 migrates real history and old deadlines but never grants new unlocks", 
   );
   const s = parseSave(JSON.stringify(old));
   assert.ok(s);
-  assert.equal(s.saveVersion, 10);
+  assert.equal(s.saveVersion, 11);
   assert.deepEqual(s.obligations, old.obligations);
   assert.equal(s.relations.herbalist, 0);
   assert.deepEqual(s.unlockedPeople, []);
@@ -930,6 +950,7 @@ test("one day supports collection brewing delivery and refill only on explicit e
     worked: [],
     relationGranted: [],
     publicWork: false,
+    deliveries: [],
   });
 });
 test("daily relationship cap persists through reload and resets overnight", () => {
@@ -975,7 +996,7 @@ test("v9 migration retains assets and promises without granting free stamina or 
   old.relations.claire = 3;
   delete old.today;
   const s = parseSave(JSON.stringify(old));
-  assert.equal(s.saveVersion, 10);
+  assert.equal(s.saveVersion, 11);
   assert.equal(s.stamina, 17);
   assert.deepEqual(s.obligations, old.obligations);
   assert.deepEqual(s.known, old.known);
@@ -983,6 +1004,7 @@ test("v9 migration retains assets and promises without granting free stamina or 
     worked: [],
     relationGranted: [],
     publicWork: false,
+    deliveries: [],
   });
   s.stock.tisane = 2;
   assert.ok(now(s, batch(["ord-tisane"])).known.includes("perfume"));
@@ -1027,5 +1049,62 @@ test("all seven recipes are reachable through medicine trade without personal jo
   }
   assert.deepEqual([...s.known].sort(), G.recipes.map((r) => r.id).sort());
   assert.equal(s.personalRuns && Object.keys(s.personalRuns).length, 0);
+});
+test("every delivery plays a scene, and paying an axis adds that axis to it", () => {
+  const plain = currentAction(ready(), batch(["ord-vernet-tisane"]));
+  assert.equal(plain.error, undefined);
+  assert.ok(plain.scene.length > 1);
+  assert.equal(plain.scenePlace, "arnaud");
+  assert.ok(plain.scene[0].text.includes("商会へ薬湯を届ける"));
+  // 代償のある納品は、格の場面のあとに差し出した軸の場面が重なる。
+  const paid = currentAction(ready(), batch(["ord-abortive"]));
+  assert.equal(paid.error, undefined);
+  assert.ok(paid.scene.length > plain.scene.length);
+  // まとめ納品は全件ぶんを順に繋ぐ。
+  const many = currentAction(
+    ready(),
+    batch(["ord-vernet-tisane", "ord-marc-tisane"]),
+  );
+  assert.equal(many.scene.length, plain.scene.length * 2);
+});
+test("marc supplies ambergris from relation 2, once a day, opening the lower grades", () => {
+  let s = ready();
+  s.stock.philtre = 0;
+  assert.equal(s.materials.ambergris, 0);
+  s = now(s, batch(["ord-marc-tisane"]));
+  assert.equal(s.relations.marc, 1);
+  assert.equal(s.materials.ambergris, 0, "関係1ではまだ届かない");
+  s = now(now(s, { type: "end-day" }), batch(["ord-marc-tisane"]));
+  assert.equal(s.relations.marc, 2);
+  assert.equal(s.materials.ambergris, 1);
+  // 同じ日に何度納めても、厚意は1日に1つ。
+  s = now(s, batch(["ord-marc-tisane"]));
+  assert.equal(s.materials.ambergris, 1);
+  // 竜涎が手に入れば、裏通りへ落ちる前でも下の格を作れる。
+  s.materials.poppy = 3;
+  s.stamina = 100;
+  s = now(s, { type: "brew", recipe: "philtre", quantity: 1 });
+  assert.equal(s.materials.ambergris, 0);
+  const paid = now(s, batch(["ord-philtre"]));
+  assert.equal(paid.axes.威厳, s.axes.威厳 - 10);
+});
+test("v10 saves migrate to v11 with an empty delivery count and reject a corrupt one", () => {
+  const old = { ...fresh(), saveVersion: 10 };
+  delete old.today.deliveries;
+  const migrated = parseSave(JSON.stringify(old));
+  assert.equal(migrated.saveVersion, 11);
+  assert.deepEqual(migrated.today.deliveries, []);
+  const kept = { ...fresh(), today: { ...fresh().today, deliveries: ["marc", "marc"] } };
+  assert.deepEqual(parseSave(JSON.stringify(kept)).today.deliveries, [
+    "marc",
+    "marc",
+  ]);
+  for (const bad of [["fake"], "marc", 3])
+    assert.equal(
+      parseSave(
+        JSON.stringify({ ...fresh(), today: { ...fresh().today, deliveries: bad } }),
+      ),
+      null,
+    );
 });
 console.log(`${checks} total checks passed`);

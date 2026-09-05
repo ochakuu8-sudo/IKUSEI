@@ -1946,6 +1946,31 @@ meter {
   }
 }
 @media (max-height: 500px) {
+  /* 横持ちの章末は、飾りの1枚より数字と確定ボタンを先に出す(GAME_DESIGN §9)。 */
+  .settlement-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .settlement-art {
+    display: none;
+  }
+  .settlement-layout .paper {
+    padding: 12px 14px;
+  }
+  .settlement-layout .stats {
+    gap: 4px 14px;
+  }
+  .settlement-debt {
+    margin: 8px 0 6px;
+    padding: 6px 12px;
+  }
+  .ending-layout {
+    grid-template-columns: minmax(0, 0.6fr) minmax(0, 1fr);
+    gap: 14px;
+  }
+  .ending-hero {
+    max-height: 100%;
+  }
   :root {
     --hud: 58px;
     --nav: 80px;

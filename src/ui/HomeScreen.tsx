@@ -63,9 +63,9 @@ export function HomeScreen({
           </button>
         )}
         <p className="browse-note">スタミナがある限り、今日も行動できます</p>
-        <Actions s={s} ui={ui} choose={choose} />
+        <Actions s={s} choose={choose} />
         <Utilities
-          brew={() => choose("rest")}
+          endDay={() => choose("rest")}
           inventory={inventory}
           settings={settings}
         />

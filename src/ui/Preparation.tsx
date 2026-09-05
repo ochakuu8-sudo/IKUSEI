@@ -5,17 +5,15 @@ import {
   type RecipeId,
   type MaterialId,
 } from "../game";
-import { Button, Item, Badge } from "./components";
+import { Item, Badge } from "./components";
 export function Preparation({
   state: s,
   recipe,
   required,
-  prepare,
 }: {
   state: GameState;
   recipe: RecipeId;
   required: number;
-  prepare: (recipe: RecipeId, required: number, collect: boolean) => void;
 }) {
   const r = recipeOf(recipe),
     missing = Math.max(0, required - (s.stock[recipe] ?? 0));

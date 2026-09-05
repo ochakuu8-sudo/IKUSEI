@@ -8,15 +8,13 @@ import {
 } from "lucide-react";
 import { absoluteDay } from "../contracts";
 import { backgroundSrc } from "../art";
-import { quotaOf, type GameState } from "../game";
-import type { UIState } from "../uiState";
+import { CHAPTER_DAYS, quotaOf, type GameState } from "../game";
 import { Actions, Utilities, type HomeAction } from "./Actions";
 import { Art, Button, money } from "./components";
 import type { Route } from "./routes";
 
 export function Shell({
   s,
-  ui,
   route,
   choose,
   home,
@@ -25,10 +23,8 @@ export function Shell({
   journal,
   inventory,
   settings,
-  place,
 }: {
   s: GameState;
-  ui: UIState;
   route: Route;
   choose: (a: HomeAction) => void;
   home: () => void;
@@ -37,7 +33,6 @@ export function Shell({
   journal: (calendar?: boolean) => void;
   inventory: () => void;
   settings: () => void;
-  place: string;
 }) {
   const dueCount = s.obligations.filter(
     (o) =>
@@ -45,18 +40,16 @@ export function Shell({
       (o.status !== "active" && o.outstanding > 0),
   ).length;
   const navigating = route !== "home" && !s.awaitingSettlement && !s.ended;
+  const current: HomeAction | undefined =
+    route === "orders" || route === "brew" || route === "map"
+      ? route
+      : undefined;
   return (
     <>
       <Art
         className="game-backdrop"
         src={backgroundSrc(
-          route === "place"
-            ? place
-            : route === "brew"
-              ? "brew"
-              : route === "map"
-                ? "map"
-                : "home",
+          route === "brew" ? "brew" : route === "map" ? "map" : "home",
         )}
       />
       <header className="hud">
@@ -98,7 +91,7 @@ export function Shell({
         </div>
         <div className="hud-payment">
           <span>
-            返済まで <b>{14 - s.day + 1}日</b>
+            返済まで <b>{CHAPTER_DAYS - s.day + 1}日</b>
             <small>必要 {money(quotaOf(s))}</small>
           </span>
           <span className={s.money < quotaOf(s) ? "text-crimson" : ""}>
@@ -117,21 +110,9 @@ export function Shell({
               自室へ
             </Button>
             <p>今日の行動</p>
-            <Actions
-              s={s}
-              ui={ui}
-              choose={choose}
-              compact
-              active={
-                route === "place"
-                  ? "map"
-                  : route === "orders" || route === "brew" || route === "map"
-                    ? route
-                    : undefined
-              }
-            />
+            <Actions s={s} choose={choose} compact active={current} />
             <Utilities
-              brew={() => choose("rest")}
+              endDay={() => choose("rest")}
               inventory={inventory}
               settings={settings}
             />
@@ -146,6 +127,10 @@ export function Shell({
               <Home size={17} />
               自室へ
             </Button>
+          </div>
+          {/* サイドバーが出ない幅では、この下段が3コマンドの入口になる。 */}
+          <div className="command-bar">
+            <Actions s={s} choose={choose} compact active={current} />
           </div>
         </>
       )}

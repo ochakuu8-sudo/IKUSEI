@@ -1,37 +1,28 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { supportOffers } from "./content/support";
-import { specialOffers } from "./content/support";
-import { absoluteDay, offerReason } from "./contracts";
 import { performAction, type Action, type ActionOutcome } from "./engine";
 import {
   initialState,
   jobs,
   midGameState,
   people,
-  personOf,
   placeOf,
   recipeOf,
   axes,
   axisStage,
   type GameState,
-  type MaterialId,
   type PlaceId,
-  type PersonId,
-  type RecipeId,
 } from "./game";
-import {
-  cleanSelection,
-  previewAction,
-  preparationMaterials,
-} from "./presentation";
+import { cleanSelection, previewAction } from "./presentation";
 import {
   LEGACY_SAVE_KEY,
   V9_SAVE_KEY,
+  V10_SAVE_KEY,
   parseSave,
   PREVIOUS_SAVE_KEY,
   SAVE_KEY,
 } from "./save";
-import { actionDays, actionLabel } from "./workflow";
+import { actionLabel } from "./workflow";
 import { DeadlineWarning } from "./ui/ActionDock";
 import { Brewing } from "./ui/Brewing";
 import { Button, Modal, money, Preview, AxisPanel } from "./ui/components";
@@ -45,7 +36,7 @@ import type { Route } from "./ui/routes";
 import { SettlementScreen } from "./ui/SettlementScreen";
 import { Shell } from "./ui/Shell";
 import { TitleScreen } from "./ui/TitleScreen";
-import { Place, World } from "./ui/World";
+import { World } from "./ui/World";
 import { freshUI, parseUI, UI_KEY, type UIState } from "./uiState";
 
 type Receipt = {
@@ -59,6 +50,7 @@ function loadGame() {
   try {
     return (
       parseSave(localStorage.getItem(SAVE_KEY)) ??
+      parseSave(localStorage.getItem(V10_SAVE_KEY)) ??
       parseSave(localStorage.getItem(V9_SAVE_KEY)) ??
       parseSave(localStorage.getItem(PREVIOUS_SAVE_KEY)) ??
       parseSave(localStorage.getItem(LEGACY_SAVE_KEY))
@@ -108,7 +100,13 @@ export default function App() {
     try {
       if (next) localStorage.setItem(SAVE_KEY, JSON.stringify(next));
       else
-        [SAVE_KEY, V9_SAVE_KEY, PREVIOUS_SAVE_KEY, LEGACY_SAVE_KEY].forEach(
+        [
+          SAVE_KEY,
+          V10_SAVE_KEY,
+          V9_SAVE_KEY,
+          PREVIOUS_SAVE_KEY,
+          LEGACY_SAVE_KEY,
+        ].forEach(
           (k) => localStorage.removeItem(k),
         );
       setSaveError("");
@@ -146,7 +144,7 @@ export default function App() {
     const timer = window.setTimeout(() => setReceipt(null), 2400);
     return () => clearTimeout(timer);
   }, [receipt, resultOpen, scene]);
-  const scrollKey = `${route}:${ui.orderTab}:${ui.orderId}:${ui.brewTab}:${ui.brewDetail}:${ui.recipe}:${place}:${ui.placeMode}:${ui.person}`;
+  const scrollKey = `${route}:${ui.orderTab}:${ui.orderId}:${ui.brewTab}:${ui.brewDetail}:${ui.recipe}:${place}:${ui.placeMode}`;
   useLayoutEffect(() => {
     if (content.current) content.current.scrollTop = ui.scroll[scrollKey] ?? 0;
   }, [scrollKey]);
@@ -158,14 +156,12 @@ export default function App() {
         filter: ui.filter,
         sort: ui.sort,
         personFilter: ui.personFilter,
-        workKind: ui.workKind,
         orderTab: ui.orderTab,
         orderId: ui.orderId,
         brewTab: ui.brewTab,
         brewDetail: ui.brewDetail,
         recipe: ui.recipe,
         placeMode: ui.placeMode,
-        person: ui.person,
         preparing: ui.preparing,
       },
     };
@@ -191,10 +187,6 @@ export default function App() {
         orderId: null,
         ...(ui.orderTab === "batch" ? { orderTab: "all" } : {}),
       });
-      return;
-    }
-    if (route === "map" && ui.person) {
-      patch({ person: null });
       return;
     }
     if (route === "brew" && ui.brewDetail) {
@@ -229,12 +221,11 @@ export default function App() {
             orderTab: "normal",
             orderId: null,
             personFilter: null,
-            workKind: "all",
             filter: "all",
           }
         : action === "brew"
           ? { brewTab: "recipes", brewDetail: false }
-          : { person: null }),
+          : {}),
     });
     setTrail([{ route: "home", place: "estate", ui: {} }]);
   }
@@ -263,19 +254,15 @@ export default function App() {
   function inventory() {
     go("inventory", { brewTab: "potions", preparing: false });
   }
-  function visit(id: PlaceId, mode: UIState["placeMode"] = "menu") {
+  /** 解禁された人物・場所・出来事の「新着」を、実際に見た時点で降ろす。 */
+  function markSeen(id: PlaceId) {
     const current = gameRef.current;
     if (!current) return;
     const o = performAction(current, { type: "visit", place: id });
-    if (o.error) {
-      setError(o.error);
-      return;
-    }
+    if (o.error) return;
     gameRef.current = o.state;
     setGame(o.state);
     writeSave(o.state);
-    setPlace(id);
-    go(id === "estate" ? "home" : "place", { placeMode: mode, person: null });
   }
   function ask(action: Action, title: string, returnTo?: TrailEntry) {
     setError("");
@@ -303,31 +290,6 @@ export default function App() {
     setResultOpen(false);
     if (receipt && gameRef.current) arrive(receipt.returnTo, gameRef.current);
     setReceipt(null);
-  }
-  function viewPerson(id: PersonId | null) {
-    if (id && gameRef.current) {
-      const out = performAction(gameRef.current, {
-        type: "visit",
-        place: personOf(id).place,
-      });
-      if (out.error) {
-        setError(out.error);
-        return;
-      }
-      gameRef.current = out.state;
-      setGame(out.state);
-      writeSave(out.state);
-    }
-    patch({ person: id });
-  }
-  function personJobs(id: PersonId) {
-    go("orders", {
-      orderTab: "all",
-      orderId: null,
-      personFilter: id,
-      workKind: "all",
-      filter: "all",
-    });
   }
   function execute(request = pending) {
     if (!request || lock.current === request || !gameRef.current) return;
@@ -380,27 +342,19 @@ export default function App() {
         (p) => outcome.state.relations[p.id] > before.relations[p.id],
       ) ||
       !!outcome.result?.notices?.length;
-    const firstJob =
-      a.type === "job" &&
-      !before.history.some((h) => h.kind === "job" && h.target === a.id);
     if (outcome.scene?.length) {
       setScene({
         lines: outcome.scene,
         title: request.title,
-        place:
-          a.type === "job"
-            ? personOf(jobs.find((j) => j.id === a.id)!.person).place
-            : a.type === "accept"
-              ? personOf(supportOffers.find((o) => o.id === a.offer)!.person)
-                  .place
-              : place,
+        place: outcome.scenePlace ?? place,
       });
       setResultOpen(true);
     } else setResultOpen(important);
     if (!important && !outcome.scene) arrive(returnTo, outcome.state);
     // The committed confirmation object cannot execute twice, without delaying a new action.
   }
-  function source(id: PlaceId, material: MaterialId, n: number) {
+  /** 不足素材の入手先へ移る。買う数は準備中の処方と数量から引き直す。 */
+  function source(id: PlaceId) {
     const current = gameRef.current;
     if (!current) return;
     const p = placeOf(id),
@@ -438,17 +392,15 @@ export default function App() {
       route !== "title" && !scene && !resultOpen ? s?.eventQueue[0] : undefined;
   const pendingPreview = pending && s ? previewAction(s, pending.action) : null;
   const routeLabel =
-    route === "place"
-      ? `収集 › ${placeOf(place).short}${ui.placeMode === "supply" ? " › 素材を買う" : ui.placeMode === "people" ? " › 人物に会う" : ui.placeMode === "person" && ui.person ? ` › ${personOf(ui.person as Parameters<typeof personOf>[0]).name}` : ""}`
-      : route === "brew"
-        ? `調合する${ui.brewDetail ? ` › ${recipeOf(ui.recipe).name}` : ""}`
-        : route === "orders"
-          ? "依頼"
-          : route === "map"
-            ? "収集"
-            : route === "inventory"
-              ? "持ち物"
-              : "約束帳";
+    route === "brew"
+      ? `調合する${ui.brewDetail ? ` › ${recipeOf(ui.recipe).name}` : ""}`
+      : route === "orders"
+        ? "依頼"
+        : route === "map"
+          ? `収集${ui.placeMode === "supply" ? " › 仕入れ" : ""}`
+          : route === "inventory"
+            ? "持ち物"
+            : "約束帳";
   return (
     <div
       className={`app command-app ${route === "title" ? "title-app" : ""} ${route === "home" || s?.ended || s?.awaitingSettlement ? "no-sidebar" : ""} ${saveError ? "save-failed" : ""}`}
@@ -466,8 +418,6 @@ export default function App() {
           <>
             <Shell
               s={s}
-              place={place}
-              ui={ui}
               route={route}
               choose={choose}
               home={() => go("home")}
@@ -529,6 +479,7 @@ export default function App() {
                       });
                     }}
                     back={back}
+                    seen={markSeen}
                     journal={() => go("journal")}
                   />
                 )}
@@ -556,20 +507,7 @@ export default function App() {
                     toBrew={() =>
                       go("brew", { brewDetail: true, brewTab: "recipes" })
                     }
-                    shop={(id) => visit(id, "supply")}
-                    viewPerson={viewPerson}
-                    personJobs={personJobs}
-                    back={back}
-                  />
-                )}
-                {route === "place" && (
-                  <Place
-                    key={place}
-                    s={s}
-                    id={place}
-                    ui={ui}
-                    patch={patch}
-                    confirm={ask}
+                    seen={markSeen}
                     back={back}
                   />
                 )}
@@ -585,10 +523,10 @@ export default function App() {
                       initialTab={calendar ? "calendar" : "promises"}
                       s={s}
                       confirm={ask}
-                      prepare={(id, n, today, promiseId) =>
+                      openPromise={(promiseId) =>
                         go("orders", {
                           orderTab: "special",
-                          orderId: promiseId ? `promise:${promiseId}` : null,
+                          orderId: `promise:${promiseId}`,
                         })
                       }
                     />
@@ -798,7 +736,7 @@ export default function App() {
                   disabled={!!pendingPreview?.error}
                   onClick={() => execute()}
                 >
-                  {actionLabel(s, pending.action)}
+                  {actionLabel(pending.action)}
                 </Button>
               </div>
             </div>

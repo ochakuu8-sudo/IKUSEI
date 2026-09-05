@@ -68,11 +68,9 @@ export function ActionDock({
             <Button
               primary
               disabled={!!error}
-              onClick={() =>
-                confirm(action, title ?? actionLabel(state, action))
-              }
+              onClick={() => confirm(action, title ?? actionLabel(action))}
             >
-              {label ?? actionLabel(state, action)}
+              {label ?? actionLabel(action)}
             </Button>
           )
         )}
