@@ -16,6 +16,11 @@ export type UIState = {
   recipe: RecipeId;
   brewTab: string;
   brewDetail: boolean;
+  orderId: string | null;
+  orderMulti: boolean;
+  placeMode: "menu" | "supply" | "people" | "person";
+  person: string | null;
+  preparing: boolean;
   quantity: number;
   basket: Partial<Record<MaterialId, number>>;
   motion: boolean;
@@ -32,6 +37,11 @@ export const freshUI = (): UIState => ({
   recipe: "tisane",
   brewTab: "recipes",
   brewDetail: false,
+  orderId: null,
+  orderMulti: false,
+  placeMode: "menu",
+  person: null,
+  preparing: false,
   quantity: 1,
   basket: {},
   motion: false,
@@ -85,6 +95,16 @@ export function parseUI(raw: string | null): UIState {
       )
         d.basket[id] = v.basket[id];
     d.brewDetail = v.brewDetail === true;
+    d.orderId = jobs.some(
+      (j) => j.id === v.orderId && j.category === "ordinary",
+    )
+      ? v.orderId
+      : null;
+    d.orderMulti = v.orderMulti === true;
+    if (["menu", "supply", "people", "person"].includes(v.placeMode))
+      d.placeMode = v.placeMode;
+    d.person = typeof v.person === "string" ? v.person : null;
+    d.preparing = v.preparing === true;
     d.motion = v.motion === true;
     d.helpSeen = v.helpSeen === true;
     if ([0, 24, 50].includes(v.speed)) d.speed = v.speed;

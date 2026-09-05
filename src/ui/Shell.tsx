@@ -1,54 +1,48 @@
 import {
-  BookOpen,
   CalendarDays,
   Coins,
-  FlaskConical,
-  Flower2,
   Heart,
-  HelpCircle,
   Home,
-  Map,
-  ScrollText,
+  ArrowLeft,
   Settings,
 } from "lucide-react";
 import { absoluteDay } from "../contracts";
 import { quotaOf, type GameState } from "../game";
+import type { UIState } from "../uiState";
+import { Actions, Utilities, type HomeAction } from "./Actions";
 import { Button, money } from "./components";
 import type { Route } from "./routes";
-const nav = [
-  ["home", "自室", Home],
-  ["orders", "薬の依頼書", ScrollText],
-  ["brew", "調合", FlaskConical],
-  ["map", "地図", Map],
-  ["journal", "約束帳", BookOpen],
-] as const;
+
 export function Shell({
   s,
+  ui,
   route,
-  setCalendar,
-  go,
-  setSettings,
-  setHelp,
+  choose,
+  home,
+  back,
+  trail,
+  journal,
+  inventory,
+  settings,
 }: {
   s: GameState;
+  ui: UIState;
   route: Route;
-  setCalendar: (v: boolean) => void;
-  go: (r: Route) => void;
-  setSettings: (v: boolean) => void;
-  setHelp: (v: boolean) => void;
+  choose: (a: HomeAction) => void;
+  home: () => void;
+  back: () => void;
+  trail: string;
+  journal: (calendar?: boolean) => void;
+  inventory: () => void;
+  settings: () => void;
 }) {
-  const due = s.obligations.filter(
-    (o) => o.status === "active" && o.due === absoluteDay(s),
-  );
+  const navigating = route !== "home" && !s.awaitingSettlement && !s.ended;
   return (
     <>
       <header className="hud">
         <button
           className="hud-date"
-          onClick={() => {
-            setCalendar(true);
-            go("journal");
-          }}
+          onClick={() => journal(true)}
           aria-label="日付から予定表を開く"
         >
           <CalendarDays />
@@ -79,40 +73,57 @@ export function Shell({
         </div>
         <div className="hud-payment">
           <span>
-            返済まで <b>{14 - s.day + 1}日</b>{" "}
+            返済まで <b>{14 - s.day + 1}日</b>
             <small>必要 {money(quotaOf(s))}</small>
           </span>
           <span className={s.money < quotaOf(s) ? "text-crimson" : ""}>
             不足 {money(Math.max(0, quotaOf(s) - s.money))}
           </span>
         </div>
-        <Button aria-label="設定" onClick={() => setSettings(true)}>
+        <Button aria-label="設定" onClick={settings}>
           <Settings size={19} />
         </Button>
       </header>
-      <nav className="main-nav" aria-label="主な画面">
-        <Flower2 className="nav-rose" />
-        {nav.map(([id, label, Icon]) => (
-          <button
-            key={id}
-            aria-label={label}
-            aria-current={route === id ? "page" : undefined}
-            disabled={s.awaitingSettlement && id !== "journal"}
-            onClick={() => {
-              setCalendar(false);
-              go(id);
-            }}
-          >
-            <Icon size={21} />
-            <span>{label}</span>
-            {id === "journal" && due.length > 0 && <i>{due.length}</i>}
-          </button>
-        ))}
-        <Button aria-label="遊び方" onClick={() => setHelp(true)}>
-          <HelpCircle size={19} />
-          <span>遊び方</span>
-        </Button>
-      </nav>
+      {navigating && (
+        <>
+          <aside className="action-sidebar">
+            <Button onClick={home}>
+              <Home size={17} />
+              自室へ
+            </Button>
+            <p>今日の行動</p>
+            <Actions
+              s={s}
+              ui={ui}
+              choose={choose}
+              compact
+              active={
+                route === "place"
+                  ? "map"
+                  : route === "orders" || route === "brew" || route === "map"
+                    ? route
+                    : undefined
+              }
+            />
+            <Utilities
+              journal={() => journal()}
+              inventory={inventory}
+              settings={settings}
+            />
+          </aside>
+          <div className="route-bar">
+            <Button onClick={back} aria-label="ひとつ戻る">
+              <ArrowLeft size={17} />
+              戻る
+            </Button>
+            <span aria-label="現在の場所">{trail}</span>
+            <Button onClick={home} className="route-home">
+              <Home size={17} />
+              自室へ
+            </Button>
+          </div>
+        </>
+      )}
     </>
   );
 }

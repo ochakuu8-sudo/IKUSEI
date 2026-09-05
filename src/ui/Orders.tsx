@@ -73,6 +73,7 @@ export function Orders({
   confirm,
   prepare,
   journal,
+  open,
 }: {
   s: GameState;
   ui: UIState;
@@ -80,6 +81,7 @@ export function Orders({
   confirm: (a: Action, title: string) => void;
   prepare: (id: RecipeId, n: number) => void;
   journal: () => void;
+  open: (changes: Partial<UIState>) => void;
 }) {
   const today = absoluteDay(s),
     selection = ui.selection;
@@ -132,143 +134,216 @@ export function Orders({
             "ja",
           ),
     );
+  const selectedJob =
+    ordinary.find((j) => j.id === ui.orderId) ??
+    (ordinary.length === 1 ? ordinary[0] : undefined);
   return (
     <>
-      <Heading eyebrow="ORDER LETTERS" extra={<Badge>{count}件を選択</Badge>}>
+      <Heading
+        eyebrow="ORDER LETTERS"
+        extra={
+          count > 0 ? (
+            <Button onClick={() => open({ orderTab: "batch" })}>
+              納品内容を見る ({count})
+            </Button>
+          ) : undefined
+        }
+      >
         薬の依頼書
       </Heading>
       <Tabs
         value={ui.orderTab}
         onChange={(orderTab) => patch({ orderTab })}
         options={[
-          ["normal", "通常依頼"],
-          ["special", "特別依頼"],
-          ["batch", `まとめ納品 (${count})`],
+          ["normal", "いつでも納品"],
+          ["special", "指定日の依頼"],
         ]}
       />
       {ui.orderTab === "normal" && (
         <>
-          <p className="intro">
-            薬と依頼書があれば、いつでも。選択は契約にならず、何度でも納められます。
-          </p>
-          <div className="filters">
-            <label>
-              表示
-              <select
-                value={ui.filter}
-                onChange={(e) => patch({ filter: e.target.value })}
+          <div className="order-tools">
+            <details>
+              <summary>表示を絞る</summary>
+              <div className="filters">
+                <label>
+                  表示
+                  <select
+                    value={ui.filter}
+                    onChange={(e) => patch({ filter: e.target.value })}
+                  >
+                    <option value="all">すべて</option>
+                    <option value="ready">納品可能</option>
+                    <option value="need">準備が必要</option>
+                  </select>
+                </label>
+                <label>
+                  並び順
+                  <select
+                    value={ui.sort}
+                    onChange={(e) => patch({ sort: e.target.value })}
+                  >
+                    <option value="name">薬の名前</option>
+                    <option value="pay">受取額の高い順</option>
+                  </select>
+                </label>
+              </div>
+            </details>
+            {ordinary.length > 1 && (
+              <Button
+                aria-pressed={ui.orderMulti}
+                onClick={() => patch({ orderMulti: !ui.orderMulti })}
               >
-                <option value="all">すべて</option>
-                <option value="ready">納品可能</option>
-                <option value="need">準備が必要</option>
-              </select>
-            </label>
-            <label>
-              並び順
-              <select
-                value={ui.sort}
-                onChange={(e) => patch({ sort: e.target.value })}
-              >
-                <option value="name">薬の名前</option>
-                <option value="pay">受取額の高い順</option>
-              </select>
-            </label>
+                {ui.orderMulti ? "1件ずつ見る" : "複数をまとめる"}
+              </Button>
+            )}
           </div>
-          <div className="order-grid">
-            {ordinary.map((j) => {
-              const selected = selection.ordinary.includes(j.id),
-                stockReady = (s.stock[j.recipe!] ?? 0) >= j.count!,
-                ready = deliverable(j.id);
-              return (
-                <article
-                  className={`paper order-card ${selected ? "selected" : ""}`}
-                  key={j.id}
-                >
-                  <div className="card-top">
-                    <small>{personOf(j.person).name}</small>
-                    <Badge tone={ready ? "ready" : "warn"}>
-                      {ready
-                        ? "納品可能"
-                        : stockReady
-                          ? "体力不足"
-                          : "準備が必要"}
-                    </Badge>
-                  </div>
-                  <div className="item-row">
-                    <Item id={j.recipe!} large />
-                    <div>
-                      <h2>{recipeOf(j.recipe!).name}</h2>
-                      <p>{j.title}</p>
-                    </div>
-                  </div>
-                  <div className="stats">
-                    <div>
-                      <small>必要 / 在庫</small>
-                      <b>
-                        {j.count} / {s.stock[j.recipe!] ?? 0}
-                      </b>
-                    </div>
-                    <div>
-                      <small>受取額</small>
-                      <b>{money(payWithRelation(j, s))}</b>
-                    </div>
-                    <div>
-                      <small>体力</small>
-                      <b>−{j.stamina}</b>
-                    </div>
-                  </div>
-                  <div className="cost-line">
-                    {axes.map((axis) => (
-                      <span key={axis}>
-                        {axis} −
-                        {j.costs
-                          .filter((c) => c.axis === axis)
-                          .reduce((n, c) => n + c.amount, 0)}
+          <p className="intro">
+            受注は不要。薬を揃えて納めると収入になります。同じ依頼書で繰り返し納品できます。
+          </p>
+          <div
+            className={`order-workspace ${selectedJob ? "detail-open" : ""} ${ordinary.length === 1 ? "single-order" : ""}`}
+          >
+            {ordinary.length > 1 && (
+              <section className="order-list" aria-label="依頼の一覧">
+                {ordinary.map((j) => (
+                  <div className="order-list-row" key={j.id}>
+                    {ui.orderMulti && (
+                      <label className="delivery-check">
+                        <input
+                          type="checkbox"
+                          aria-label={`${j.title}をまとめ納品に選ぶ`}
+                          checked={selection.ordinary.includes(j.id)}
+                          onChange={() => toggle(j.id)}
+                        />
+                      </label>
+                    )}
+                    <button
+                      className={`recipe-option ${selectedJob?.id === j.id ? "selected" : ""}`}
+                      onClick={() => open({ orderId: j.id })}
+                    >
+                      <Item id={j.recipe!} />
+                      <span>
+                        <b>{j.title}</b>
+                        <small>
+                          {money(payWithRelation(j, s))} ／{" "}
+                          {deliverable(j.id) ? "納品可能" : "準備が必要"}
+                        </small>
                       </span>
-                    ))}
+                      <ArrowRight size={17} />
+                    </button>
                   </div>
-                  <div className="card-actions">
-                    <Button
-                      primary={selected}
-                      aria-pressed={selected}
-                      onClick={() => toggle(j.id)}
-                    >
-                      {selected ? <Check size={16} /> : <Package size={16} />}{" "}
-                      {selected ? "選択中" : "納品に選ぶ"}
-                    </Button>
-                    <Button
-                      aria-label={`${j.title}を準備メモ${ui.memo.includes(j.id) ? "から外す" : "に登録"}`}
-                      aria-pressed={ui.memo.includes(j.id)}
-                      onClick={() =>
-                        patch({
-                          memo: ui.memo.includes(j.id)
-                            ? ui.memo.filter((id) => id !== j.id)
-                            : [...ui.memo, j.id],
-                        })
-                      }
-                    >
-                      <Bookmark size={17} />
-                      {ui.memo.includes(j.id) ? "メモ済み" : "メモ"}
-                    </Button>
-                  </div>
-                  {!stockReady && (
-                    <Button
-                      className="text-button"
-                      onClick={() => {
-                        patch({ memo: [...new Set([...ui.memo, j.id])] });
-                        prepare(j.recipe!, j.count!);
-                      }}
-                    >
-                      不足分を準備する <ArrowRight size={16} />
-                    </Button>
-                  )}
-                </article>
-              );
-            })}
+                ))}
+              </section>
+            )}
+            {selectedJob &&
+              (() => {
+                const j = selectedJob,
+                  ready = deliverable(j.id),
+                  stockReady = (s.stock[j.recipe!] ?? 0) >= j.count!;
+                const selected = selection.ordinary.includes(j.id);
+                return (
+                  <article className="paper order-detail">
+                    <div className="card-top">
+                      <small>{personOf(j.person).name}から</small>
+                      <Badge tone={ready ? "ready" : "warn"}>
+                        {ready
+                          ? "納品可能"
+                          : stockReady
+                            ? "体力不足"
+                            : "準備が必要"}
+                      </Badge>
+                    </div>
+                    <div className="item-row">
+                      <Item id={j.recipe!} large />
+                      <div>
+                        <h2>{j.title}</h2>
+                        <p>
+                          {recipeOf(j.recipe!).name} ×{j.count}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="stats">
+                      <div>
+                        <small>必要 / 手持ち</small>
+                        <b>
+                          {j.count} / {s.stock[j.recipe!] ?? 0}
+                        </b>
+                      </div>
+                      <div>
+                        <small>受取額</small>
+                        <b>{money(payWithRelation(j, s))}</b>
+                      </div>
+                      <div>
+                        <small>納品の体力</small>
+                        <b>−{j.stamina}</b>
+                      </div>
+                    </div>
+                    <div className="cost-line">
+                      <span>納品は1日</span>
+                      {j.costs.length ? (
+                        j.costs.map((c, i) => (
+                          <span key={i}>
+                            {c.axis} −{c.amount}
+                          </span>
+                        ))
+                      ) : (
+                        <span>3軸の代償なし</span>
+                      )}
+                    </div>
+                    {!stockReady ? (
+                      <Button
+                        primary
+                        onClick={() => {
+                          patch({ memo: [...new Set([...ui.memo, j.id])] });
+                          prepare(j.recipe!, j.count!);
+                        }}
+                      >
+                        この薬を準備する <ArrowRight size={17} />
+                      </Button>
+                    ) : (
+                      <Button
+                        primary
+                        disabled={!ready}
+                        onClick={() =>
+                          open({
+                            orderTab: "batch",
+                            selection: {
+                              ...selection,
+                              ordinary: [
+                                ...new Set([...selection.ordinary, j.id]),
+                              ],
+                            },
+                          })
+                        }
+                      >
+                        {count > 0 && !selected
+                          ? "この依頼を追加して納品へ"
+                          : "納品へ"}{" "}
+                        <ArrowRight size={17} />
+                      </Button>
+                    )}
+                    {stockReady && !ready && (
+                      <p className="error">
+                        体力が足りません。「休む」で回復できます。
+                      </p>
+                    )}
+                    {ui.memo.includes(j.id) && (
+                      <Button
+                        className="text-button"
+                        onClick={() =>
+                          patch({ memo: ui.memo.filter((id) => id !== j.id) })
+                        }
+                      >
+                        準備メモから外す
+                      </Button>
+                    )}
+                  </article>
+                );
+              })()}
           </div>
           {!ordinary.length && (
             <Empty>
-              この条件の依頼書はありません。表示条件を変えるか、人物との関係や処方を確認してください。
+              この条件の依頼はありません。表示条件を変えるか、新しい処方や人物を探してみましょう。
             </Empty>
           )}
         </>
@@ -362,7 +437,12 @@ export function Orders({
           </p>
           <div className="split">
             <section>
-              <h2>今日納める約束</h2>
+              {s.obligations.some(
+                (o) =>
+                  o.status === "active" &&
+                  o.terms.kind === "advance" &&
+                  (o.terms.schedule ? o.due === today : o.due >= today),
+              ) && <h2>今日納められる約束</h2>}
               {s.obligations
                 .filter(
                   (o) =>
@@ -451,7 +531,7 @@ export function Orders({
           </div>
         </>
       )}
-      {(ui.orderTab !== "special" || count > 0) && (
+      {ui.orderTab === "batch" && count > 0 && (
         <div className="action-bar">
           <div>
             <small>{count}件・出発1回 / 1日</small>
@@ -471,7 +551,7 @@ export function Orders({
               confirm({ type: "deliver", ...selection }, "まとめ納品の出発確認")
             }
           >
-            出発内容を確認
+            納品内容を確認
           </Button>
         </div>
       )}

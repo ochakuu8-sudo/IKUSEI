@@ -1,0 +1,825 @@
+/* Action-first game layout. Shared paper, type and illustration styles stay in styles.css. */
+.command-app {
+  --nav: 224px;
+  grid-template-columns: var(--nav) minmax(0, 1fr);
+  grid-template-rows: var(--hud) 52px minmax(0, 1fr);
+}
+.command-app.no-sidebar {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: var(--hud) minmax(0, 1fr);
+}
+.command-app.title-app {
+  display: block;
+}
+.command-app > .content {
+  grid-column: 2;
+  grid-row: 3;
+}
+.command-app.no-sidebar > .content {
+  grid-column: 1;
+  grid-row: 2;
+}
+.command-app .content-inner {
+  max-width: 1240px;
+  padding: 18px 26px 80px;
+}
+.command-app .page-heading {
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+}
+.command-app .page-heading .eyebrow {
+  display: none;
+}
+.command-app .page-heading h1 {
+  font-size: 25px;
+}
+.command-app .intro {
+  margin-bottom: 14px;
+}
+.command-app .tabs {
+  margin-bottom: 12px;
+  padding-bottom: 4px;
+}
+.route-bar {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+  min-width: 0;
+}
+.route-bar > span {
+  flex: 1;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.route-bar .button {
+  border: 0;
+  background: transparent;
+  padding: 8px;
+}
+.route-home {
+  display: none;
+}
+.action-sidebar {
+  grid-column: 1;
+  grid-row: 2 / span 2;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 16px 12px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.action-sidebar > .button {
+  background: transparent;
+  color: inherit;
+  border-color: #a2855055;
+  justify-content: flex-start;
+}
+.action-sidebar > p {
+  color: #d6c2a2;
+  margin: 0 8px;
+  font-family: var(--serif);
+}
+.commands {
+  display: grid;
+  gap: 12px;
+}
+.command-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 84px;
+  text-align: left;
+  padding: 15px 20px;
+  border: 1px solid #bda47d;
+  border-radius: 4px;
+  background: linear-gradient(105deg, #fffaf1, #eee3d1);
+  color: var(--ink);
+  box-shadow: 0 3px 8px #3421270a;
+}
+.command-button > svg:first-child {
+  width: 27px;
+  height: 27px;
+  color: var(--gold);
+}
+.command-copy {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+.command-copy b {
+  font-family: var(--serif);
+  font-size: 21px;
+  display: block;
+}
+.command-copy small {
+  display: block;
+  color: #675c4c;
+  margin-top: 3px;
+}
+.command-status {
+  display: block;
+  font-size: 12px;
+  color: #71634e;
+}
+.command-status:empty {
+  display: none;
+}
+.command-status.urgent {
+  color: var(--red);
+  font-weight: 700;
+}
+.due-dot {
+  background: var(--red);
+  color: var(--paper);
+  border-radius: 50%;
+  min-width: 18px;
+  font-size: 12px;
+}
+.command-arrow {
+  color: var(--gold);
+}
+.command-button:hover {
+  border-color: var(--red);
+}
+.command-button.is-active {
+  border-color: #dfc58e;
+  background: #f6f0e4;
+  box-shadow: inset 4px 0 var(--red);
+}
+.compact-commands {
+  gap: 8px;
+}
+.compact-commands .command-button {
+  min-height: 72px;
+  padding: 10px;
+  gap: 10px;
+  background: transparent;
+  color: #f6f0e4;
+  border-color: #a2855066;
+  box-shadow: none;
+}
+.compact-commands .command-button.is-active {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: inset 3px 0 var(--gold);
+}
+.compact-commands .command-copy b {
+  font-size: 16px;
+}
+.compact-commands .command-status {
+  color: #d6c2a2;
+}
+.compact-commands .is-active .command-status {
+  color: var(--muted);
+}
+.compact-commands .command-arrow {
+  display: none;
+}
+.compact-commands .command-button > svg {
+  width: 20px;
+  height: 20px;
+}
+.home-utilities {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.home-utilities > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: inherit;
+  min-height: 44px;
+  border-radius: 3px;
+  font-size: 13px;
+  padding: 8px 4px;
+}
+.action-sidebar .home-utilities {
+  grid-template-columns: 1fr;
+  margin-top: auto;
+}
+.action-sidebar .home-utilities button {
+  border-color: #a2855055;
+  justify-content: flex-start;
+  padding-left: 10px;
+}
+.command-app .screen-home .content-inner {
+  padding: 22px 32px;
+  height: 100%;
+}
+.home-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 1.1fr);
+  gap: 34px;
+  min-height: 100%;
+  max-width: 1140px;
+  margin: auto;
+}
+.home-character {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.character-scene {
+  position: relative;
+  flex: 1;
+  min-height: 240px;
+  overflow: hidden;
+  border: 1px solid var(--gold);
+  border-radius: 60px 60px 0 0;
+  background: #b5a386;
+}
+.character-scene .hero-art {
+  object-fit: contain;
+  object-position: center bottom;
+}
+.character-name {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  color: var(--paper);
+  background: #25212aed;
+  padding: 10px;
+  font: 16px var(--serif);
+  text-align: center;
+}
+.character-status {
+  background: var(--paper);
+  border: 1px solid var(--gold);
+  border-top: 0;
+  padding: 14px;
+  text-align: left;
+  width: 100%;
+}
+.character-status .axis-panel {
+  margin: 0;
+  gap: 8px;
+}
+.character-status .axis-panel strong {
+  font-size: 21px;
+}
+.home-decisions {
+  align-self: center;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 0;
+}
+.command-heading h1 {
+  font-size: 30px;
+}
+.command-heading .eyebrow {
+  margin-bottom: 6px;
+}
+.home-notice {
+  background: #eee0d4;
+  border: 0;
+  border-left: 3px solid var(--red);
+  min-height: 44px;
+  color: var(--red);
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.home-notice span {
+  margin-left: 8px;
+}
+.first-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.first-hint p {
+  margin: 0;
+  flex: 1;
+}
+.first-hint button {
+  background: none;
+  border: 0;
+  min-width: 44px;
+  min-height: 44px;
+}
+.order-tools {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 8px;
+}
+.order-tools details {
+  margin: 0;
+}
+.order-tools .filters {
+  margin-bottom: 10px;
+}
+.order-workspace,
+.brew-workspace.detail-open {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.75fr) minmax(0, 1.25fr);
+  gap: 20px;
+  align-items: start;
+}
+.order-workspace.single-order {
+  display: block;
+  max-width: 680px;
+}
+.order-workspace:not(.detail-open) {
+  display: block;
+  max-width: 720px;
+}
+.order-list-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.order-list-row .recipe-option {
+  flex: 1;
+  min-width: 0;
+}
+.delivery-check {
+  min-height: 44px;
+  min-width: 44px;
+  justify-content: center;
+  align-self: stretch;
+}
+.command-app .order-detail {
+  padding: 20px;
+}
+.order-detail > .button.primary {
+  width: 100%;
+}
+.command-app .order-detail .item-row {
+  margin: 8px 0;
+}
+.command-app .order-detail .stats {
+  margin: 12px 0;
+  padding: 12px 0;
+}
+.command-app .order-detail .cost-line {
+  margin: 12px 0;
+}
+.brew-workspace:not(.detail-open) {
+  max-width: 720px;
+}
+.brew-sheet {
+  min-width: 0;
+  padding: 20px;
+}
+.brew-sheet .card-top {
+  margin-bottom: 6px;
+}
+.brew-sheet .card-top .item-row {
+  margin: 0;
+}
+.brew-sheet .quantity-line {
+  margin: 12px 0;
+}
+.ingredient-list .material-need {
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.ingredient-list .item-art {
+  width: 38px;
+  height: 38px;
+}
+.source-options {
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+  padding-top: 12px;
+}
+.source-options h3 {
+  margin-bottom: 8px;
+}
+.source-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  min-height: 65px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  background: #fffaf2;
+  text-align: left;
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+.source-option > span:first-child {
+  flex: 1;
+}
+.source-option small {
+  display: block;
+  color: var(--muted);
+}
+.source-option > span:nth-child(2) {
+  font-size: 13px;
+}
+.craft-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  margin-top: 12px;
+  background: #e8ddc9;
+  border-radius: 4px;
+}
+.craft-action small {
+  display: block;
+}
+.preparation-line {
+  border-left: 3px solid var(--gold);
+  padding: 8px 10px;
+  background: #ece5d6;
+  font-size: 13px;
+}
+.preparation-line .button {
+  display: flex;
+  margin-top: 8px;
+}
+.command-app .place-banner {
+  height: 140px;
+}
+.place-choices {
+  max-width: 720px;
+}
+.command-app .supply {
+  margin-top: 10px;
+}
+.person-list {
+  flex-direction: column;
+  max-width: 620px;
+}
+.person-list button {
+  min-height: 78px;
+  text-align: left;
+}
+.person-list span small {
+  display: block;
+  color: var(--muted);
+}
+.deadline-warning {
+  border: 1px solid var(--red);
+  background: #faecea;
+  padding: 14px;
+  margin: 12px 0;
+}
+.command-app .receipt {
+  max-width: calc(100vw - 32px);
+  bottom: 12px;
+}
+.command-app.save-failed {
+  grid-template-rows: var(--hud) auto 52px minmax(0, 1fr);
+}
+.command-app.save-failed > .route-bar {
+  grid-row: 3;
+}
+.command-app.save-failed > .content {
+  grid-row: 4;
+  grid-column: 2;
+}
+.command-app.save-failed > .action-sidebar {
+  grid-row: 2 / span 3;
+}
+.command-app.save-failed.no-sidebar {
+  grid-template-rows: var(--hud) auto minmax(0, 1fr);
+}
+.command-app.save-failed.no-sidebar > .content {
+  grid-column: 1;
+  grid-row: 3;
+}
+.command-app.no-sidebar > .save-error {
+  grid-column: 1;
+}
+@media (max-width: 1050px) {
+  .command-app {
+    --nav: 0px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .action-sidebar {
+    display: none;
+  }
+  .command-app > .content,
+  .route-bar {
+    grid-column: 1;
+  }
+  .route-home {
+    display: inline-flex;
+  }
+  .command-app .home-stage {
+    gap: 22px;
+    grid-template-columns: minmax(0, 0.85fr) minmax(340px, 1.15fr);
+  }
+  .command-app.save-failed > .content,
+  .command-app > .save-error {
+    grid-column: 1;
+  }
+}
+@media (max-width: 720px) and (min-height: 501px) {
+  .command-app {
+    grid-template-rows: var(--hud) 52px minmax(0, 1fr);
+  }
+  .command-app.no-sidebar {
+    grid-template-rows: var(--hud) minmax(0, 1fr);
+  }
+  .command-app .content-inner {
+    padding: 14px 16px 82px;
+  }
+  .command-app .screen-home .content-inner {
+    padding: 12px 16px;
+  }
+  .command-app .home-stage {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+  }
+  .home-character {
+    flex: none;
+  }
+  .character-scene {
+    flex: none;
+    height: clamp(130px, 24dvh, 205px);
+    min-height: 0;
+    border-radius: 28px 28px 0 0;
+  }
+  .character-scene .hero-art {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center 25%;
+  }
+  .character-name {
+    font-size: 13px;
+    padding: 5px;
+  }
+  .character-status {
+    padding: 8px 12px;
+  }
+  .character-status .axis-panel {
+    gap: 4px 10px;
+  }
+  .character-status .axis-panel > div {
+    gap: 4px;
+  }
+  .character-status .axis-panel strong {
+    font-size: 18px;
+  }
+  .character-status .axis-panel span {
+    font-size: 13px;
+  }
+  .character-status .axis-panel > small {
+    margin-top: 0;
+  }
+  .home-decisions {
+    width: 100%;
+    gap: 10px;
+    padding: 0;
+  }
+  .command-heading .eyebrow {
+    display: none;
+  }
+  .command-heading h1 {
+    font-size: 23px;
+  }
+  .commands {
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+  }
+  .command-button {
+    gap: 6px;
+    min-height: 104px;
+    padding: 10px;
+    align-items: flex-start;
+  }
+  .command-button > svg:first-child {
+    width: 19px;
+    height: 19px;
+    margin-top: 4px;
+  }
+  .command-copy b {
+    font-size: 16px;
+  }
+  .command-copy small {
+    font-size: 12px;
+    line-height: 1.5;
+    margin-top: 4px;
+  }
+  .command-status {
+    font-size: 12px;
+    margin-top: 3px;
+  }
+  .command-arrow {
+    display: none;
+  }
+  .home-utilities {
+    gap: 6px;
+  }
+  .home-utilities > button {
+    font-size: 12px;
+    gap: 4px;
+  }
+  .home-notice {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+  .first-hint {
+    font-size: 12px;
+  }
+  .route-bar {
+    padding: 4px 10px;
+    gap: 5px;
+  }
+  .route-bar > span {
+    font-size: 12px;
+  }
+  .route-bar .button {
+    font-size: 13px;
+  }
+  .order-workspace,
+  .brew-workspace.detail-open {
+    display: block;
+  }
+  .order-workspace.detail-open > .order-list,
+  .brew-workspace.detail-open > .recipe-list {
+    display: none;
+  }
+  .brew-sheet {
+    padding: 16px;
+  }
+  .command-app .recipe-option {
+    padding: 12px;
+    gap: 12px;
+  }
+  .command-app .recipe-option b {
+    font-size: 17px;
+  }
+  .source-option {
+    padding: 8px;
+    gap: 7px;
+  }
+  .source-option > span:nth-child(2) {
+    max-width: 85px;
+  }
+  .craft-action {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .command-app .receipt {
+    bottom: 8px;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .command-app .receipt > span {
+    flex-basis: 100%;
+  }
+}
+@media (max-height: 500px) {
+  .command-app {
+    --hud: 54px;
+  }
+  .command-app .screen-home .content-inner {
+    padding: 10px 18px;
+  }
+  .command-app .home-stage {
+    grid-template-columns: minmax(0, 0.7fr) minmax(370px, 1.3fr);
+    gap: 18px;
+    min-height: 0;
+    height: 100%;
+  }
+  .character-scene {
+    min-height: 100px;
+    border-radius: 24px 24px 0 0;
+  }
+  .character-name {
+    font-size: 12px;
+    padding: 4px;
+  }
+  .character-status {
+    padding: 6px 8px;
+  }
+  .character-status .axis-panel {
+    gap: 3px 8px;
+  }
+  .character-status .axis-panel > div {
+    gap: 3px;
+  }
+  .character-status .axis-panel {
+    grid-template-columns: 1fr;
+  }
+  .character-status .axis-panel > div {
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+  }
+  .character-status .axis-panel span {
+    white-space: nowrap;
+  }
+  .character-status .axis-panel meter {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .character-status .axis-panel strong {
+    grid-column: 3;
+  }
+  .character-status .axis-panel span {
+    font-size: 12px;
+  }
+  .character-status .axis-panel strong {
+    font-size: 17px;
+  }
+  .character-status .axis-panel > small {
+    margin: 0;
+  }
+  .home-decisions {
+    align-self: start;
+    gap: 7px;
+    padding: 0;
+  }
+  .command-heading h1 {
+    font-size: 23px;
+  }
+  .command-heading .eyebrow {
+    display: none;
+  }
+  .commands {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .command-button {
+    min-height: 80px;
+    padding: 8px;
+    gap: 8px;
+  }
+  .command-copy b {
+    font-size: 16px;
+  }
+  .command-copy small {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .command-status {
+    font-size: 12px;
+  }
+  .command-button > svg:first-child {
+    width: 20px;
+    height: 20px;
+  }
+  .command-arrow {
+    display: none;
+  }
+  .first-hint {
+    font-size: 12px;
+  }
+  .home-decisions .first-hint,
+  .home-notice {
+    display: none;
+  }
+  .commands .command-status:not(.urgent) {
+    display: none;
+  }
+  .home-notice span {
+    display: none;
+  }
+  .home-utilities > button {
+    font-size: 12px;
+  }
+  .command-app .content-inner {
+    padding: 12px 20px 72px;
+  }
+  .command-app .place-banner {
+    height: 90px;
+  }
+  .command-app .intro {
+    display: block;
+    font-size: 13px;
+  }
+  .brew-workspace.detail-open {
+    grid-template-columns: minmax(180px, 0.65fr) minmax(0, 1.35fr);
+    gap: 14px;
+  }
+}
+@media (max-width: 380px) and (min-height: 501px) {
+  .command-button {
+    padding: 8px;
+  }
+  .command-button > svg:first-child {
+    display: none;
+  }
+}

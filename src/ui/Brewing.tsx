@@ -1,5 +1,5 @@
-import { ArrowLeft, ArrowRight } from "lucide-react";
-import { backgroundSrc } from "../art";
+import { ArrowRight } from "lucide-react";
+import { useRef } from "react";
 import type { Action } from "../engine";
 import {
   materialOf,
@@ -14,17 +14,10 @@ import {
   type PlaceId,
   type RecipeId,
 } from "../game";
-import { brewCapacity, preparationNeeds } from "../presentation";
+import { brewCapacity, preparationNeeds, previewAction } from "../presentation";
 import type { UIState } from "../uiState";
-import {
-  Art,
-  Badge,
-  Button,
-  Heading,
-  Item,
-  Quantity,
-  Tabs,
-} from "./components";
+import { Badge, Button, Heading, Item, Quantity, Tabs } from "./components";
+
 export function Brewing({
   s,
   ui,
@@ -32,6 +25,9 @@ export function Brewing({
   confirm,
   source,
   back,
+  open,
+  inventory = false,
+  deliver,
 }: {
   s: GameState;
   ui: UIState;
@@ -39,184 +35,259 @@ export function Brewing({
   confirm: (a: Action, title: string) => void;
   source: (p: PlaceId, id: MaterialId, n: number) => void;
   back: () => void;
+  open: (p: Partial<UIState>) => void;
+  inventory?: boolean;
+  deliver: () => void;
 }) {
-  const detail = ui.brewDetail;
-  const setDetail = (brewDetail: boolean) => patch({ brewDetail });
   const r = recipeOf(ui.recipe),
-    capacity = brewCapacity(s, r.id),
-    needs = preparationNeeds(s, ui.selection, ui.memo),
-    missing = Math.max(0, (needs[r.id] ?? 0) - (s.stock[r.id] ?? 0));
+    capacity = brewCapacity(s, r.id);
+  const needs = preparationNeeds(s, ui.selection, ui.memo);
+  const target = needs[r.id] ?? 0,
+    missing = Math.max(0, target - (s.stock[r.id] ?? 0));
+  const shortages = Object.entries(r.needs)
+    .map(
+      ([id, n]) =>
+        [
+          id,
+          Math.max(0, n! * ui.quantity - s.materials[id as MaterialId]),
+        ] as const,
+    )
+    .filter(([, n]) => n > 0);
+  const lock = useRef(false);
+  const preview = previewAction(s, {
+    type: "brew",
+    recipe: r.id,
+    quantity: ui.quantity,
+  });
+  const select = (id: RecipeId) =>
+    open({
+      recipe: id,
+      quantity: Math.max(1, (needs[id] ?? 0) - (s.stock[id] ?? 0)),
+      brewTab: "recipes",
+      brewDetail: true,
+    });
   return (
     <>
-      <Heading
-        eyebrow="THE APOTHECARY"
-        extra={
-          <Button onClick={back}>
-            <ArrowLeft size={16} />
-            依頼書に戻る
-          </Button>
-        }
-      >
-        調合と在庫
+      <Heading eyebrow="THE APOTHECARY">
+        {inventory ? "持ち物" : "調合する"}
       </Heading>
-      <Tabs
-        value={ui.brewTab}
-        onChange={(brewTab) => patch({ brewTab })}
-        options={[
-          ["recipes", "処方"],
-          ["potions", "所持薬"],
-          ["materials", "素材"],
-        ]}
-      />
-      {ui.brewTab === "recipes" && (
-        <div className={`split brew-layout ${detail ? "show-detail" : ""}`}>
-          <section className="recipe-list">
-            <p className="intro">素材と体力で調合します。日数は進みません。</p>
+      {inventory ? (
+        <Tabs
+          value={ui.brewTab}
+          onChange={(brewTab) => patch({ brewTab })}
+          options={[
+            ["potions", "所持薬"],
+            ["materials", "素材"],
+          ]}
+        />
+      ) : (
+        <p className="intro">
+          作る薬を選んでください。調合は素材と体力を使い、日数は進みません。
+        </p>
+      )}
+      {!inventory && (
+        <div className={`brew-workspace ${ui.brewDetail ? "detail-open" : ""}`}>
+          <section className="recipe-list" aria-label="薬の一覧">
             {recipes
               .filter((r) => s.known.includes(r.id))
               .map((recipe) => (
                 <button
+                  className={`recipe-option ${ui.brewDetail && r.id === recipe.id ? "selected" : ""}`}
                   key={recipe.id}
-                  className={`recipe-option ${r.id === recipe.id ? "selected" : ""}`}
-                  onClick={() => {
-                    patch({ recipe: recipe.id, quantity: 1 });
-                    setDetail(true);
-                  }}
+                  onClick={() => select(recipe.id)}
                 >
                   <Item id={recipe.id} />
                   <span>
                     <b>{recipe.name}</b>
                     <small>
-                      所持 {s.stock[recipe.id] ?? 0} ／ 調合可能{" "}
+                      所持 {s.stock[recipe.id] ?? 0} ／ 作れる数{" "}
                       {brewCapacity(s, recipe.id)}
                     </small>
                   </span>
-                  {Math.max(
-                    0,
-                    (needs[recipe.id] ?? 0) - (s.stock[recipe.id] ?? 0),
-                  ) > 0 && <Badge tone="warn">準備中</Badge>}
-                  <ArrowRight size={16} />
+                  <ArrowRight size={18} />
                 </button>
               ))}
-            <details className="paper">
+            <details>
               <summary>
                 未習得の処方 ({recipes.length - s.known.length})
               </summary>
-              <p>人物との関係や頼まれごとを通じて覚えます。</p>
+              <p>人物との関係や頼まれごとで覚えます。</p>
               {recipes
                 .filter((r) => !s.known.includes(r.id))
                 .map((r) => (
-                  <p key={r.id}>
-                    {r.name} <Badge>未習得</Badge>
-                  </p>
+                  <p key={r.id}>{r.name}</p>
                 ))}
             </details>
           </section>
-          <section className="paper recipe-detail">
-            <Button className="mobile-back" onClick={() => setDetail(false)}>
-              <ArrowLeft size={16} />
-              処方一覧
-            </Button>
-            <div className="recipe-visual">
-              <Art src={backgroundSrc("brew")} className="recipe-background" />
-              <Item id={r.id} large />
-              <span>RECIPE BOOK</span>
-            </div>
-            <div className="card-top">
-              <h2>{r.name}</h2>
-              <Badge>調合可能 {capacity}個</Badge>
-            </div>
-            <p>{r.note}</p>
-            <small className="muted">{RECIPE_SOURCE[r.id]}</small>
-            <div className="quantity-line">
-              <label>作る数</label>
-              <Quantity
-                value={ui.quantity}
-                onChange={(quantity) =>
-                  patch({ quantity: Math.max(1, quantity) })
-                }
-              />
-              <Button
-                disabled={!missing}
-                onClick={() => patch({ quantity: Math.min(99, missing) })}
-              >
-                必要数を作る ({missing})
-              </Button>
-            </div>
-            <h3>必要な素材</h3>
-            {Object.entries(r.needs).map(([key, n]) => {
-              const id = key as MaterialId,
-                needed = n! * ui.quantity,
-                lack = Math.max(0, needed - s.materials[id]);
-              return (
-                <div className="material-block" key={id}>
-                  <div className="material-need">
-                    <Item id={id} />
-                    <div>
-                      <b>{materialOf(id).name}</b>
-                      <small>
-                        必要 {needed} ／ 手持ち {s.materials[id]}
-                      </small>
-                    </div>
-                    <Badge tone={lack ? "warn" : "ready"}>
-                      {lack ? `不足 ${lack}` : "準備済み"}
-                    </Badge>
-                  </div>
-                  {lack > 0 && (
-                    <div className="source-links">
-                      {places
-                        .filter(
-                          (p) =>
-                            placeOpen(p, s) &&
-                            (p.gathers?.[id] || p.sells?.includes(id)),
-                        )
-                        .map((p) => (
-                          <Button
-                            key={p.id}
-                            onClick={() => source(p.id, id, lack)}
-                          >
-                            {p.short}で
-                            {p.sells?.includes(id) ? "仕入れ" : "採集"}{" "}
-                            <ArrowRight size={14} />
-                          </Button>
-                        ))}
-                      {!places.some(
-                        (p) =>
-                          placeOpen(p, s) &&
-                          (p.gathers?.[id] || p.sells?.includes(id)),
-                      ) && <small>現在、利用できる入手先はありません。</small>}
-                    </div>
+          {ui.brewDetail && (
+            <section className="paper brew-sheet">
+              <div className="card-top">
+                <div className="item-row">
+                  <Item id={r.id} />
+                  <h2>{r.name}</h2>
+                </div>
+                <Badge>調合可能 {capacity}個</Badge>
+              </div>
+              {target > 0 && (
+                <div className="preparation-line">
+                  {missing
+                    ? `納品に必要：あと${missing}個`
+                    : "納品用の薬が揃いました"}
+                  {!missing && (
+                    <Button primary onClick={deliver}>
+                      納品を確認する
+                    </Button>
                   )}
                 </div>
-              );
-            })}
-            <div className="action-bar local">
-              <div>
-                <strong>体力 −{r.stamina * ui.quantity}</strong>
-                <small>日数消費なし ／ 完成 {ui.quantity}個</small>
+              )}
+              <div className="quantity-line">
+                <label>作る数</label>
+                <Quantity
+                  value={ui.quantity}
+                  onChange={(quantity) =>
+                    patch({ quantity: Math.max(1, quantity) })
+                  }
+                />
+                {missing > 0 && (
+                  <Button
+                    onClick={() => patch({ quantity: Math.min(99, missing) })}
+                  >
+                    不足数に合わせる ({missing})
+                  </Button>
+                )}
               </div>
-              <Button
-                primary
-                disabled={capacity < ui.quantity || !s.known.includes(r.id)}
-                onClick={() =>
-                  confirm(
-                    { type: "brew", recipe: r.id, quantity: ui.quantity },
-                    `${r.name}を${ui.quantity}個調合`,
-                  )
-                }
-              >
-                調合を確認
-              </Button>
-            </div>
-            {capacity < ui.quantity && (
-              <p className="error">
-                素材または体力が足りません。入手先や自室の休養を確認してください。
-              </p>
-            )}
-          </section>
+              <div className="ingredient-list">
+                {Object.entries(r.needs).map(([key, n]) => (
+                  <div className="material-need" key={key}>
+                    <Item id={key as MaterialId} />
+                    <div>
+                      <b>{materialOf(key as MaterialId).name}</b>
+                      <small>
+                        必要 {n! * ui.quantity} ／ 手持ち{" "}
+                        {s.materials[key as MaterialId]}
+                      </small>
+                    </div>
+                    <Badge
+                      tone={
+                        s.materials[key as MaterialId] >= n! * ui.quantity
+                          ? "ready"
+                          : "warn"
+                      }
+                    >
+                      {s.materials[key as MaterialId] >= n! * ui.quantity
+                        ? "揃っています"
+                        : `不足 ${n! * ui.quantity - s.materials[key as MaterialId]}`}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+              {shortages.length > 0 && (
+                <section className="source-options">
+                  <h3>素材を入手する</h3>
+                  {places
+                    .filter(
+                      (p) =>
+                        placeOpen(p, s) &&
+                        shortages.some(
+                          ([id]) =>
+                            p.sells?.includes(id as MaterialId) ||
+                            p.gathers?.[id as MaterialId],
+                        ),
+                    )
+                    .map((p) => {
+                      const available = shortages.filter(
+                        ([id]) =>
+                          p.sells?.includes(id as MaterialId) ||
+                          p.gathers?.[id as MaterialId],
+                      );
+                      const full = shortages.every(
+                        ([id, n]) =>
+                          p.sells?.includes(id as MaterialId) ||
+                          (p.gathers?.[id as MaterialId] ?? 0) >= n,
+                      );
+                      const price = p.sells
+                        ? available.reduce(
+                            (sum, [id, n]) =>
+                              sum + n * (materialOf(id as MaterialId).buy ?? 0),
+                            0,
+                          )
+                        : 0;
+                      return (
+                        <button
+                          className="source-option"
+                          key={p.id}
+                          onClick={() =>
+                            source(
+                              p.id,
+                              available[0][0] as MaterialId,
+                              available[0][1],
+                            )
+                          }
+                        >
+                          <span>
+                            <b>
+                              {p.short}で{p.sells ? "仕入れ" : "採集"}
+                            </b>
+                            <small>
+                              {available
+                                .map(
+                                  ([id]) => materialOf(id as MaterialId).name,
+                                )
+                                .join("・")}{" "}
+                              ／ {full ? "不足分が揃う" : "一部を入手"}
+                            </small>
+                          </span>
+                          <span>
+                            {price}G・1日
+                            <small>体力 {p.gatherStamina ?? 0}</small>
+                          </span>
+                          <ArrowRight size={16} />
+                        </button>
+                      );
+                    })}
+                </section>
+              )}
+              {!shortages.length && (
+                <div className="craft-action">
+                  <div>
+                    <b>体力 −{r.stamina * ui.quantity}</b>
+                    <small>日数消費なし ／ 完成 {ui.quantity}個</small>
+                  </div>
+                  <Button
+                    primary
+                    disabled={!!preview.error}
+                    onClick={() => {
+                      if (lock.current) return;
+                      lock.current = true;
+                      confirm(
+                        { type: "brew", recipe: r.id, quantity: ui.quantity },
+                        `${r.name}を${ui.quantity}個調合しました`,
+                      );
+                      window.setTimeout(() => {
+                        lock.current = false;
+                      }, 350);
+                    }}
+                  >
+                    {r.name}を{ui.quantity}個調合する
+                  </Button>
+                </div>
+              )}
+              {!shortages.length && preview.error && (
+                <p className="error">
+                  体力が足りません。自室の「休む」で回復できます。
+                </p>
+              )}
+              <details>
+                <summary>処方について</summary>
+                <p>{r.note}</p>
+                <p>{RECIPE_SOURCE[r.id]}</p>
+              </details>
+              {ui.preparing && <Button onClick={back}>依頼の準備に戻る</Button>}
+            </section>
+          )}
         </div>
       )}
-      {ui.brewTab !== "recipes" && (
+      {inventory && (
         <div className="inventory-grid">
           {(ui.brewTab === "potions" ? recipes : materials).map((item) => (
             <article className="paper" key={item.id}>
@@ -231,16 +302,8 @@ export function Brewing({
               <p>{item.note}</p>
               {ui.brewTab === "potions" &&
                 s.known.includes(item.id as RecipeId) && (
-                  <Button
-                    onClick={() => {
-                      patch({
-                        recipe: item.id as RecipeId,
-                        brewTab: "recipes",
-                      });
-                      setDetail(true);
-                    }}
-                  >
-                    処方を開く
+                  <Button onClick={() => select(item.id as RecipeId)}>
+                    この薬を調合する
                   </Button>
                 )}
             </article>

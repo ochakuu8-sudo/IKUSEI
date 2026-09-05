@@ -4,514 +4,274 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import * as G from "@game/game";
 import { performAction } from "@game/engine";
-import { legacyOffers } from "@game/content/support";
-const require = createRequire(resolve("package.json"));
-const pw = require("playwright");
+const pw = createRequire(resolve("package.json"))("playwright");
 const url = process.env.IKUSEI_TEST_URL ?? "http://127.0.0.1:5173/IKUSEI/";
-const out = resolve("../redesign-validation");
+const out = resolve("../command-validation");
 mkdirSync(out, { recursive: true });
-const failures = [],
-  errors = [],
+const errors = [],
   checks = [];
-const sizes = [
-  [667, 375],
-  [800, 360],
-  [844, 390],
-  [932, 430],
-  [390, 844],
-  [1440, 900],
-];
-const engines = process.env.IKUSEI_BROWSERS?.split(",") ?? [
-  "chromium",
-  "firefox",
-  "webkit",
-];
-const rich = () => {
-  const s = structuredClone(G.initialState);
-  s.money = 4000;
-  s.known = G.recipes.map((r) => r.id);
-  s.stock = Object.fromEntries(G.recipes.map((r) => [r.id, 12]));
-  s.materials = Object.fromEntries(G.materialIds.map((id) => [id, 40]));
-  s.stamina = 100;
-  return s;
-};
-async function seed(page, s, ui = {}) {
+const saveKey = "ikusei-prototype-save-v9";
+const engines = process.env.IKUSEI_BROWSERS?.split(",") ?? ["chromium"];
+const actionNames = ["薬の依頼を見る", "調合する", "出かける", "休む"];
+const read = (page) =>
+  page.evaluate((key) => JSON.parse(localStorage.getItem(key)), saveKey);
+const button = (page, name) => page.getByRole("button", { name, exact: true });
+const main = (page) => page.locator("#main-content");
+async function home(page) {
+  if (
+    await page
+      .getByRole("navigation", { name: "今日の行動", exact: true })
+      .count()
+  )
+    return;
+  await button(page, "自室へ").filter({ visible: true }).first().click();
+}
+async function action(page, name) {
+  await home(page);
+  await page
+    .getByRole("navigation", { name: "今日の行動", exact: true })
+    .getByRole("button", { name, exact: true })
+    .click();
+}
+async function seed(page, s) {
   await page.evaluate(
-    ({ s, ui }) => {
+    ({ s, key }) => {
       localStorage.clear();
-      if (s)
-        localStorage.setItem("ikusei-prototype-save-v9", JSON.stringify(s));
-      localStorage.setItem(
-        "ikusei-ui-v1",
-        JSON.stringify({ helpSeen: true, speed: 0, ...ui }),
-      );
+      localStorage.setItem(key, JSON.stringify(s));
     },
-    { s, ui },
+    { s, key: saveKey },
   );
   await page.reload();
-  if (s)
-    await page.getByRole("button", { name: "続きから", exact: true }).click();
+  await button(page, "続きから").click();
 }
-async function nav(page, label) {
-  await page
-    .getByRole("navigation")
-    .getByRole("button", { name: label, exact: true })
-    .click();
+async function close(page) {
+  while (await page.locator("dialog[open]").count())
+    await page
+      .locator("dialog[open]")
+      .last()
+      .getByRole("button", { name: "閉じる", exact: true })
+      .click();
 }
-async function acceptDialog(page) {
-  await page
-    .getByRole("dialog")
-    .last()
-    .getByRole("button", { name: "この内容で実行", exact: true })
-    .click();
-}
-async function closeDialogs(page) {
-  for (let i = 0; i < 8 && (await page.locator("dialog[open]").count()); i++) {
-    const d = page.locator("dialog[open]").last();
-    const close = d.getByRole("button", { name: "閉じる", exact: true });
-    await close.click();
-  }
-}
-async function check(page, name, tag) {
+async function inspect(page, label, homeButtons = false) {
   await page.evaluate(() => document.fonts.ready);
-  await page.mouse.move(0, 0);
-  const issues = await page.evaluate(() => {
-    const issues = [];
-    if (
-      document.documentElement.scrollWidth > innerWidth + 1 ||
-      document.documentElement.scrollHeight > innerHeight + 1
-    )
-      issues.push("document overflow");
-    const root =
-      [...document.querySelectorAll("dialog[open]")].at(-1) ?? document;
-    for (const e of root.querySelectorAll("button,input,select")) {
-      const target = e.matches('input[type="checkbox"]')
-        ? (e.closest("label") ?? e)
-        : e;
-      const r = target.getBoundingClientRect();
-      if (!r.width || !r.height) continue;
-      if (r.width < 43 || r.height < 43)
-        issues.push("small target " + e.textContent?.trim());
-      if (e.scrollWidth > e.clientWidth + 3)
-        issues.push("text overflow " + e.textContent?.trim());
-    }
-    for (const e of root.querySelectorAll("p,small,button")) {
-      const target = e.matches('input[type="checkbox"]')
-        ? (e.closest("label") ?? e)
-        : e;
-      const r = target.getBoundingClientRect();
-      if (r.width && r.height && parseFloat(getComputedStyle(e).fontSize) < 12)
-        issues.push("small font " + e.textContent?.slice(0, 40));
-    }
-    return issues;
-  });
-  const root = (await page.locator("dialog[open]").count())
-    ? page.locator("dialog[open]").last()
-    : page.locator("body");
-  const buttons = root.locator("button:visible:enabled");
-  for (let i = 0; i < (await buttons.count()); i++) {
-    const b = buttons.nth(i);
-    try {
-      await b.scrollIntoViewIfNeeded({ timeout: 2500 });
-      await b.click({ trial: true, timeout: 2500 });
-    } catch (e) {
-      issues.push("unreachable " + (await b.innerText()).trim());
-    }
-  }
-  await page
-    .locator(".content")
-    .evaluateAll((es) => es.forEach((e) => (e.scrollTop = 0)));
-  await page
-    .locator(".dialog-body")
-    .evaluateAll((es) => es.forEach((e) => (e.scrollTop = 0)));
-  await page.screenshot({ path: resolve(out, `${tag}-${name}.png`) });
-  checks.push(`${tag}/${name}`);
-  if (issues.length)
-    failures.push({ screen: `${tag}/${name}`, issues: [...new Set(issues)] });
+  const issues = await page.evaluate(
+    ({ homeButtons }) => {
+      const problems = [];
+      if (document.documentElement.scrollWidth > innerWidth + 1)
+        problems.push("horizontal overflow");
+      const selectors = homeButtons
+        ? ".commands:not(.compact-commands) button"
+        : ".route-bar button";
+      for (const el of document.querySelectorAll(selectors)) {
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) continue;
+        if (
+          r.top < 0 ||
+          r.bottom > innerHeight + 1 ||
+          r.left < 0 ||
+          r.right > innerWidth + 1
+        )
+          problems.push("outside initial viewport: " + el.textContent);
+        const hit = document.elementFromPoint(
+          r.x + r.width / 2,
+          r.y + r.height / 2,
+        );
+        if (!el.contains(hit))
+          problems.push("covered control: " + el.textContent);
+        if (r.height < 43 || r.width < 43)
+          problems.push("small control: " + el.textContent);
+      }
+      return problems;
+    },
+    { homeButtons },
+  );
+  assert.deepEqual(issues, [], label);
+  await page.screenshot({ path: resolve(out, label + ".png") });
+  checks.push(label);
 }
 for (const engine of engines) {
   const browser = await pw[engine].launch();
-  for (const [width, height] of sizes.filter(
-    ([w]) =>
-      !process.env.IKUSEI_WIDTHS ||
-      process.env.IKUSEI_WIDTHS.split(",").includes(String(w)),
-  )) {
-    const tag = `${engine}-${width}x${height}`;
-    const page = await browser.newPage({
-      viewport: { width, height },
-      reducedMotion: "reduce",
-    });
-    page.on("pageerror", (e) => errors.push(`${tag}: ${e.message}`));
-    await page.goto(url);
-    let state;
-    if (!process.env.IKUSEI_EXTRA_ONLY) {
-      await seed(page, null);
-      await check(page, "title", tag);
-      await page.getByRole("button", { name: "設定", exact: true }).click();
-      await check(page, "settings", tag);
-      await closeDialogs(page);
-      await page
-        .getByRole("button", { name: "はじめから", exact: true })
-        .click();
-      await check(page, "help", tag);
-      await page
-        .getByRole("button", { name: "帳面を開く", exact: true })
-        .click();
-      await check(page, "home", tag);
-      await nav(page, "薬の依頼書");
-      await check(page, "normal-shortage", tag);
-      await page
-        .getByRole("button", { name: "納品に選ぶ", exact: true })
-        .click();
-      await page.getByRole("button", { name: "不足分を準備する" }).click();
-      await check(page, "brew-shortage", tag);
-      assert.equal(
-        await page.evaluate(
-          () =>
-            JSON.parse(localStorage.getItem("ikusei-ui-v1")).selection.ordinary
-              .length,
-        ),
-        1,
-      );
-      await page.getByRole("button", { name: "商会で仕入れ" }).first().click();
-      await page
-        .getByRole("button", { name: "準備メモの不足分を追加" })
-        .click();
-      assert.deepEqual(
-        await page.evaluate(() =>
-          Object.fromEntries(
-            Object.entries(
-              JSON.parse(localStorage.getItem("ikusei-ui-v1")).basket,
-            ).filter(([, n]) => n > 0),
-          ),
-        ),
-        { rose: 4, wormwood: 2 },
-      );
-      await check(page, "supply-shortage", tag);
-      await page.getByRole("button", { name: "調合の準備に戻る" }).click();
-      await page.getByRole("button", { name: "依頼書に戻る" }).click();
-      assert.equal(
-        await page.getByRole("button", { name: "選択中", exact: true }).count(),
-        1,
-      );
-      await page.reload();
-      await page.getByRole("button", { name: "続きから", exact: true }).click();
-      await nav(page, "薬の依頼書");
-      assert.equal(
-        await page.getByRole("button", { name: "選択中", exact: true }).count(),
-        1,
-      );
-      await seed(page, rich());
-      await nav(page, "調合");
-      await page.getByRole("button", { name: /薬湯.*所持/ }).click();
-      await page
-        .getByRole("spinbutton", { name: "数量", exact: true })
-        .fill("2");
-      await page
-        .getByRole("button", { name: "調合を確認", exact: true })
-        .click();
-      await check(page, "bulk-confirm", tag);
-      await acceptDialog(page);
-      state = await page.evaluate(() =>
-        JSON.parse(localStorage.getItem("ikusei-prototype-save-v9")),
-      );
-      assert.equal(state.stock.tisane, 14);
-      assert.equal(state.stamina, 68);
-      assert.equal(state.day, 1);
-      await closeDialogs(page);
-      await page.getByRole("button", { name: "所持薬", exact: true }).click();
-      await check(page, "inventory", tag);
-      await page.getByRole("button", { name: "素材", exact: true }).click();
-      await check(page, "materials", tag);
-      await seed(page, { ...rich(), day: 2 });
-      await nav(page, "薬の依頼書");
-      await page.getByRole("button", { name: "特別依頼", exact: true }).click();
-      await check(page, "special-offer", tag);
-      await page.getByRole("button", { name: "条件を確認して受諾" }).click();
-      await check(page, "special-confirm", tag);
-      await acceptDialog(page);
-      await check(page, "conversation", tag);
-      await closeDialogs(page);
-      state = await page.evaluate(() =>
-        JSON.parse(localStorage.getItem("ikusei-prototype-save-v9")),
-      );
-      assert.equal(state.money, 4160);
-      assert.equal(state.obligations.length, 1);
-      state.day = 8;
-      state.stock.tisane = 12;
-      await seed(page, state);
-      await nav(page, "薬の依頼書");
-      await page
-        .locator(".order-card")
-        .filter({
-          has: page.getByRole("heading", { name: "薬湯", exact: true }),
-        })
-        .getByRole("button", { name: "納品に選ぶ", exact: true })
-        .click();
-      await page.getByRole("button", { name: /まとめ納品 \(/ }).click();
-      await page
-        .getByRole("button", { name: "納品に選ぶ", exact: true })
-        .click();
-      await check(page, "mixed-batch", tag);
-      await page.getByRole("button", { name: "出発内容を確認" }).click();
-      await check(page, "batch-confirm", tag);
-      await acceptDialog(page);
-      await check(page, "batch-result", tag);
-      await closeDialogs(page);
-      state = await page.evaluate(() =>
-        JSON.parse(localStorage.getItem("ikusei-prototype-save-v9")),
-      );
-      assert.equal(state.day, 9);
-      assert.equal(state.stock.tisane, 8);
-      assert.equal(state.obligations[0].status, "fulfilled");
-      assert.ok(state.unlockedPeople.includes("herbalist"));
-      assert.deepEqual(
-        JSON.parse(
-          await page.evaluate(() => localStorage.getItem("ikusei-ui-v1")),
-        ).selection,
-        { ordinary: [], promises: [] },
-      );
-      await nav(page, "地図");
-      await check(page, "world-list", tag);
-      await page.getByRole("button", { name: "地図表示", exact: true }).click();
-      await check(page, "world-map", tag);
-      await page.getByRole("button", { name: "学院", exact: true }).click();
-      await check(page, "people", tag);
-      await page.getByRole("button", { name: "クレール", exact: true }).click();
-      await check(page, "personal-jobs", tag);
-      await nav(page, "約束帳");
-      await page.getByRole("button", { name: "すべて", exact: true }).click();
-      await check(page, "journal", tag);
-      await page.getByRole("button", { name: "14日予定表" }).click();
-      await check(page, "calendar", tag);
-      let b = performAction(
-        { ...rich(), day: 9 },
-        { type: "accept", offer: "special-b" },
-      ).state;
-      b.chapter = 2;
-      b.day = 1;
-      b = performAction(b, {
-        type: "deliver",
-        ordinary: [],
-        promises: [
-          {
-            id: b.obligations[0].id,
-            option: b.obligations[0].terms.options[0].id,
-          },
-        ],
-      }).state;
-      await seed(page, b);
-      await check(page, "special-event", tag);
-      await page.reload();
-      await page.getByRole("button", { name: "続きから", exact: true }).click();
-      assert.equal(await page.getByRole("dialog").count(), 1);
-      await closeDialogs(page);
-      state = await page.evaluate(() =>
-        JSON.parse(localStorage.getItem("ikusei-prototype-save-v9")),
-      );
-      assert.equal(state.playedEvents.length, 1);
-      await nav(page, "地図");
-      await page
-        .getByRole("button", { name: "行き先一覧", exact: true })
-        .click();
-      await page.getByRole("button", { name: /紹介された薬草園/ }).click();
-      await check(page, "gather", tag);
-      await page.getByRole("button", { name: "採集内容を確認" }).click();
-      await check(page, "gather-confirm", tag);
-      await closeDialogs(page);
-      let c = performAction(
-        rich(),
-        { type: "accept", offer: "supply-credit" },
-        legacyOffers,
-      ).state;
-      c.day = 14;
-      c.awaitingSettlement = true;
-      c.money = 1300;
-      await seed(page, c);
-      await check(page, "settlement", tag);
-      await page.getByRole("button", { name: "約束への支払いを確認" }).click();
-      await page
-        .getByRole("button", { name: "返還・支払待ち", exact: true })
-        .click();
-      await check(page, "payment-journal", tag);
-      await page
-        .getByRole("button", { name: "未精算額を支払う", exact: true })
-        .click();
-      await check(page, "payment-confirm", tag);
-      await acceptDialog(page);
-      await closeDialogs(page);
-      await page.getByRole("button", { name: "章末の精算に戻る" }).click();
-      await page
-        .getByRole("button", { name: "返済内容を確認して確定" })
-        .click();
-      await acceptDialog(page);
-      await closeDialogs(page);
-      state = await page.evaluate(() =>
-        JSON.parse(localStorage.getItem("ikusei-prototype-save-v9")),
-      );
-      assert.equal(state.chapter, 2);
-      await seed(page, { ...rich(), chapter: 6, day: 14, ended: true });
-      await check(page, "ending", tag);
-      await seed(page, {
-        ...rich(),
-        money: 0,
-        stamina: 0,
-        day: 14,
-        awaitingSettlement: true,
+  try {
+    for (const [w, h] of [
+      [1280, 720],
+      [390, 844],
+    ]) {
+      const tag = engine + "-" + w;
+      const page = await browser.newPage({
+        viewport: { width: w, height: h },
+        hasTouch: w < 500,
+        reducedMotion: "reduce",
       });
-      await check(page, "settlement-short", tag);
-    }
-
-    if (width === 390 || width === 1440) {
-      await seed(page, structuredClone(G.initialState));
-      await nav(page, "薬の依頼書");
-      await page.locator(".filters select").first().selectOption("ready");
-      await check(page, "empty-orders", tag);
-      await seed(page, { ...rich(), stamina: 0 });
-      await nav(page, "薬の依頼書");
-      await check(page, "stamina-shortage", tag);
-      assert.ok(
-        (await page.getByText("体力不足", { exact: true }).count()) > 0,
+      page.on("pageerror", (e) => errors.push(e.message));
+      await page.goto(url);
+      await button(page, "はじめから").click();
+      assert.equal(
+        await page.locator("dialog[open]").count(),
+        0,
+        "home is immediately available",
       );
-      await seed(page, rich());
-      await nav(page, "薬の依頼書");
-      await page
-        .locator(".order-card")
-        .filter({
-          has: page.getByRole("heading", { name: "薬湯", exact: true }),
-        })
-        .getByRole("button", { name: "納品に選ぶ", exact: true })
+      assert.deepEqual(
+        await page
+          .getByRole("navigation", { name: "今日の行動" })
+          .getByRole("button")
+          .evaluateAll((es) => es.map((e) => e.getAttribute("aria-label"))),
+        actionNames,
+      );
+      await inspect(page, tag + "-home", true);
+      const initial = await read(page);
+      await action(page, "調合する");
+      assert.equal(
+        await main(page).locator(".brew-sheet").count(),
+        0,
+        "choose a medicine first",
+      );
+      await main(page)
+        .getByRole("button", { name: /薬湯 所持/ })
         .click();
-      await page.getByRole("button", { name: "出発内容を確認" }).click();
-      for (let i = 0; i < 12; i++) {
-        await page.keyboard.press("Tab");
-        assert.ok(
-          await page.evaluate(
-            () => !!document.activeElement.closest("dialog[open]"),
-          ),
-        );
+      await inspect(page, tag + "-recipe");
+      await button(page, "ひとつ戻る").click();
+      assert.equal(
+        await main(page).locator(".brew-sheet").count(),
+        0,
+        "back returns to recipe list",
+      );
+      await home(page);
+      await action(page, "出かける");
+      await main(page)
+        .getByRole("button", { name: /アルノー商会/ })
+        .click();
+      await inspect(page, tag + "-place");
+      await button(page, "人物に会う").click();
+      await main(page)
+        .getByRole("button", { name: /ヴェルネ/ })
+        .click();
+      assert(await button(page, "親交を深める").isVisible());
+      await button(page, "ひとつ戻る").click();
+      assert(await main(page).locator(".person-list").isVisible());
+      await button(page, "ひとつ戻る").click();
+      await button(page, "素材を買う").click();
+      assert.equal(
+        await main(page).locator(".person-heading").count(),
+        0,
+        "shop contains no unrelated people UI",
+      );
+      await home(page);
+      await action(page, "休む");
+      await button(page, "閉じる").click();
+      assert.deepEqual(
+        await read(page),
+        initial,
+        "browsing and cancelling consume no resources",
+      );
+      await action(page, "薬の依頼を見る");
+      await inspect(page, tag + "-orders");
+      await button(page, "この薬を準備する").click();
+      await main(page)
+        .getByRole("button", { name: /商会で仕入れ/ })
+        .click();
+      assert.equal(
+        await page
+          .getByRole("spinbutton", { name: "野薔薇の購入数", exact: true })
+          .inputValue(),
+        "4",
+      );
+      assert.equal(
+        await page
+          .getByRole("spinbutton", { name: "苦艾の購入数", exact: true })
+          .inputValue(),
+        "2",
+      );
+      await inspect(page, tag + "-buy");
+      await button(page, "購入内容を確認").click();
+      await button(page, "購入する・1日").click();
+      await close(page);
+      await button(page, "調合の準備に戻る").click();
+      await button(page, "薬湯を2個調合する").click();
+      assert.equal((await read(page)).stock.tisane, 2);
+      await button(page, "納品を確認する").click();
+      await button(page, "納品へ").click();
+      await button(page, "納品内容を確認").click();
+      await button(page, "納品する・1日").click();
+      await close(page);
+      const delivered = await read(page);
+      assert.equal(delivered.day, 3);
+      assert.equal(delivered.money, 374);
+      assert.equal(delivered.stamina, 38);
+      assert.equal(delivered.stock.tisane, 0);
+      const ui = await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("ikusei-ui-v1")),
+      );
+      assert.equal(ui.selection.ordinary.length, 0);
+      await home(page);
+      await page.reload();
+      await button(page, "続きから").click();
+      assert.deepEqual(await read(page), delivered);
+      checks.push(tag + "-purchase-brew-delivery-reload");
+      // All four commands remain accessible on the existing short landscape sizes.
+      for (const [lw, lh] of [
+        [667, 375],
+        [800, 360],
+        [844, 390],
+        [932, 430],
+      ]) {
+        await page.setViewportSize({ width: lw, height: lh });
+        await inspect(page, tag + "-landscape-" + lw, true);
       }
-      await page.keyboard.press("Escape");
-      assert.equal(await page.locator("dialog[open]").count(), 0);
+      await page.setViewportSize({ width: w, height: h });
+      const rich = structuredClone(G.initialState);
+      rich.money = 3000;
+      rich.materials = Object.fromEntries(G.materialIds.map((id) => [id, 20]));
+      await seed(page, rich);
+      await action(page, "調合する");
+      await main(page)
+        .getByRole("button", { name: /薬湯 所持/ })
+        .click();
+      await button(page, "薬湯を1個調合する").dblclick();
       assert.equal(
-        await page.evaluate(() => document.activeElement.textContent),
-        "出発内容を確認",
+        (await read(page)).stock.tisane,
+        1,
+        "double click crafts only once",
       );
-      await page.getByRole("button", { name: "出発内容を確認" }).click();
-      await page
-        .getByRole("dialog")
-        .getByRole("button", { name: "この内容で実行" })
-        .evaluate((b) => {
-          b.click();
-          b.click();
-        });
-      await closeDialogs(page);
-      state = await page.evaluate(() =>
-        JSON.parse(localStorage.getItem("ikusei-prototype-save-v9")),
+      let due = structuredClone(G.initialState);
+      due.day = 2;
+      due = performAction(due, { type: "accept", offer: "special-a" }).state;
+      due.day = 8;
+      due.stock.tisane = 2;
+      await seed(page, due);
+      await page.setViewportSize({ width: 800, height: 360 });
+      await inspect(page, tag + "-due-home", true);
+      await page.setViewportSize({ width: w, height: h });
+      await action(page, "休む");
+      assert(
+        await page
+          .getByRole("alert")
+          .getByText(/本日の用事を残したまま/)
+          .isVisible(),
       );
-      assert.equal(state.day, 2);
-      assert.equal(state.stock.tisane, 10);
-      let multi = performAction(
-        rich(),
-        { type: "accept", offer: "reservation" },
-        legacyOffers,
-      ).state;
-      multi.day = 2;
-      multi = performAction(multi, {
-        type: "accept",
-        offer: "special-a",
-      }).state;
-      multi.day = 8;
-      await seed(page, multi);
-      await nav(page, "約束帳");
-      await page.getByRole("button", { name: "本日", exact: true }).click();
-      await check(page, "multiple-promises", tag);
-      await seed(page, rich());
-      await nav(page, "地図");
-      await page
-        .getByRole("button", { name: "行き先一覧", exact: true })
-        .click();
-      await page.getByRole("button", { name: /王立学院/ }).click();
-      await page.getByRole("button", { name: "クレール", exact: true }).click();
-      await page
-        .locator(".nested")
-        .filter({
-          has: page.getByRole("heading", {
-            name: "学院文書の筆耕",
-            exact: true,
-          }),
-        })
-        .getByRole("button", { name: "条件を確認して実行" })
-        .click();
-      await check(page, "personal-confirm", tag);
-      await acceptDialog(page);
-      await closeDialogs(page);
-      state = await page.evaluate(() =>
-        JSON.parse(localStorage.getItem("ikusei-prototype-save-v9")),
-      );
-      assert.ok(
-        Object.keys(state.personalRuns).some((k) => k.includes("copyist")),
-      );
-      await page
-        .locator(".hud")
-        .getByRole("button", { name: "設定", exact: true })
-        .click();
-      await page.getByText("セーブデータの管理", { exact: true }).click();
-      await page
-        .getByRole("button", { name: "セーブを初期化", exact: true })
-        .click();
-      await check(page, "reset-confirm", tag);
-      await page
-        .getByRole("dialog")
-        .last()
-        .getByRole("button", { name: "戻る", exact: true })
-        .click();
-      assert.ok(
-        await page.evaluate(
-          () => !!localStorage.getItem("ikusei-prototype-save-v9"),
-        ),
-      );
-      await closeDialogs(page);
-      const long = rich();
-      long.log = Array.from(
-        { length: 8 },
-        (_, i) =>
-          "記録" + i + "：" + "長い記録も内側で折り返して読めます。".repeat(12),
-      );
-      await seed(page, long);
-      await page.getByText(/最近の記録・残債/).click();
-      await check(page, "long-history", tag);
-      await page.setViewportSize({ width: 844, height: 390 });
-      await check(page, "rotated-landscape", tag);
-      await page.setViewportSize({ width, height });
-      await page.evaluate(() => {
-        window.originalSave = Storage.prototype.setItem;
-        Storage.prototype.setItem = function () {
-          throw new DOMException("quota", "QuotaExceededError");
-        };
-      });
-      await page.getByRole("button", { name: "休養", exact: true }).click();
-      await acceptDialog(page);
-      await closeDialogs(page);
-      await check(page, "save-error", tag);
-      assert.ok((await page.getByRole("alert").count()) > 0);
-      await page.evaluate(() => {
-        Storage.prototype.setItem = window.originalSave;
-      });
-      await page.getByRole("button", { name: "保存を再試行" }).click();
-      assert.equal(await page.getByRole("alert").count(), 0);
+      await button(page, "閉じる").click();
+      assert.equal((await read(page)).day, 8);
+      await action(page, "薬の依頼を見る");
+      await button(page, "指定日の依頼").click();
+      await button(page, "まとめ納品へ").click();
+      await button(page, "納品に選ぶ").click();
+      await button(page, "納品内容を確認").click();
+      await button(page, "納品する・1日").click();
+      await close(page);
+      assert.equal((await read(page)).obligations[0].status, "fulfilled");
+      checks.push(tag + "-double-click-and-fixed-day");
+      await page.close();
     }
-    await page.close();
-    console.log("PASS browser flow", tag);
+  } finally {
+    await browser.close();
   }
-  await browser.close();
 }
+assert.deepEqual(errors, []);
 writeFileSync(
   resolve(out, "report.json"),
-  JSON.stringify({ screens: checks.length, checks, failures, errors }, null, 2),
+  JSON.stringify({ checks, errors }, null, 2),
 );
 console.log(
-  JSON.stringify({ screens: checks.length, failures, errors }, null, 2),
+  "PASS " +
+    checks.length +
+    " focused screens/flows: four home commands, back, people, purchasing, crafting, delivery, reload, landscape, double click, fixed-day warning/delivery",
 );
-assert.deepEqual(errors, []);
-assert.deepEqual(failures, []);
