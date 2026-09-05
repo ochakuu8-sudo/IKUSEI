@@ -107,6 +107,9 @@ try {
       [932, 430],
     ]) {
       await p.setViewportSize({ width, height });
+      // --fit は resize ハンドラで書き換わる。反映前に測ると倍率だけ古い値になり、
+      // 当たり判定もキャンバスの外に出たまま測ってしまう。
+      await p.waitForTimeout(150);
       await inspect(
         p,
         `home-${w}-${width}`,

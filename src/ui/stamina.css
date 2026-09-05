@@ -1627,3 +1627,27 @@
   padding: 5px 14px;
   font-size: 13px;
 }
+
+/* ==== 依頼状は素の並びで器を満たす ====
+   position:fixed をやめたので、.work-layout のセルをそのまま埋める。
+   ドックは sticky ではなく普通の最終行。本文だけが内側でスクロールする。 */
+.work-screen.has-detail .work-detail {
+  height: 100%;
+  min-height: 0;
+}
+.work-detail > .action-dock {
+  position: static;
+}
+/* sticky をやめたので、本文が下に潜る前提の逃げ余白は要らない。 */
+.work-detail-body {
+  padding-bottom: 12px;
+}
+
+/* レールの高さは446pxの器に収める。workday.css の
+   `.command-app .day-commands .command-button` が同じ詳細度で後から
+   62pxに戻すので、ここで最終的な値を決める（読み込み順の罠）。 */
+.command-app .action-sidebar .compact-commands .command-button {
+  min-height: 56px;
+  /* 横並び前提の gap:10px が縦積みでも効いて、1つ68pxまで膨らんでいた。 */
+  gap: 2px;
+}

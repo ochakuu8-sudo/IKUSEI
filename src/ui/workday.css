@@ -101,6 +101,7 @@
 .work-screen.has-detail > .intro,
 .work-screen.has-detail > .tabs,
 .work-screen.has-detail > .work-filters,
+.work-screen.has-detail > .list-controls,
 .work-screen.has-detail .work-list {
   display: none;
 }
@@ -405,13 +406,13 @@
 .work-layout {
     min-height: 260px;
   }
-.work-screen.has-detail .work-detail {
-    position: fixed;
-    top: calc(var(--hud) + 4px);
-    bottom: calc(var(--cmdbar) + 4px);
-    right: 8px;
-    left: 30%;
-    z-index: 30;
+/* 依頼状を position:fixed で浮かせていたのは、一覧と並ぶ分割ビューだった
+   ころの名残。固定キャンバスでは has-detail が一覧ごと畳むので、依頼状は
+   そのまま器を満たせばいい。fixed と sticky を重ねると、変形した祖先の中で
+   ドックの貼り付き先がブラウザによって変わり、操作列が本文の途中に出る
+   （iOSで実際に起きた）。両方やめて素の並びに戻す。 */
+.work-screen.has-detail .work-layout {
+    min-height: 0;
   }
 .work-detail-body {
     padding: 12px;
