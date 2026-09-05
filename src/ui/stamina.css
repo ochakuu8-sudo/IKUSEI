@@ -237,13 +237,13 @@
 }
 .jc-seal {
   position: absolute;
-  right: -52px;
+  right: -66px;
   top: 50%;
   transform: translateY(-50%);
-  width: 120px;
-  height: 120px;
+  width: 150px;
+  height: 150px;
   fill: currentColor;
-  opacity: 0.035;
+  opacity: 0.022;
   pointer-events: none;
 }
 .work-choice > .work-title {
@@ -352,12 +352,15 @@
     gap: 2px 7px;
     font-size: 11px;
   }
+/* 幅がレール化で136px戻ったので、一覧でも「払ったあとの値」と
+   買い叩きの件数を出す（CLAUDE.md「62→51 を並べる」）。 */
 .work-choice .ledger-cost small {
-    display: none;
-  }
+  color: var(--muted);
+  margin-left: 3px;
+}
 .work-terms > small {
-    display: none;
-  }
+  font-size: 11px;
+}
 
 
 /* ==== 横持ちのアイコンレール ====
@@ -1226,4 +1229,337 @@
 }
 .command-app .unlearned {
   margin: 8px 0 0;
+}
+
+/* ==== 一覧の操作帯 ====
+   タブ(30px)と絞り込み(28px)が別の段だと、余白込みで70px＝依頼1.4行ぶんを
+   ナビだけで使う。左にタブ、右に絞り込みを置いて1本にする。 */
+.list-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.list-controls > .tabs {
+  margin: 0;
+  padding: 0;
+  flex: none;
+}
+.list-controls > .work-filters {
+  margin: 0;
+  margin-left: auto;
+  flex: none;
+  gap: 8px;
+}
+.list-controls .work-filters label {
+  gap: 4px;
+}
+
+/* ==== 手持ちの素材の棚（収集） ====
+   採集地カード2枚で166pxしか使わず、280pxが死んでいた。
+   「どの素材がどの薬になるか」＝素材の分岐を、ここで初めて可視化する。 */
+.shelf {
+  margin-top: 10px;
+  border-top: 1px solid #e2d2ba;
+  padding-top: 6px;
+}
+.shelf > h3 {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.14em;
+  margin: 0 0 4px;
+}
+.shelf-row {
+  display: grid;
+  grid-template-columns: 26px 74px 128px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.shelf-row:nth-child(odd) {
+  background: #00000006;
+}
+.shelf-row.is-short {
+  background: #f7e4e4;
+}
+.shelf-row .item-art {
+  width: 22px;
+  height: 22px;
+}
+.shelf-name {
+  font-family: var(--serif);
+  font-size: 13px;
+}
+.shelf-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.shelf-count > i {
+  font-style: normal;
+  font-weight: 700;
+  font-size: 13px;
+  min-width: 14px;
+  text-align: right;
+}
+.shelf-bar {
+  display: flex;
+  gap: 2px;
+}
+.shelf-bar > u {
+  width: 5px;
+  height: 11px;
+  border-radius: 1px;
+  background: #00000014;
+}
+.shelf-bar > u.filled {
+  background: var(--gold);
+}
+.shelf-count > em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--red);
+}
+.shelf-uses {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+/* 分岐している素材＝どちらか片方しか作れない素材。ここが選択の中身。 */
+.shelf-branch {
+  color: var(--red);
+  margin: 0 5px;
+  font-weight: 700;
+}
+.shelf-note {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--red);
+  border: 1px solid #d8a8b0;
+  border-radius: 999px;
+  padding: 0 6px;
+  line-height: 15px;
+}
+.shelf-source {
+  color: var(--muted);
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+/* ==== 依頼カードの中央（在庫・関係） ====
+   1行707pxのうち476pxが空白で、在庫の可否も関係も詳細を開かないと
+   読めなかった。開かずに比べられる帳簿にするための列。 */
+.work-choice {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+}
+.work-facts {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-content: flex-end;
+}
+.work-supply {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  padding: 3px 9px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+.work-supply > b {
+  font-size: 12px;
+  font-weight: 600;
+}
+.work-supply > i {
+  font-style: normal;
+  font-size: 11px;
+}
+/* 在庫あり＝すぐ納品できる。 */
+.work-supply.is-ready {
+  background: #e8f1e6;
+  border-color: #b6cdb2;
+  color: #33553a;
+}
+/* 在庫は無いが、いまの素材で作れる。 */
+.work-supply.is-brew {
+  background: #fbf0dd;
+  border-color: #ddbf8d;
+  color: #7d5a24;
+}
+/* 素材から集め直し。 */
+.work-supply.is-lack {
+  background: #f8e6e6;
+  border-color: #d9aeae;
+  color: var(--red);
+}
+/* 関係は数字ではなく輪の数で。誰を育てているかが一覧で比べられる。 */
+.work-bond {
+  display: flex;
+  gap: 3px;
+}
+.work-bond > u {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid #b9a082;
+  background: transparent;
+}
+.work-bond > u.on {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+/* 買い叩きが起きている行は、下がった率まで書く。 */
+.marked-note {
+  color: var(--red);
+  font-weight: 600;
+}
+.work-terms {
+  text-align: right;
+  white-space: nowrap;
+}
+/* 同じ相手に何件目か。2件目から相場が落ちるので、落ちる前から見せる。 */
+.work-visits {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.work-visits.is-down {
+  color: var(--red);
+  font-weight: 600;
+}
+.work-visits > i {
+  font-style: normal;
+  margin-left: 4px;
+}
+
+/* ==== 調合の行（格と素材の内訳） ====
+   格が一覧に無いと「下の品を作ると上の客が消える」という因果が読めない。
+   素材の過不足も、行を開かずに分かる形にする。 */
+.recipe-option {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto 18px;
+  align-items: center;
+  gap: 10px;
+}
+.recipe-option > span:first-of-type > b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.grade {
+  font-style: normal;
+  font-size: 10px;
+  line-height: 15px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-weight: 600;
+}
+.grade-上 {
+  color: #6a7f52;
+}
+.grade-中 {
+  color: #8a6f3c;
+}
+/* 下の格は威厳を削る。押す前に「客を減らす選択だ」と分かるようにする。 */
+.grade-下 {
+  color: var(--red);
+  background: #f7e3e6;
+}
+.recipe-needs {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.recipe-needs > span > i {
+  font-style: normal;
+  margin-left: 3px;
+  opacity: 0.75;
+}
+.recipe-needs .need-short {
+  color: var(--red);
+  font-weight: 600;
+}
+
+/* ==== HUDの中央（章の圧と、当日の記録） ====
+   スタミナと所持金の間に530px空いていた。
+   残債は最大の数字のまま（GAME_DESIGN §9）で、その手前に進捗と当日を置く。 */
+.hud-board {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-left: 26px;
+  color: #f0dcc4;
+}
+.hud-quota {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 190px;
+}
+.hud-quota > span:first-child {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+  color: #c9b195;
+}
+.hud-quota b {
+  font-family: var(--serif);
+  font-size: 14px;
+  color: #fff2e0;
+}
+.hud-quota b > small {
+  font-size: 11px;
+  color: #c9b195;
+  margin-left: 1px;
+}
+.hud-quota-bar {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: #ffffff1f;
+  overflow: hidden;
+}
+.hud-quota-bar > i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #c96989, #e0b276);
+}
+.hud-quota-bar > i.done {
+  background: linear-gradient(90deg, #7fa86a, #b6cf7d);
+}
+.hud-today {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 11px;
+  color: #c9b195;
+}
+.hud-today b {
+  font-family: var(--serif);
+  font-size: 14px;
+  color: #fff2e0;
+}
+.hud-today b > i {
+  font-style: normal;
+  font-size: 12px;
+  margin-left: 7px;
+  color: #e8c79a;
 }

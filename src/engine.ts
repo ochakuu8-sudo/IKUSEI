@@ -203,6 +203,7 @@ export function performAction(
         relationGranted: [],
         publicWork: false,
         deliveries: [],
+        earned: 0,
       };
       if (s.day === CHAPTER_DAYS) s.awaitingSettlement = true;
       else {
@@ -498,6 +499,10 @@ export function performAction(
       deliveries,
       relationUp,
     };
+    // 当日の受取額。日をまたぐ行動（一日を終える）は上で today を空にするので、
+    // ここで足しても翌日に持ち越さない。
+    if (s.money > before.money && action.type !== "end-day")
+      s.today.earned += s.money - before.money;
     return { state: s, result, scene, scenePlace };
   } catch (e) {
     return {

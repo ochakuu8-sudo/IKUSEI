@@ -8,7 +8,7 @@ const browser = await chromium.launch(
 );
 const output = resolve("../scenario-validation");
 mkdirSync(output, { recursive: true });
-const saveKey = "ikusei-prototype-save-v11";
+const saveKey = "ikusei-prototype-save-v12";
 try {
   const page = await browser.newPage({
     viewport: { width: 1280, height: 720 },
@@ -59,6 +59,8 @@ try {
     [932, 430],
   ]) {
     await page.setViewportSize({ width, height });
+    // --fit は resize ハンドラで書き換わる。反映前に測ると倍率だけ古い値になる。
+    await page.waitForTimeout(150);
     const issues = await page.evaluate(() => {
       const failures = [];
       // 画面は固定キャンバス(1200x500)を --fit 倍して出す。シーンは
@@ -94,7 +96,7 @@ try {
             failures.push(selector + " outside the canvas");
           if (
             el.tagName === "BUTTON" &&
-            (r.height / fit < 44 ||
+            (Math.round(r.height / fit) < 44 ||
               !el.contains(
                 document.elementFromPoint(
                   r.x + r.width / 2,

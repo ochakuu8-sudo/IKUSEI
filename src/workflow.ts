@@ -11,10 +11,12 @@ import {
   personalLimitReason,
   personOf,
   personOpen,
+  recipeOf,
   recipes,
   unknownRecipe,
   type GameState,
   type Job,
+  type MaterialId,
   type RecipeId,
 } from "./game";
 import { previewAction } from "./presentation";
@@ -89,6 +91,41 @@ export function deadlineWarnings(s: GameState, a: Action) {
       )
       .map((o) => `${o.title}：受付が終了します`),
   ];
+}
+/** 依頼の「納められるか」を3段階で答える。
+    在庫あり／在庫は無いが調合できる／素材から集め直し。
+    一覧で開かずに判断できるようにするための唯一の情報源。 */
+export type Supply = {
+  recipe: RecipeId;
+  need: number;
+  have: number;
+  missing: number;
+  /** 不足ぶんを、いまの素材で調合できるか。 */
+  brewable: boolean;
+  /** 調合すら足りないときの、足りない素材。 */
+  lacking: { id: MaterialId; short: number }[];
+};
+export function jobSupply(job: Job, s: GameState): Supply | null {
+  if (!job.recipe) return null;
+  const need = job.count ?? 1;
+  const have = s.stock[job.recipe] ?? 0;
+  const missing = Math.max(0, need - have);
+  const lacking = missing
+    ? Object.entries(recipeOf(job.recipe).needs)
+        .map(([id, n]) => ({
+          id: id as MaterialId,
+          short: n! * missing - s.materials[id as MaterialId],
+        }))
+        .filter((m) => m.short > 0)
+    : [];
+  return {
+    recipe: job.recipe,
+    need,
+    have,
+    missing,
+    brewable: missing > 0 && !lacking.length,
+    lacking,
+  };
 }
 export function workReason(j: Job, s: GameState) {
   if (!personOpen(personOf(j.person), s)) return "この人物にはまだ会えません";

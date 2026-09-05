@@ -47,7 +47,7 @@ try {
     else await confirm("確認");
   }
   let s = await p.evaluate(() =>
-    JSON.parse(localStorage.getItem("ikusei-prototype-save-v11")),
+    JSON.parse(localStorage.getItem("ikusei-prototype-save-v12")),
   );
   assert.equal(s.day, 1);
   assert.equal(s.money, 450);
@@ -62,7 +62,7 @@ try {
   await confirm("一日を終える");
   await confirm("確認");
   s = await p.evaluate(() =>
-    JSON.parse(localStorage.getItem("ikusei-prototype-save-v11")),
+    JSON.parse(localStorage.getItem("ikusei-prototype-save-v12")),
   );
   assert.equal(s.day, 2);
   assert.equal(s.stamina, 100);

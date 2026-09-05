@@ -12,7 +12,9 @@ import {
   payWithRelation,
   personOf,
   personOpen,
+  materialOf,
   recipeOf,
+  relationStage,
   type GameState,
   type Job,
   type JobCost,
@@ -21,7 +23,7 @@ import {
   type RecipeId,
 } from "../game";
 import { previewAction } from "../presentation";
-import { visibleJobs, workReason } from "../workflow";
+import { jobSupply, visibleJobs, workReason } from "../workflow";
 import type { Obligation, SupportOffer } from "../supportTypes";
 import type { UIState } from "../uiState";
 import {
@@ -289,6 +291,8 @@ export function Orders({
         依頼
       </Heading>
       <p className="intro">薬を揃えて納品します。</p>
+      {/* タブと絞り込みで縦を2段使うと一覧が2行ぶん減る。1本の帯にまとめる。 */}
+      <div className="list-controls">
       <Tabs
         value={ui.orderTab === "batch" ? "all" : ui.orderTab}
         onChange={(orderTab) => patch({ orderTab, orderId: null })}
@@ -345,6 +349,7 @@ export function Orders({
           </select>
         </label>
       </div>
+      </div>
       <div className="work-layout">
         <section
           ref={listRef}
@@ -360,6 +365,10 @@ export function Orders({
             const why = reason(r),
               chosen = isSelected(r),
               own = ownSelection(r);
+            // 尊厳や解禁で閉じている依頼は在庫の話にならない。
+            const supply =
+              r.job && !workReason(r.job, s) ? jobSupply(r.job, s) : null;
+            const fat = fatigueDetail(r.job?.person ?? r.person, s);
             const eligible =
               own &&
               (!r.promise?.terms.schedule || r.promise.due === today) &&
@@ -397,17 +406,72 @@ export function Orders({
                     <small>
                       {personOf(r.person).name} ／ {r.job?.kind ?? "特別依頼"}
                     </small>
-                    {why && <small className="muted">{why}</small>}
+                    {why && !supply && <small className="muted">{why}</small>}
                     {candidateError && !chosen && !why && (
                       <small className="muted">
                         選択分との合計：{candidateError}
                       </small>
                     )}
                   </span>
+                  {/* 開かずに選べる一覧にするための3点。
+                      納める品と数／在庫の3段階／相手との関係。 */}
+                  <span className="work-facts">
+                    {/* 買い叩きは「起きてから」では遅い。何件目かを常に出して、
+                        相手を替える判断をここで促す。 */}
+                    {r.job && fat.today > 0 && (
+                      <span
+                        className={`work-visits ${fat.rate < 1 ? "is-down" : ""}`}
+                      >
+                        本日{fat.today + 1}件目
+                        {fat.rate < 1 && (
+                          <i>−{Math.round((1 - fat.rate) * 100)}%</i>
+                        )}
+                      </span>
+                    )}
+                    {supply && (
+                      <span
+                        className={`work-supply ${
+                          supply.missing === 0
+                            ? "is-ready"
+                            : supply.brewable
+                              ? "is-brew"
+                              : "is-lack"
+                        }`}
+                      >
+                        <b>
+                          {recipeOf(supply.recipe).name}×{supply.need}
+                        </b>
+                        <i>
+                          {supply.missing === 0
+                            ? `在庫 ${supply.have}`
+                            : supply.brewable
+                              ? `あと${supply.missing}・調合できる`
+                              : supply.lacking
+                                  .map(
+                                    (l) =>
+                                      `${materialOf(l.id).name}あと${l.short}`,
+                                  )
+                                  .join("・")}
+                        </i>
+                      </span>
+                    )}
+                    <span
+                      className="work-bond"
+                      aria-label={`${personOf(r.person).name}との関係：${relationStage(s.relations[r.person] ?? 0)}`}
+                    >
+                      {[0, 1, 2].map((i) => (
+                        <u
+                          key={i}
+                          className={
+                            i < (s.relations[r.person] ?? 0) ? "on" : ""
+                          }
+                        />
+                      ))}
+                    </span>
+                  </span>
                   <span className="work-terms">
                     {r.job ? (
                       (() => {
-                        const fat = fatigueDetail(r.job.person, s);
                         const list = listPrice(r.job, s);
                         const pay = payWithRelation(r.job, s);
                         return (
@@ -416,11 +480,6 @@ export function Orders({
                               {fat.rate < 1 && <s>{money(list)}</s>}
                               {money(pay)}
                             </b>
-                            {fat.today > 0 && (
-                              <small className="muted">
-                                本日{fat.today + 1}件目
-                              </small>
-                            )}
                           </>
                         );
                       })()

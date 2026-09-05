@@ -61,13 +61,15 @@ export type Obligation = {
   terms: SupportOffer;
 };
 export type SupportState = {
-  saveVersion: 11;
+  saveVersion: 12;
   today: {
     worked: PersonId[];
     relationGranted: PersonId[];
     publicWork: boolean;
     /** 本日の納品先。同じ相手が並ぶので重複を許す ── 疲労は回数で数える。 */
     deliveries: PersonId[];
+    /** 本日の受取額。HUDに出さないと、その日いくら稼いだかが分からない。 */
+    earned: number;
   };
   obligations: Obligation[];
   offerStates: Record<string, "accepted" | "declined">;
@@ -84,8 +86,14 @@ export type SupportState = {
   history: { day: number; kind: string; target: string; choice?: string }[];
 };
 export const emptySupportState = (): SupportState => ({
-  saveVersion: 11,
-  today: { worked: [], relationGranted: [], publicWork: false, deliveries: [] },
+  saveVersion: 12,
+  today: {
+    worked: [],
+    relationGranted: [],
+    publicWork: false,
+    deliveries: [],
+    earned: 0,
+  },
   obligations: [],
   offerStates: {},
   capabilities: [],

@@ -86,11 +86,33 @@ export function Brewing({
                 >
                   <Item id={recipe.id} />
                   <span>
-                    <b>{recipe.name}</b>
+                    <b>
+                      {recipe.name}
+                      {/* 格は「作った物のいちばん下が、上の客を追い払う」の
+                          原因そのもの。一覧に出ていないと因果が読めない。 */}
+                      <i className={`grade grade-${recipe.grade}`}>
+                        {recipe.grade}
+                      </i>
+                    </b>
                     <small>
                       所持 {s.stock[recipe.id] ?? 0} ／ 作れる数{" "}
-                      {brewCapacity(s, recipe.id)}
+                      {brewCapacity(s, recipe.id)} ／ ⧗{recipe.stamina}/個
                     </small>
+                  </span>
+                  {/* 何が足りなくて作れないのかを、行を開かずに出す。 */}
+                  <span className="recipe-needs">
+                    {Object.entries(recipe.needs).map(([id, n]) => {
+                      const held = s.materials[id as MaterialId] ?? 0;
+                      return (
+                        <span
+                          key={id}
+                          className={held < n! ? "need-short" : ""}
+                        >
+                          {materialOf(id as MaterialId).name}×{n}
+                          <i>({held})</i>
+                        </span>
+                      );
+                    })}
                   </span>
                   <ArrowRight size={18} />
                 </button>

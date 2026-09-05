@@ -78,6 +78,40 @@ export function Shell({
           </span>
           <b>{s.stamina}</b>
         </div>
+        {/* HUDの中央は530px空いていた。章の圧と、当日の記録を置く。 */}
+        <div className="hud-board">
+          <div
+            className="hud-quota"
+            aria-label={`第${s.chapter}章のノルマ ${quotaOf(s)}G のうち ${s.money}G`}
+          >
+            <span>
+              章ノルマ
+              <b>
+                {money(s.money)}
+                <small>／{money(quotaOf(s))}</small>
+              </b>
+            </span>
+            <span className="hud-quota-bar" aria-hidden="true">
+              <i
+                className={short > 0 ? "" : "done"}
+                style={{
+                  width: `${Math.min(100, (s.money / Math.max(1, quotaOf(s))) * 100)}%`,
+                }}
+              />
+            </span>
+          </div>
+          {/* 今日いくら稼いだかは、どこにも出ていなかった。
+              納品回数は買い叩きの直接の原因なので並べて出す。 */}
+          <div className="hud-today">
+            <small>本日</small>
+            <b>
+              {s.today.deliveries.length}件
+              <i>
+                {s.today.earned > 0 ? `＋${money(s.today.earned)}` : "±0 G"}
+              </i>
+            </b>
+          </div>
+        </div>
         <div className="hud-spacer" />
         <div className="hud-purse">
           <small>所持金</small>

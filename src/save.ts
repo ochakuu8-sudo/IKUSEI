@@ -13,13 +13,15 @@ import {
 } from "./game";
 import { emptySupportState } from "./supportTypes";
 import { rewardValid } from "./rewards";
-export const SAVE_KEY = "ikusei-prototype-save-v11";
+export const SAVE_KEY = "ikusei-prototype-save-v12";
+export const V11_SAVE_KEY = "ikusei-prototype-save-v11";
 export const V10_SAVE_KEY = "ikusei-prototype-save-v10";
 export const V9_SAVE_KEY = "ikusei-prototype-save-v9";
 export const PREVIOUS_SAVE_KEY = "ikusei-prototype-save-v8";
 export const LEGACY_SAVE_KEY = "ikusei-prototype-save-v7";
 /** v9以降は解禁と約束の形が同じ。v11は本日の納品回数だけを足している。 */
-const tracked = (n: unknown) => n === 9 || n === 10 || n === 11;
+const tracked = (n: unknown) =>
+  n === 9 || n === 10 || n === 11 || n === 12;
 
 /** v7は履歴や契約を捏造せず移行する。破損データはゲーム状態として使わない。 */
 export function parseSave(raw: string | null): GameState | null {
@@ -199,7 +201,7 @@ export function parseSave(raw: string | null): GameState | null {
         ? {}
         : emptySupportState()),
       relations: { ...initialState.relations, ...v.relations },
-      saveVersion: 11,
+      saveVersion: 12,
     };
     if (tracked(v.saveVersion)) {
       const strings = (x: unknown): x is string[] =>
@@ -277,7 +279,7 @@ export function parseSave(raw: string | null): GameState | null {
       Array.isArray(a) &&
       new Set(a).size === a.length &&
       a.every((id) => people.some((p) => p.id === id));
-    if (v.saveVersion === 10 || v.saveVersion === 11) {
+    if (v.saveVersion >= 10) {
       if (
         !v.today ||
         !ids(v.today.worked) ||
@@ -285,18 +287,26 @@ export function parseSave(raw: string | null): GameState | null {
         typeof v.today.publicWork !== "boolean"
       )
         return null;
-      // v11で足した納品回数。v10には無いので当日ぶんだけ空で始める。
+      // v11で足した納品回数、v12で足した当日の受取額。
+      // 無い版から来たときは当日ぶんだけ空で始める。
       const deliveries = v.today.deliveries;
+      const tracks = v.saveVersion >= 11;
       if (
-        v.saveVersion === 11 &&
+        tracks &&
         (!Array.isArray(deliveries) ||
           !deliveries.every((id: unknown) => people.some((p) => p.id === id)))
       )
         return null;
+      const earned = v.today.earned;
+      if (
+        v.saveVersion >= 12 &&
+        (typeof earned !== "number" || !Number.isFinite(earned) || earned < 0)
+      )
+        return null;
       next.today = {
         ...structuredClone(v.today),
-        deliveries:
-          v.saveVersion === 11 ? structuredClone(deliveries) : ([] as never[]),
+        deliveries: tracks ? structuredClone(deliveries) : ([] as never[]),
+        earned: v.saveVersion >= 12 ? earned : 0,
       };
     } else
       next.today = {
@@ -304,6 +314,7 @@ export function parseSave(raw: string | null): GameState | null {
         relationGranted: [],
         publicWork: false,
         deliveries: [],
+        earned: 0,
       };
     return next;
   } catch {

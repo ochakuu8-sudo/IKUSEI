@@ -336,7 +336,7 @@ test("legacy save migration does not invent obligations", () => {
   ])
     delete old[k];
   const migrated = parseSave(JSON.stringify(old));
-  assert.equal(migrated.saveVersion, 11);
+  assert.equal(migrated.saveVersion, 12);
   assert.deepEqual(migrated.obligations, []);
   assert.equal(migrated.money, old.money);
 });
@@ -734,7 +734,7 @@ test("v8 migrates real history and old deadlines but never grants new unlocks", 
   );
   const s = parseSave(JSON.stringify(old));
   assert.ok(s);
-  assert.equal(s.saveVersion, 11);
+  assert.equal(s.saveVersion, 12);
   assert.deepEqual(s.obligations, old.obligations);
   assert.equal(s.relations.herbalist, 0);
   assert.deepEqual(s.unlockedPeople, []);
@@ -952,6 +952,7 @@ test("one day supports collection brewing delivery and refill only on explicit e
     relationGranted: [],
     publicWork: false,
     deliveries: [],
+    earned: 0,
   });
 });
 test("daily relationship cap persists through reload and resets overnight", () => {
@@ -997,7 +998,7 @@ test("v9 migration retains assets and promises without granting free stamina or 
   old.relations.claire = 3;
   delete old.today;
   const s = parseSave(JSON.stringify(old));
-  assert.equal(s.saveVersion, 11);
+  assert.equal(s.saveVersion, 12);
   assert.equal(s.stamina, 17);
   assert.deepEqual(s.obligations, old.obligations);
   assert.deepEqual(s.known, old.known);
@@ -1006,6 +1007,7 @@ test("v9 migration retains assets and promises without granting free stamina or 
     relationGranted: [],
     publicWork: false,
     deliveries: [],
+    earned: 0,
   });
   s.stock.tisane = 2;
   assert.ok(now(s, batch(["ord-tisane"])).known.includes("perfume"));
@@ -1089,11 +1091,11 @@ test("marc supplies ambergris from relation 2, once a day, opening the lower gra
   const paid = now(s, batch(["ord-philtre"]));
   assert.equal(paid.axes.威厳, s.axes.威厳 - 10);
 });
-test("v10 saves migrate to v11 with an empty delivery count and reject a corrupt one", () => {
+test("v10 and v11 saves migrate to v12 with empty daily tracking and reject a corrupt one", () => {
   const old = { ...fresh(), saveVersion: 10 };
   delete old.today.deliveries;
   const migrated = parseSave(JSON.stringify(old));
-  assert.equal(migrated.saveVersion, 11);
+  assert.equal(migrated.saveVersion, 12);
   assert.deepEqual(migrated.today.deliveries, []);
   const kept = { ...fresh(), today: { ...fresh().today, deliveries: ["marc", "marc"] } };
   assert.deepEqual(parseSave(JSON.stringify(kept)).today.deliveries, [

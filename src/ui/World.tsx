@@ -25,6 +25,7 @@ import {
   money,
 } from "./components";
 import { ActionDock } from "./ActionDock";
+import { MaterialShelf } from "./MaterialShelf";
 export function World({
   s,
   ui,
@@ -109,6 +110,7 @@ export function World({
                 </article>
               );
             })}
+          <MaterialShelf s={s} ui={ui} />
         </div>
       )}
     </div>

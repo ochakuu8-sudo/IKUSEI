@@ -8,7 +8,7 @@ const { chromium } = createRequire(resolve("package.json"))("playwright");
 const out = resolve("../stamina-validation");
 mkdirSync(out, { recursive: true });
 const url = process.env.IKUSEI_TEST_URL ?? "http://127.0.0.1:5174/IKUSEI/",
-  key = "ikusei-prototype-save-v11";
+  key = "ikusei-prototype-save-v12";
 const b = (p, name) => p.getByRole("button", { name, exact: true });
 const read = (p) => p.evaluate((k) => JSON.parse(localStorage.getItem(k)), key);
 const row = (p, name) => p.locator(".work-choice").filter({ hasText: name });

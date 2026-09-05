@@ -14,11 +14,14 @@ import { absoluteDay, offerReason } from "../contracts";
 import {
   isOpen,
   jobs,
+  materialOf,
   personOf,
   recipeOf,
+  recipes,
   type GameState,
 } from "../game";
-import { previewAction } from "../presentation";
+import { brewCapacity, previewAction } from "../presentation";
+import { jobSupply } from "../workflow";
 export type HomeAction = "orders" | "brew" | "map" | "rest";
 export const actionLabels = {
   orders: "依頼",
@@ -61,6 +64,22 @@ export function Actions({
         : prepare
           ? `${recipeOf(prepare.recipe!).name}をあと${Math.max(0, (prepare.count ?? 1) - (s.stock[prepare.recipe!] ?? 0))}個準備`
           : "人物からの依頼を探す";
+  // 副題は固定文ではなく、いまの盤面を書く。同じ面積で情報量だけ増える。
+  const shortages = jobs
+    .filter((j) => j.category === "ordinary" && isOpen(j, s))
+    .map((j) => jobSupply(j, s))
+    .filter((sp) => sp && sp.missing > 0 && sp.lacking.length)
+    .flatMap((sp) => sp!.lacking);
+  const lack = shortages.length
+    ? `${materialOf(shortages[0].id).name}があと${Math.max(
+        ...shortages
+          .filter((l) => l.id === shortages[0].id)
+          .map((l) => l.short),
+      )}`
+    : "素材は足りている";
+  const brewable = recipes
+    .filter((r) => s.known.includes(r.id) && brewCapacity(s, r.id) > 0)
+    .map((r) => `${r.name}を${brewCapacity(s, r.id)}個`);
   const items = [
     {
       id: "orders" as const,
@@ -73,13 +92,15 @@ export function Actions({
       id: "map" as const,
       icon: Map,
       note: "素材を採る・買う",
-      status: "薬に必要な素材を集める",
+      status: lack,
     },
     {
       id: "brew" as const,
       icon: FlaskConical,
       note: "素材から薬を作る",
-      status: "処方を選んで調合",
+      status: brewable.length
+        ? `${brewable[0]}作れる`
+        : "作れる薬がありません",
     },
   ];
   return (

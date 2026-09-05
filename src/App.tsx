@@ -18,6 +18,7 @@ import {
   LEGACY_SAVE_KEY,
   V9_SAVE_KEY,
   V10_SAVE_KEY,
+  V11_SAVE_KEY,
   parseSave,
   PREVIOUS_SAVE_KEY,
   SAVE_KEY,
@@ -60,6 +61,7 @@ function loadGame() {
   try {
     return (
       parseSave(localStorage.getItem(SAVE_KEY)) ??
+      parseSave(localStorage.getItem(V11_SAVE_KEY)) ??
       parseSave(localStorage.getItem(V10_SAVE_KEY)) ??
       parseSave(localStorage.getItem(V9_SAVE_KEY)) ??
       parseSave(localStorage.getItem(PREVIOUS_SAVE_KEY)) ??
@@ -113,6 +115,7 @@ export default function App() {
       else
         [
           SAVE_KEY,
+          V11_SAVE_KEY,
           V10_SAVE_KEY,
           V9_SAVE_KEY,
           PREVIOUS_SAVE_KEY,
