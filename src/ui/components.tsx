@@ -8,8 +8,10 @@ import type { Action } from "../engine";
 import {
   axes,
   materialOf,
+  primaryAxis,
   recipeOf,
   type GameState,
+  type JobCost,
   type MaterialId,
   type RecipeId,
 } from "../game";
@@ -340,5 +342,58 @@ export function Preview({
         </p>
       )}
     </div>
+  );
+}
+
+/** 依頼が差し出させるもの。軸名は書かず紋だけを出し、払ったあとの値を添える
+    （CLAUDE.md「仕事一覧には何を失うかを必ず出す」）。
+    一覧と確認シートの両方で同じ形にして、隠して受けさせない。 */
+export function Ledger({
+  state,
+  costs,
+  stamina,
+  cap = 0,
+  detail = false,
+}: {
+  state: GameState;
+  costs: JobCost[];
+  stamina?: number;
+  cap?: number;
+  detail?: boolean;
+}) {
+  const paid = costs.filter((c) => c.amount > 0);
+  return (
+    <div className={`ledger ${detail ? "ledger-detail" : ""}`}>
+      {stamina !== undefined && (
+        <span className="ledger-stamina">
+          <Mark name="体力" label="スタミナ" />−{stamina}
+        </span>
+      )}
+      {paid.length ? (
+        paid.map((c) => (
+          <span className={`ledger-cost axis-${c.axis}`} key={c.axis}>
+            <Mark name={c.axis} />−{c.amount}
+            <small>
+              {state.axes[c.axis]}→{Math.max(0, state.axes[c.axis] - c.amount)}
+            </small>
+          </span>
+        ))
+      ) : (
+        <span className="ledger-free">
+          <Mark name="関係" />
+          {detail ? "差し出すものは無い" : "無償"}
+        </span>
+      )}
+      {detail && cap > 0 && (
+        <span className="ledger-cap">品位の上限 −{cap}（戻らない）</span>
+      )}
+    </div>
+  );
+}
+
+/** 依頼カードの地に敷く紋。読む前に「何を差し出す依頼か」が絵で分かる。 */
+export function Seal({ costs }: { costs: JobCost[] }) {
+  return (
+    <Mark name={primaryAxis(costs) ?? "関係"} className="jc-seal" decorative />
   );
 }

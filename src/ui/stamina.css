@@ -171,3 +171,297 @@
     height: 13px;
   }
 }
+
+/* 未習得の処方は「どこで覚えるか」まで出す。ここが関係を上げる動機になる。 */
+.unlearned > p {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 4px 0 8px;
+}
+.unlearned-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 5px 0;
+  border-top: 1px solid #e7d6c0;
+}
+.unlearned-row b {
+  min-width: 5em;
+}
+.unlearned-row small {
+  color: var(--muted);
+  flex: 1;
+  min-width: 0;
+}
+
+/* ==== HUDの残債 ====
+   §9「常に、最も大きく出す」。所持金・スタミナより一段大きい数値にする。
+   レスポンシブは .hud-payment の既存指定をそのまま使い、字送りだけ上書きする。 */
+.hud-debt {
+  align-items: flex-end;
+  text-align: right;
+  gap: 0;
+  background: none;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.hud-debt > small {
+  display: block;
+  color: #e6cacf;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+.hud-debt > b {
+  font-family: var(--serif, inherit);
+  font-size: 27px;
+  line-height: 1.05;
+  color: #ffd9c9;
+}
+.hud-debt > span {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px 10px;
+  font-size: 12px;
+  color: #e6cacf;
+}
+.hud-debt > span i {
+  font-style: normal;
+}
+.hud-debt:hover > b {
+  color: #fff;
+}
+@media (max-width: 1050px) {
+  .hud-debt > b {
+    font-size: 23px;
+  }
+}
+/* 縦持ちはHUDの2段目に横一列で入る。残債を左、内訳を右に振る。 */
+@media (max-width: 720px) and (min-height: 501px) {
+  .hud-debt {
+    flex-direction: row !important;
+    align-items: baseline;
+    justify-content: space-between;
+    text-align: left;
+    gap: 8px;
+  }
+  .hud-debt > small {
+    order: -1;
+  }
+  .hud-debt > b {
+    font-size: 20px;
+    margin-right: auto;
+  }
+}
+@media (max-height: 500px) {
+  .hud-debt > b {
+    font-size: 19px;
+  }
+  .hud-debt > small {
+    font-size: 10px;
+  }
+  .hud-debt > span {
+    font-size: 11px;
+  }
+}
+
+/* ==== 返済予定 ====
+   額そのものより「次がいくら跳ねるか」が見えることが効く。 */
+.debt-schedule {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+}
+.debt-schedule li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 7px 10px;
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid #e7d6c0;
+}
+.debt-schedule li > span:first-child {
+  min-width: 4.5em;
+  color: var(--muted);
+}
+.debt-schedule li b {
+  font-family: var(--serif, inherit);
+  font-size: 19px;
+  min-width: 5.5em;
+}
+.debt-schedule li small {
+  color: var(--muted);
+}
+.debt-schedule li small.text-crimson {
+  color: var(--red);
+  font-weight: 700;
+}
+.debt-schedule li.done {
+  opacity: 0.55;
+}
+.debt-schedule li.current {
+  border-left-color: var(--gold, #c9a227);
+  background: #fff4e2;
+}
+.debt-total {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 2px solid #e6c79b;
+}
+.debt-total b {
+  font-family: var(--serif, inherit);
+  font-size: 25px;
+  color: var(--red);
+}
+@media (max-height: 500px) {
+  .debt-schedule li {
+    padding: 4px 8px;
+  }
+  .debt-schedule li b {
+    font-size: 16px;
+  }
+  .debt-total b {
+    font-size: 20px;
+  }
+}
+
+/* ==== 依頼カードの帳簿欄 ====
+   報酬とスタミナだけの一覧にすると、1件ずつ開かないと価格が分からず
+   比較画面として成立しない(CLAUDE.md)。軸名は書かず紋だけを出す。 */
+.work-row {
+  position: relative;
+  overflow: hidden;
+}
+.jc-seal {
+  position: absolute;
+  right: -52px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 120px;
+  height: 120px;
+  fill: currentColor;
+  opacity: 0.035;
+  pointer-events: none;
+}
+.work-choice > .work-title {
+  flex: 1;
+  min-width: 0;
+}
+.work-terms {
+  max-width: 44%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+  text-align: right;
+  z-index: 1;
+}
+.work-terms > b {
+  font-family: var(--serif, inherit);
+  font-size: 17px;
+  white-space: nowrap;
+}
+.work-terms > b.marked-down {
+  color: var(--red);
+}
+.work-terms > b s {
+  color: var(--muted);
+  font-size: 12px;
+  margin-right: 5px;
+  font-family: inherit;
+}
+.ledger {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 3px 9px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.ledger .mark {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+  vertical-align: -2px;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+.ledger > span {
+  white-space: nowrap;
+}
+.ledger-stamina {
+  color: #8d6f8c;
+}
+.ledger-free {
+  color: var(--muted);
+}
+.ledger-cost {
+  font-weight: 700;
+  color: var(--red);
+}
+.ledger-cost small {
+  margin-left: 6px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.ledger-detail {
+  justify-content: flex-start;
+  gap: 6px 16px;
+  font-size: 14px;
+  margin: 10px 0;
+  padding: 8px 10px;
+  border: 1px solid #e7d6c0;
+  border-radius: 10px;
+  background: #fffaf2;
+}
+.ledger-detail .mark {
+  width: 15px;
+  height: 15px;
+}
+.ledger-cap {
+  color: var(--red);
+  font-weight: 700;
+  flex-basis: 100%;
+}
+.markdown-note {
+  font-size: 12px;
+  margin: 6px 0;
+}
+
+/* 横持ちは一覧に使える高さが100px前後しかない。帳簿欄を1行に畳んでカードを厚くしない。 */
+@media (max-height: 500px) {
+  .jc-seal {
+    right: -44px;
+    width: 92px;
+    height: 92px;
+  }
+  .work-terms {
+    gap: 1px;
+  }
+  .work-terms > b {
+    font-size: 15px;
+  }
+  .ledger {
+    flex-wrap: nowrap;
+    gap: 2px 7px;
+    font-size: 11px;
+  }
+  .ledger-cost small {
+    display: none;
+  }
+  .work-terms > small {
+    display: none;
+  }
+}

@@ -89,15 +89,25 @@ export function Shell({
             </b>
           </span>
         </div>
-        <div className="hud-payment">
+        {/* 残債はこの画面で最も大きい数値にする(GAME_DESIGN §9)。
+            今章のノルマ・不足・残り日数は、その下に1行で畳む。 */}
+        <button
+          className="hud-payment hud-debt"
+          onClick={() => journal(true)}
+          aria-label="残債と返済予定を開く"
+        >
+          <small>残債</small>
+          <b>{money(s.debt)}</b>
           <span>
-            返済まで <b>{CHAPTER_DAYS - s.day + 1}日</b>
-            <small>必要 {money(quotaOf(s))}</small>
+            第{s.chapter}章 {money(quotaOf(s))}
+            <i className={s.money < quotaOf(s) ? "text-crimson" : ""}>
+              {s.money < quotaOf(s)
+                ? `不足 ${money(quotaOf(s) - s.money)}`
+                : "達成"}
+            </i>
+            <i>あと{CHAPTER_DAYS - s.day + 1}日</i>
           </span>
-          <span className={s.money < quotaOf(s) ? "text-crimson" : ""}>
-            不足 {money(Math.max(0, quotaOf(s) - s.money))}
-          </span>
-        </div>
+        </button>
         <Button aria-label="設定" onClick={settings}>
           <Settings size={19} />
         </Button>

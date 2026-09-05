@@ -1,4 +1,4 @@
-import { specialOffers } from "./content/support";
+import { specialOffers, supportOffers } from "./content/support";
 import { absoluteDay, offerReason } from "./contracts";
 import type { Action } from "./engine";
 import {
@@ -7,6 +7,7 @@ import {
   jobs,
   materialIds,
   notYetFallen,
+  people,
   personalLimitReason,
   personOf,
   personOpen,
@@ -14,6 +15,7 @@ import {
   unknownRecipe,
   type GameState,
   type Job,
+  type RecipeId,
 } from "./game";
 import { previewAction } from "./presentation";
 
@@ -113,4 +115,29 @@ export function visibleJobs(s: GameState, seen: string[]) {
 export function quoteSummary(s: GameState, action: Action) {
   const q = actionQuote(s, action);
   return `${q.money < 0 ? "費用" : "受取"} ${Math.abs(q.money).toLocaleString()}G・スタミナ ${q.stamina < 0 ? `−${Math.abs(q.stamina)}` : `${q.stamina > 0 ? "+" : ""}${q.stamina}`}`;
+}
+
+/** その処方をどこで覚えられるか。レシピは金で買えないので、未習得の一覧に
+    出さないと「関係を上げに行く」動機が生まれない(§2-1)。
+    game.ts には置けない ── 特別依頼を参照すると import が循環する。 */
+export function recipeSources(id: RecipeId, s?: GameState): string[] {
+  const out: string[] = [];
+  for (const p of people)
+    for (const t of p.teaches ?? [])
+      if (t.recipe === id)
+        // 条件を満たしていても読込だけでは解禁しない(v10)。次の納品で入ることを言う。
+        out.push(
+          s && s.relations[p.id] >= t.stage
+            ? `${p.name}へ次に納品すると覚える`
+            : `${p.name}との関係${t.stage}` +
+              (s ? `（いま${s.relations[p.id]}）` : ""),
+        );
+  // 実行できない依頼を入手経路として案内しない。
+  for (const j of jobs)
+    if (j.teaches === id && j.category === "ordinary")
+      out.push(`「${j.title}」の報酬`);
+  for (const o of supportOffers)
+    if (o.rewards?.some((r) => r.kind === "recipe" && r.id === id))
+      out.push(`「${o.title}」の達成報酬`);
+  return out;
 }

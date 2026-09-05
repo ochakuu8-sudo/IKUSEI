@@ -4,14 +4,18 @@ import { absoluteDay, dateLabel, offerKey, offerReason } from "../contracts";
 import { planDelivery, type DeliverySelection } from "../delivery";
 import type { Action } from "../engine";
 import {
+  capDropOf,
+  fatigueDetail,
   isOpen,
   jobs,
+  listPrice,
   payWithRelation,
   personOf,
   personOpen,
   recipeOf,
   type GameState,
   type Job,
+  type JobCost,
   type PersonId,
   type PlaceId,
   type RecipeId,
@@ -27,8 +31,10 @@ import {
   Empty,
   Heading,
   Item,
+  Ledger,
   money,
   Preview,
+  Seal,
   Tabs,
 } from "./components";
 import { personSrc } from "../art";
@@ -135,6 +141,11 @@ export function Orders({
             promises: [{ id: r.promise.id, option: dueOption(r)!.id }],
           }
         : undefined;
+  const rowTerms = (r: Row): { costs: JobCost[]; stamina?: number } => {
+    if (r.job) return { costs: r.job.costs, stamina: r.job.stamina };
+    const option = dueOption(r) ?? r.offer?.options[0];
+    return { costs: option?.costs ?? [], stamina: option?.stamina };
+  };
   const isSelected = (r: Row) =>
     r.job
       ? selection.ordinary.includes(r.job.id)
@@ -350,6 +361,7 @@ export function Orders({
                 className={`work-row ${r.job && workReason(r.job, s) ? "unavailable" : ""} ${chosen ? "selected" : ""}`}
                 key={r.key}
               >
+                <Seal costs={rowTerms(r).costs} />
                 <button
                   className="work-choice"
                   aria-pressed={row?.key === r.key}
@@ -364,7 +376,7 @@ export function Orders({
                   ) : (
                     <Art src={personSrc(r.person)} className="crest" />
                   )}
-                  <span>
+                  <span className="work-title">
                     <b>
                       {r.title}
                       {s.newPeople.includes(r.person) && (
@@ -374,19 +386,41 @@ export function Orders({
                     <small>
                       {personOf(r.person).name} ／ {r.job?.kind ?? "特別依頼"}
                     </small>
-                    <small className={why ? "muted" : "text-ready"}>
-                      {why ??
-                        (r.job
-                          ? `${money(payWithRelation(r.job, s))}`
-                          : r.promise
-                            ? "本日納品できます"
-                            : "前金を受け取って受諾")}
-                    </small>
+                    {why && <small className="muted">{why}</small>}
                     {candidateError && !chosen && !why && (
                       <small className="muted">
                         選択分との合計：{candidateError}
                       </small>
                     )}
+                  </span>
+                  <span className="work-terms">
+                    {r.job ? (
+                      (() => {
+                        const fat = fatigueDetail(r.job.person, s);
+                        const list = listPrice(r.job, s);
+                        const pay = payWithRelation(r.job, s);
+                        return (
+                          <>
+                            <b className={fat.rate < 1 ? "marked-down" : ""}>
+                              {fat.rate < 1 && <s>{money(list)}</s>}
+                              {money(pay)}
+                            </b>
+                            {fat.today > 0 && (
+                              <small className="muted">
+                                本日{fat.today + 1}件目
+                              </small>
+                            )}
+                          </>
+                        );
+                      })()
+                    ) : (
+                      <b>{money(r.offer!.totalPay)}</b>
+                    )}
+                    <Ledger
+                      state={s}
+                      costs={rowTerms(r).costs}
+                      stamina={rowTerms(r).stamina}
+                    />
                   </span>
                 </button>
               </article>
@@ -461,21 +495,30 @@ export function Orders({
                       <b>{money(payWithRelation(row.job, s))}</b>
                     </div>
                     <div>
-                      <small>スタミナ</small>
-                      <b>−{row.job.stamina}</b>
+                      <small>納める品</small>
+                      <b>
+                        {recipeOf(row.job.recipe!).name}×{row.job.count ?? 1}
+                      </b>
                     </div>
                   </div>
-                  <div className="cost-line">
-                    {row.job.costs.length ? (
-                      row.job.costs.map((c) => (
-                        <span key={c.axis}>
-                          {c.axis} −{c.amount}
-                        </span>
-                      ))
-                    ) : (
-                      <span>3軸の代償なし</span>
-                    )}
-                  </div>
+                  <Ledger
+                    state={s}
+                    costs={row.job.costs}
+                    stamina={row.job.stamina}
+                    cap={capDropOf(row.job)}
+                    detail
+                  />
+                  {(() => {
+                    const fat = fatigueDetail(row.job!.person, s);
+                    return fat.count > 0 ? (
+                      <p className="muted markdown-note">
+                        {personOf(row.job!.person).name}へは直近で{fat.count}
+                        件納めています。定価 {money(listPrice(row.job!, s))} が
+                        {money(payWithRelation(row.job!, s))}
+                        まで下がっています。相手を替えると戻ります。
+                      </p>
+                    ) : null;
+                  })()}
                   {workReason(row.job, s) && (
                     <p className="error">{workReason(row.job, s)}</p>
                   )}

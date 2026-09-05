@@ -1265,6 +1265,25 @@ export function payWithRelation(job: Job, state: GameState): number {
   return Math.round(listPrice(job, state) * fatigueRate(job.person, state));
 }
 
+/** 買い叩きの内訳。「なぜ安くなったか」を画面で言うために使う ──
+    理由を出さないと、プレイヤーには値が勝手に下がったようにしか見えない。 */
+export function fatigueDetail(person: PersonId, state: GameState) {
+  const today = state.today.deliveries.filter((id) => id === person).length;
+  return {
+    today,
+    count: personFatigue(person, state),
+    rate: fatigueRate(person, state),
+  };
+}
+
+/** 絵と透かしを決める主軸。依頼にも特別依頼の納品方法にも同じ形で使う。 */
+export function primaryAxis(costs: JobCost[]): Axis | null {
+  return (
+    axes.find((axis) => costs.some((c) => c.axis === axis && c.amount > 0)) ??
+    null
+  );
+}
+
 /** スタミナが足りない依頼は選べない(§1-5)。 */
 export function hasStaminaFor(job: Job, state: GameState): boolean {
   return state.stamina >= job.stamina;

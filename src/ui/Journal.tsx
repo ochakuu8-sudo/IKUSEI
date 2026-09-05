@@ -3,7 +3,15 @@ import { useState } from "react";
 import { specialOffers } from "../content/support";
 import { absoluteDay, dateLabel } from "../contracts";
 import type { Action } from "../engine";
-import { personOf, recipeOf, type GameState } from "../game";
+import {
+  baseQuota,
+  CHAPTERS,
+  personOf,
+  quotaOf,
+  recipeOf,
+  TOTAL_DEBT,
+  type GameState,
+} from "../game";
 import { previewAction } from "../presentation";
 import { Badge, Button, Empty, Heading, money, Tabs } from "./components";
 import { OfferDetails } from "./Orders";
@@ -60,8 +68,56 @@ export function Journal({
         options={[
           ["promises", "約束一覧"],
           ["calendar", "14日予定表"],
+          ["debt", "返済予定"],
         ]}
       />
+      {tab === "debt" && (
+        <section className="paper">
+          <h2>返済予定</h2>
+          <p>
+            章末に納める額です。足りなければ利息25%が付き、そのまま次章に乗ります。
+          </p>
+          <ol className="debt-schedule">
+            {Array.from({ length: CHAPTERS }, (_, i) => i + 1).map((n) => {
+              const base = baseQuota(n);
+              const due = n === s.chapter ? quotaOf(s) : base;
+              const carried = n === s.chapter ? due - base : 0;
+              return (
+                <li
+                  key={n}
+                  className={
+                    n < s.chapter ? "done" : n === s.chapter ? "current" : ""
+                  }
+                >
+                  <span>第{n}章</span>
+                  <b>{money(due)}</b>
+                  {carried > 0 && (
+                    <small className="text-crimson">
+                      前章から {money(carried)}
+                    </small>
+                  )}
+                  <small>
+                    {n < s.chapter
+                      ? "納めた"
+                      : n === s.chapter
+                        ? `いまここ ／ 所持 ${money(s.money)}`
+                        : ""}
+                  </small>
+                </li>
+              );
+            })}
+          </ol>
+          <div className="debt-total">
+            <span>
+              総額 {money(TOTAL_DEBT)}
+              {s.carryOver > 0 && " ＋利息"}
+            </span>
+            <span>
+              残債 <b>{money(s.debt)}</b>
+            </span>
+          </div>
+        </section>
+      )}
       {tab === "calendar" ? (
         <section className="paper">
           <div className="card-top">
@@ -135,7 +191,7 @@ export function Journal({
             )}
           </div>
         </section>
-      ) : (
+      ) : tab === "promises" ? (
         <>
           <Tabs
             value={filter}
@@ -248,7 +304,7 @@ export function Journal({
             )}
           </div>
         </>
-      )}
+      ) : null}
     </>
   );
 }

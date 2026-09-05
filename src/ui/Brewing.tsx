@@ -14,6 +14,7 @@ import {
   type RecipeId,
 } from "../game";
 import { brewCapacity, preparationNeeds } from "../presentation";
+import { recipeSources } from "../workflow";
 import type { UIState } from "../uiState";
 import { Badge, Button, Heading, Item, Quantity, Tabs } from "./components";
 import { ActionDock } from "./ActionDock";
@@ -101,16 +102,26 @@ export function Brewing({
                   <ArrowRight size={18} />
                 </button>
               ))}
-            <details>
+            <details className="unlearned">
               <summary>
                 未習得の処方 ({recipes.length - s.known.length})
               </summary>
-              <p>薬の取引や特別依頼で覚えます。</p>
+              <p>金では買えません。人との関係と、依頼の報酬でだけ手に入ります。</p>
               {recipes
                 .filter((r) => !s.known.includes(r.id))
-                .map((r) => (
-                  <p key={r.id}>{r.name}</p>
-                ))}
+                .map((r) => {
+                  const from = recipeSources(r.id, s);
+                  return (
+                    <div className="unlearned-row" key={r.id}>
+                      <b>{r.name}</b>
+                      <small>
+                        {from.length
+                          ? from.join(" ／ ")
+                          : "入手経路がまだありません"}
+                      </small>
+                    </div>
+                  );
+                })}
             </details>
           </section>
           {ui.brewDetail && (

@@ -915,6 +915,7 @@ console.log(
   `${checks} total checks passed including UI helpers and bulk brewing`,
 );
 import { preparationMaterials } from "@game/presentation";
+import { recipeSources } from "@game/workflow";
 test("preparation basket sums shared ingredients and subtracts existing medicine/material stock", () => {
   const s = fresh();
   s.known.push("balm");
@@ -1106,5 +1107,18 @@ test("v10 saves migrate to v11 with an empty delivery count and reject a corrupt
       ),
       null,
     );
+});
+test("every unlearned recipe names at least one way to learn it", () => {
+  const s = fresh();
+  for (const r of G.recipes) {
+    const from = recipeSources(r.id);
+    if (r.id === "tisane") continue; // 母から。最初から知っている
+    assert.ok(from.length > 0, `入手経路の無い処方: ${r.id}`);
+  }
+  // 関係で覚えるものは、いまの段階を添えて出す
+  assert.deepEqual(recipeSources("sleeper", s), ["クレールとの関係1（いま0）"]);
+  assert.ok(recipeSources("balm").length >= 2, "balm は複数経路");
+  // 実行できない personal 依頼を入手経路として案内しない
+  assert.ok(!recipeSources("perfume").some((x) => x.includes("筆耕")));
 });
 console.log(`${checks} total checks passed`);

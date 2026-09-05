@@ -59,11 +59,13 @@ const GLYPHS: Record<MarkName, Glyph> = {
   },
 };
 
-export function Mark({ name, className = '' }: { name: MarkName; className?: string }) {
+export function Mark({ name, className = '', label, decorative = false }:
+  { name: MarkName; className?: string; label?: string; decorative?: boolean }) {
   const g = GLYPHS[name];
   return (
     <svg className={`mark mark-${name} ${className}`} viewBox="0 0 24 24"
-      role="img" aria-label={g.label} focusable="false">
+      role={decorative ? undefined : 'img'} aria-hidden={decorative || undefined}
+      aria-label={decorative ? undefined : (label ?? g.label)} focusable="false">
       <path d={g.d} fillRule={g.evenOdd ? 'evenodd' : 'nonzero'} />
     </svg>
   );
