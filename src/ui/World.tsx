@@ -150,6 +150,7 @@ export function Place({
   const purchase: Action = { type: "buy", place: id, basket };
   return (
     <div className="shop-screen">
+      <div className="sheet-body">
       <Heading eyebrow="SHOP">{p.name}で買い物</Heading>
       <p className="intro">必要な数量を選びます。購入は資金のみを使います。</p>
       <section className="paper supply">
@@ -218,6 +219,7 @@ export function Place({
             </section>
           ))}
       </details>
+      </div>
       <ActionDock
         state={s}
         action={purchase}

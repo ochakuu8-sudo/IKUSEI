@@ -141,6 +141,10 @@ export function Brewing({
           </section>
           {ui.brewDetail && (
             <section className="paper brew-sheet">
+              {/* ドックを最終行に据えるため、本文だけをスクロールさせる。
+                  sticky を変形したキャンバスの中で使うと、貼り付き先の解釈が
+                  ブラウザで割れて操作列が本文の途中に出る。 */}
+              <div className="sheet-body">
               <div className="card-top">
                 <div className="item-row">
                   <Item id={r.id} />
@@ -269,6 +273,7 @@ export function Brewing({
                 <p>{r.note}</p>
                 <p>{RECIPE_SOURCE[r.id]}</p>
               </details>
+              </div>
               <ActionDock
                 next={
                   ui.preparing && target > 0 && !missing

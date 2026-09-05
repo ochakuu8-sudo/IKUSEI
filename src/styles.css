@@ -183,40 +183,8 @@ meter {
   grid-template-rows: var(--hud) minmax(0, 1fr);
   box-shadow: 0 0 0 1px #e0bc8933, 0 24px 80px #00000080;
 }
-/* 縦持ちは中身が極端に小さくなるので、回転を促す。 */
-.rotate-hint {
-  display: none;
-}
-@media (orientation: portrait) {
-  .rotate-hint {
-    position: fixed;
-    inset: 0;
-    z-index: 400;
-    display: grid;
-    place-items: center;
-    gap: 14px;
-    text-align: center;
-    padding: 24px;
-    background: #0b070ef2;
-    color: #f3dcc0;
-  }
-  .rotate-hint svg {
-    width: 64px;
-    height: 64px;
-    fill: none;
-    stroke: #d9a05f;
-    stroke-width: 1.5;
-  }
-  .rotate-hint b {
-    font-family: var(--serif);
-    font-size: 20px;
-    display: block;
-    margin-bottom: 6px;
-  }
-  .rotate-hint small {
-    color: #c9b195;
-  }
-}
+/* 縦持ちでも同じキャンバスをそのまま出す。回転を強いない ──
+   横に持ち替えるかどうかはプレイヤーが決める。 */
 .title-app {
   display: block;
 }

@@ -1651,3 +1651,94 @@
   /* 横並び前提の gap:10px が縦積みでも効いて、1つ68pxまで膨らんでいた。 */
   gap: 2px;
 }
+
+/* ==== 操作列は必ず最終行 ====
+   変形したキャンバスの中では position:sticky の貼り付き先の解釈が
+   ブラウザで割れ、戻る／実行の列が本文の途中に出る（iOSで実際に起きた）。
+   どの画面も「本文だけが内側でスクロールし、ドックは静的な最終行」に揃える。 */
+.sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.command-app .brew-sheet > .action-dock,
+.command-app .shop-screen > .action-dock,
+.command-app .settlement-actions {
+  position: static;
+  margin-top: 0;
+  flex: 0 0 auto;
+}
+
+/* 調合：処方の一覧と依頼状を、器の高さの中で並べる。 */
+.command-app .screen-brew .content-inner {
+  display: flex;
+  flex-direction: column;
+}
+.command-app .brew-workspace {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+.command-app .brew-workspace .recipe-list {
+  overflow: auto;
+  min-height: 0;
+}
+.command-app .brew-sheet {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: 0;
+}
+.command-app .brew-sheet > .sheet-body {
+  padding: 14px 16px;
+}
+
+/* 仕入れ：見出しから掛け仕入れまでが本文、購入ボタンが最終行。 */
+.command-app .screen-map .content-inner,
+.command-app .collection-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* 器を縦並びにすると、margin:auto を持つ子は stretch されず内容幅まで縮む。
+   幅は自分で100%と言わせる。 */
+.command-app .collection-screen,
+.command-app .brew-workspace,
+.command-app .settlement-layout,
+.command-app .settlement-layout > .paper {
+  width: 100%;
+}
+.command-app .collection-screen > .shop-screen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 章末：数字と警告が本文、確定が最終行。 */
+.command-app .screen-settlement .content-inner,
+.command-app .settlement-layout,
+.command-app .settlement-layout > .paper {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.command-app .settlement-layout,
+.command-app .settlement-layout > .paper {
+  flex: 1;
+  /* 元の grid が align-items:start だったので、縦並びに変えると
+     横方向にも縮んで右半分が空く。 */
+  align-items: stretch;
+}
+.command-app .settlement-actions {
+  background: none;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+/* 詳細を開くと処方の一覧は225pxまで細る。素材の内訳は右の依頼状が
+   出しているので、こちらでは畳む（畳まないと名前まで折り返す）。 */
+.command-app .brew-workspace.detail-open .recipe-needs {
+  display: none;
+}

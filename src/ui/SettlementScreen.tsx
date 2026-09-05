@@ -21,6 +21,7 @@ export function SettlementScreen({
       <div className="settlement-layout">
         <Art src={backgroundSrc("settlement")} className="settlement-art" />
         <section className="paper">
+          <div className="sheet-body">
           <Badge>返済前の見込み</Badge>
           <h2>帳面を閉じる前に</h2>
           <div className="stats">
@@ -67,7 +68,9 @@ export function SettlementScreen({
               </small>
             </div>
           )}
-          {/* 主要動作は画面外に出さない。狭い画面では下端に貼り付ける。 */}
+          </div>
+          {/* 主要動作は画面外に出さない。本文だけをスクロールさせ、
+              操作列はいつでも最終行に据える。 */}
           <div className="settlement-actions">
             <small>
               確定すると

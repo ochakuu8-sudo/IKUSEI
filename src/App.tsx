@@ -921,16 +921,6 @@ export default function App() {
         />
       )}
     </div>
-    <div className="rotate-hint" role="note">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="6" y="2" width="12" height="20" rx="2" />
-        <path d="M2 14a10 10 0 0 0 6 6M22 10a10 10 0 0 0-6-6" />
-      </svg>
-      <p>
-        <b>横向きにしてください</b>
-        <small>この物語は横長の画面で組まれています</small>
-      </p>
-    </div>
     </div>
   );
 }
