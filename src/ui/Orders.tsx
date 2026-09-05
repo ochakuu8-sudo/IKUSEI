@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { specialOffers } from "../content/support";
 import { absoluteDay, dateLabel, offerKey, offerReason } from "../contracts";
 import { planDelivery, type DeliverySelection } from "../delivery";
@@ -51,7 +51,7 @@ export function Orders({
   ui,
   patch,
   confirm,
-  prepareAction,
+  prepare,
   journal,
   back,
 }: {
@@ -59,29 +59,39 @@ export function Orders({
   ui: UIState;
   patch: (p: Partial<UIState>) => void;
   confirm: (a: Action, title: string) => void;
-  prepareAction: (a: Action, title: string) => void;
+  prepare: (recipe: RecipeId, required: number, collect: boolean) => void;
   journal: () => void;
   back: () => void;
 }) {
+  const listRef = useRef<HTMLElement>(null);
+  const listKey =
+    "orders-list:" + ui.orderTab + ":" + ui.filter + ":" + ui.sort;
+  useLayoutEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = ui.scroll[listKey] ?? 0;
+  }, [listKey]);
   const today = absoluteDay(s),
     selection = ui.selection;
   useEffect(() => {
     const seenJobs = [
       ...new Set([
         ...ui.seenJobs,
-        ...jobs.filter((j) => isOpen(j, s)).map((j) => j.id),
+        ...jobs
+          .filter((j) => j.category === "ordinary" && isOpen(j, s))
+          .map((j) => j.id),
       ]),
     ];
     if (seenJobs.length !== ui.seenJobs.length) patch({ seenJobs });
   }, [s, ui.seenJobs]);
   const rows: Row[] = [
-    ...visibleJobs(s, ui.seenJobs).map((job) => ({
-      key: job.id,
-      title: job.title,
-      person: job.person,
-      category: job.category === "ordinary" ? "normal" : "personal",
-      job,
-    })),
+    ...visibleJobs(s, ui.seenJobs)
+      .filter((j) => j.category === "ordinary")
+      .map((job) => ({
+        key: job.id,
+        title: job.title,
+        person: job.person,
+        category: job.category === "ordinary" ? "normal" : "personal",
+        job,
+      })),
     ...specialOffers
       .filter(
         (o) =>
@@ -108,7 +118,11 @@ export function Orders({
       })),
   ];
   const dueOption = (r: Row) =>
-    r.promise?.terms.options.find((o) => o.days === 1);
+    r.promise?.terms.options.find((o) =>
+      selection.promises.some(
+        (p) => p.id === r.promise!.id && p.option === o.id,
+      ),
+    ) ?? r.promise?.terms.options[0];
   const ownSelection = (r: Row): DeliverySelection | undefined =>
     r.job?.category === "ordinary"
       ? { ordinary: [r.job.id], promises: [] }
@@ -164,10 +178,9 @@ export function Orders({
   const filtered = personRows
     .filter(
       (r) =>
-        (ui.orderTab === "all" ||
-          ui.orderTab === "batch" ||
-          r.category === ui.orderTab) &&
-        (ui.workKind === "all" || r.job?.kind === ui.workKind),
+        ui.orderTab === "all" ||
+        ui.orderTab === "batch" ||
+        r.category === ui.orderTab,
     )
     .filter((r) =>
       ui.filter === "ready"
@@ -209,6 +222,32 @@ export function Orders({
           ? { type: "deliver", ...add(row) }
           : undefined
         : rowAction(row);
+  const required = batch
+    ? plan?.stock
+    : row?.job?.recipe && !workReason(row.job, s)
+      ? { [row.job.recipe]: row.job.count ?? 1 }
+      : row?.promise && dueOption(row)
+        ? { [dueOption(row)!.recipe]: dueOption(row)!.count }
+        : undefined;
+  const missingEntry = Object.entries(required ?? {}).find(
+    ([id, n]) => (s.stock[id as RecipeId] ?? 0) < n!,
+  );
+  const next = missingEntry
+    ? (() => {
+        const [id, n] = missingEntry;
+        const recipe = id as RecipeId;
+        const missing = n! - (s.stock[recipe] ?? 0);
+        const collect = Object.entries(recipeOf(recipe).needs).some(
+          ([material, count]) =>
+            s.materials[material as keyof typeof s.materials] <
+            count! * missing,
+        );
+        return {
+          label: collect ? "素材を集める" : "この薬を調合する",
+          onClick: () => prepare(recipe, n!, collect),
+        };
+      })()
+    : undefined;
   const detailTitle = batch ? "まとめ納品" : row?.title;
   return (
     <div className={`work-screen ${detail ? "has-detail" : ""}`}>
@@ -220,23 +259,18 @@ export function Orders({
           ) : undefined
         }
       >
-        仕事をする
+        依頼
       </Heading>
       <p className="intro">
-        選ぶ・準備するだけなら0日。薬の納品や人物の仕事を実行すると1日進みます。
+        薬を揃えて納品します。通常依頼は何度でも利用できます。
       </p>
       <Tabs
         value={ui.orderTab === "batch" ? "all" : ui.orderTab}
         onChange={(orderTab) => patch({ orderTab, orderId: null })}
         options={[
-          ["all", `すべて ${personRows.length}`],
           [
             "normal",
             `薬の納品 ${personRows.filter((r) => r.category === "normal").length}`,
-          ],
-          [
-            "personal",
-            `人物の依頼 ${personRows.filter((r) => r.category === "personal").length}`,
           ],
           [
             "special",
@@ -244,33 +278,7 @@ export function Orders({
           ],
         ]}
       />
-      <p className="work-kind-counts" aria-label="種別ごとの件数">
-        {jobKinds.map((k) => (
-          <span key={k}>
-            {k} {personRows.filter((r) => r.job?.kind === k).length}
-          </span>
-        ))}
-      </p>
       <div className="work-filters">
-        {ui.personFilter && (
-          <Button onClick={() => patch({ personFilter: null, orderId: null })}>
-            {personOf(ui.personFilter as PersonId).name}のみ ×
-          </Button>
-        )}
-        <label>
-          種別
-          <select
-            value={ui.workKind}
-            onChange={(e) => patch({ workKind: e.target.value, orderId: null })}
-          >
-            <option value="all">すべて</option>
-            {jobKinds.map((k) => (
-              <option key={k} value={k}>
-                {k} {personRows.filter((r) => r.job?.kind === k).length}
-              </option>
-            ))}
-          </select>
-        </label>
         <label>
           状態
           <select
@@ -279,7 +287,7 @@ export function Orders({
           >
             <option value="all">すべて</option>
             <option value="ready">実行可能</option>
-            <option value="need">準備・条件待ち</option>
+            <option value="need">準備が必要</option>
           </select>
         </label>
         <label>
@@ -294,7 +302,16 @@ export function Orders({
         </label>
       </div>
       <div className="work-layout">
-        <section className="work-list" aria-label="仕事の一覧">
+        <section
+          ref={listRef}
+          onScroll={(e) =>
+            patch({
+              scroll: { ...ui.scroll, [listKey]: e.currentTarget.scrollTop },
+            })
+          }
+          className="work-list"
+          aria-label="依頼の一覧"
+        >
           {filtered.map((r) => {
             const why = reason(r),
               chosen = isSelected(r),
@@ -311,19 +328,6 @@ export function Orders({
                 className={`work-row ${r.job && workReason(r.job, s) ? "unavailable" : ""} ${chosen ? "selected" : ""}`}
                 key={r.key}
               >
-                {own && (
-                  <label className="work-check">
-                    <input
-                      type="checkbox"
-                      aria-label={`${r.title}を納品に選ぶ`}
-                      checked={chosen}
-                      disabled={!chosen && (!eligible || !!candidateError)}
-                      onChange={() =>
-                        patch({ selection: chosen ? remove(r) : add(r) })
-                      }
-                    />
-                  </label>
-                )}
                 <button
                   className="work-choice"
                   aria-pressed={row?.key === r.key}
@@ -342,10 +346,10 @@ export function Orders({
                     <small className={why ? "muted" : "text-ready"}>
                       {why ??
                         (r.job
-                          ? `${money(payWithRelation(r.job, s))}・実行1日`
+                          ? `${money(payWithRelation(r.job, s))}`
                           : r.promise
                             ? "本日納品できます"
-                            : "前金を受け取って受諾・0日")}
+                            : "前金を受け取って受諾")}
                     </small>
                     {candidateError && !chosen && !why && (
                       <small className="muted">
@@ -357,19 +361,17 @@ export function Orders({
               </article>
             );
           })}
-          {!filtered.length && <Empty>この条件の仕事はありません。</Empty>}
+          {!filtered.length && <Empty>この条件の依頼はありません。</Empty>}
         </section>
         {detail && (
           <section
             className="work-detail"
-            aria-label="仕事の詳細"
+            aria-label="依頼の詳細"
             key={ui.orderId ?? "batch"}
           >
             <div className="work-detail-body">
               <h2>{detailTitle}</h2>
-              <small className="detail-date">
-                {dateLabel(today)}・閲覧は0日
-              </small>
+              <small className="detail-date">{dateLabel(today)}</small>
               {batch ? (
                 <>
                   {plan?.lines.map((l) => (
@@ -409,7 +411,7 @@ export function Orders({
                       state={s}
                       recipe={id as RecipeId}
                       required={n!}
-                      confirm={prepareAction}
+                      prepare={prepare}
                     />
                   ))}
                 </>
@@ -429,12 +431,8 @@ export function Orders({
                       <b>{money(payWithRelation(row.job, s))}</b>
                     </div>
                     <div>
-                      <small>体力</small>
+                      <small>スタミナ</small>
                       <b>−{row.job.stamina}</b>
-                    </div>
-                    <div>
-                      <small>実行</small>
-                      <b>1日</b>
                     </div>
                   </div>
                   <div className="cost-line">
@@ -456,12 +454,22 @@ export function Orders({
                       state={s}
                       recipe={row.job.recipe}
                       required={row.job.count ?? 1}
-                      confirm={prepareAction}
+                      prepare={prepare}
                     />
                   )}
                   {!row.job.recipe && rowAction(row) && !reason(row) && (
                     <Preview state={s} action={rowAction(row)!} />
                   )}
+                  <Button
+                    disabled={!isSelected(row) && !!reason(row)}
+                    onClick={() =>
+                      patch({
+                        selection: isSelected(row) ? remove(row) : add(row),
+                      })
+                    }
+                  >
+                    {isSelected(row) ? "納品から外す" : "納品に追加"}
+                  </Button>
                   <details>
                     <summary>依頼の内容・紹介条件</summary>
                     <p>{row.job.description}</p>
@@ -491,21 +499,53 @@ export function Orders({
                           ? "本日納品"
                           : `${dateLabel(row.promise.due)}に納品`}
                       </Badge>
-                      {row.offer.options.map((o) => (
-                        <Preparation
-                          key={o.id}
-                          state={s}
-                          recipe={o.recipe}
-                          required={o.count}
-                          confirm={prepareAction}
-                        />
-                      ))}
+                      {row.offer.options.length > 1 && (
+                        <label>
+                          納品方法
+                          <select
+                            value={dueOption(row)?.id}
+                            onChange={(e) =>
+                              patch({
+                                selection: {
+                                  ordinary: selection.ordinary,
+                                  promises: [
+                                    ...selection.promises.filter(
+                                      (p) => p.id !== row.promise!.id,
+                                    ),
+                                    {
+                                      id: row.promise!.id,
+                                      option: e.target.value,
+                                    },
+                                  ],
+                                },
+                              })
+                            }
+                          >
+                            {row.offer.options.map((o) => (
+                              <option value={o.id} key={o.id}>
+                                {o.label}・スタミナ{o.stamina}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      {row.offer.options
+                        .filter((o) => o.id === dueOption(row)?.id)
+                        .map((o) => (
+                          <Preparation
+                            key={o.id}
+                            state={s}
+                            recipe={o.recipe}
+                            required={o.count}
+                            prepare={prepare}
+                          />
+                        ))}
                       <Button onClick={journal}>
                         解消・支払いなどの約束管理
                       </Button>
                     </>
                   ) : (
-                    <p>受諾は0日。前金を受け取り、指定日当日に納品します。</p>
+                    <p>前金を受け取り、指定日当日に納品します。</p>
                   )}
                   {reason(row) && <p className="muted">{reason(row)}</p>}
                 </>
@@ -513,13 +553,14 @@ export function Orders({
             </div>
             <ActionDock
               state={s}
-              action={action}
+              action={next ? undefined : action}
+              next={next}
               confirm={confirm}
               back={close}
               title={detailTitle}
               label={
                 action?.type === "deliver"
-                  ? `${Math.max(count, 1) + (row && ownSelection(row) && !isSelected(row) && count > 0 ? 1 : 0)}件を納品する・1日`
+                  ? `${Math.max(count, 1) + (row && ownSelection(row) && !isSelected(row) && count > 0 ? 1 : 0)}件を納品する`
                   : undefined
               }
             />
@@ -532,7 +573,7 @@ export function Orders({
           action={{ type: "deliver", ...selection }}
           confirm={confirm}
           back={back}
-          label={`${count}件を納品する・1日`}
+          label={`${count}件を納品する`}
           title="まとめ納品"
         >
           <Button onClick={() => open("batch")}>納品の持ち物を見る</Button>

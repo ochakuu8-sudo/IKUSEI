@@ -35,22 +35,11 @@ export function actionQuote(s: GameState, action: Action) {
     : { ...quote, error: actual.error, state: actual.state };
 }
 export function actionDays(s: GameState, action: Action) {
-  if (
-    ["rest", "network", "gather", "buy", "deliver", "job"].includes(action.type)
-  )
-    return 1;
-  if (action.type === "accept")
-    return supportOffers.find((o) => o.id === action.offer)?.acceptDays ?? 0;
-  if (action.type === "fulfill")
-    return (
-      s.obligations
-        .find((o) => o.id === action.id)
-        ?.terms.options.find((c) => c.id === action.option)?.days ?? 0
-    );
-  return 0;
+  return action.type === "end-day" ? 1 : 0;
 }
 export function actionLabel(s: GameState, a: Action) {
   const verbs: Record<Action["type"], string> = {
+    "end-day": "一日を終える",
     deliver: "納品する",
     job: "仕事をする",
     rest: "休む",
@@ -68,7 +57,7 @@ export function actionLabel(s: GameState, a: Action) {
     visit: "見る",
     "read-event": "読み終える",
   };
-  return `${verbs[a.type]}・${actionDays(s, a)}日`;
+  return verbs[a.type];
 }
 export function deadlineWarnings(s: GameState, a: Action) {
   const days = actionDays(s, a);
@@ -123,5 +112,5 @@ export function visibleJobs(s: GameState, seen: string[]) {
 }
 export function quoteSummary(s: GameState, action: Action) {
   const q = actionQuote(s, action);
-  return `${actionDays(s, action)}日・${q.money < 0 ? "費用" : "受取"} ${Math.abs(q.money).toLocaleString()}G・体力 ${q.stamina > 0 ? "+" : ""}${q.stamina}`;
+  return `${q.money < 0 ? "費用" : "受取"} ${Math.abs(q.money).toLocaleString()}G・スタミナ ${q.stamina > 0 ? "+" : ""}${q.stamina}`;
 }

@@ -29,12 +29,12 @@ export function ResultDetails({
           <b>{sign(s.money - before.money)} G</b>
         </div>
         <div>
-          <small>体力</small>
+          <small>スタミナ</small>
           <b>{sign(s.stamina - before.stamina)}</b>
         </div>
         <div>
-          <small>日数</small>
-          <b>{r?.days ?? 0}日</b>
+          <small>日付</small>
+          <b>{r?.days ? "翌日へ" : "そのまま"}</b>
         </div>
       </div>
       {people

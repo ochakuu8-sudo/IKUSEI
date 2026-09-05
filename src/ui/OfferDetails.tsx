@@ -37,9 +37,7 @@ export function OfferDetails({ offer }: { offer: SupportOffer }) {
             <b>
               {recipeOf(o.recipe).name} × {o.count}
             </b>
-            <small>
-              {o.days}日・体力 {o.stamina}
-            </small>
+            <small>スタミナ {o.stamina}</small>
           </div>
         </div>
       ))}

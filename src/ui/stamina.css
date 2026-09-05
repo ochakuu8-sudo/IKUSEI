@@ -1,0 +1,95 @@
+.collection-screen {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+.gather-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+}
+.gather-card {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.gather-card h2 {
+  margin: 0;
+}
+.gather-card .item-row {
+  margin: 8px 0;
+}
+.gather-card .button {
+  margin-top: auto;
+}
+.preparation-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+}
+.preparation-line > span {
+  flex: 1;
+}
+.preparation-summary {
+  margin: 16px 0;
+}
+.preparation-summary small {
+  display: block;
+}
+.preparation-summary > .button {
+  width: 100%;
+}
+.credit-options {
+  margin: 12px 0;
+}
+.command-app .command-button[data-action="brew"] {
+  --command-color: #6d6592;
+  --command-light: #ede8ff;
+}
+.command-app .home-utilities button {
+  white-space: nowrap;
+}
+.work-detail .action-dock:not(:has(.primary:not(:disabled))) .dock-summary {
+  display: none;
+}
+@media (max-width: 700px) {
+  .gather-list {
+    grid-template-columns: 1fr;
+  }
+  .command-app .home-utilities {
+    grid-template-columns: 1.35fr 1fr 1fr;
+  }
+  .command-app .home-utilities button {
+    font-size: 12px;
+    gap: 4px;
+  }
+  .command-app .home-utilities button svg {
+    width: 14px;
+  }
+  .collection-screen:has(.shop-screen) > .preparation-line {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--paper);
+  }
+}
+.command-app .receipt {
+  flex-wrap: nowrap;
+  align-items: center;
+  padding: 5px 8px;
+}
+.command-app .receipt > span {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.command-app .receipt .button {
+  min-width: 44px;
+  padding: 5px 9px;
+  font-size: 12px;
+}

@@ -24,10 +24,10 @@ import { previewAction } from "../presentation";
 import type { UIState } from "../uiState";
 export type HomeAction = "orders" | "brew" | "map" | "rest";
 export const actionLabels = {
-  orders: "仕事をする",
+  orders: "依頼",
   brew: "調合",
-  map: "出かける",
-  rest: "休む",
+  map: "収集",
+  rest: "一日を終える",
 };
 export function Actions({
   s,
@@ -66,7 +66,6 @@ export function Actions({
           (j) => j.person === p.id && j.category === "personal" && isOpen(j, s),
         ),
     );
-  const rest = previewAction(s, { type: "rest" });
   const invitation = due
     ? `${personOf(due.terms.person).name}へ本日納品`
     : sale
@@ -80,21 +79,21 @@ export function Actions({
     {
       id: "orders" as const,
       icon: ScrollText,
-      note: "薬の納品・人物の依頼",
+      note: "薬の依頼を確認・納品",
       status: invitation,
       urgent: !!due,
     },
     {
       id: "map" as const,
       icon: Map,
-      note: "交流・採集・買い物",
-      status: person ? `${person.name}の依頼を見る` : "街で素材を探す",
+      note: "素材を採る・買う",
+      status: "薬に必要な素材を集める",
     },
     {
-      id: "rest" as const,
-      icon: Moon,
-      note: "1日休養",
-      status: `体力＋${rest.stamina}・品位＋${rest.axes.find((a) => a.axis === "品位")?.delta ?? 0}`,
+      id: "brew" as const,
+      icon: FlaskConical,
+      note: "素材から薬を作る",
+      status: "処方を選んで調合",
     },
   ];
   return (
@@ -120,9 +119,7 @@ export function Actions({
             )}
           </span>
           <span className="command-copy">
-            <b>
-              {actionLabels[id]} <em>{id === "rest" ? "1日" : "実行1日"}</em>
-            </b>
+            <b>{actionLabels[id]}</b>
             {!compact && <small>{note}</small>}
             <span className={`command-status ${urgent ? "urgent" : ""}`}>
               {status}
@@ -145,17 +142,13 @@ export function Utilities({
 }) {
   return (
     <nav className="home-utilities" aria-label="準備と管理">
-      <button type="button" aria-label="調合" onClick={brew}>
-        <FlaskConical size={17} />
-        <span>
-          調合 <small>0日</small>
-        </span>
+      <button type="button" aria-label="一日を終える" onClick={brew}>
+        <Moon size={17} />
+        <span>一日を終える</span>
       </button>
       <button type="button" onClick={inventory}>
         <Package size={17} />
-        <span>
-          持ち物 <small>0日</small>
-        </span>
+        <span>持ち物</span>
       </button>
       <button type="button" onClick={settings}>
         <Settings size={17} />

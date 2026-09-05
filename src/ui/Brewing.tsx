@@ -81,7 +81,7 @@ export function Brewing({
         />
       ) : (
         <p className="intro">
-          作る薬を選んでください。調合は素材と体力を使い、日数は進みません。
+          作る薬と数量を選びます。素材とスタミナを使います。
         </p>
       )}
       {!inventory && (
@@ -110,7 +110,7 @@ export function Brewing({
               <summary>
                 未習得の処方 ({recipes.length - s.known.length})
               </summary>
-              <p>人物との関係や頼まれごとで覚えます。</p>
+              <p>薬の取引や特別依頼で覚えます。</p>
               {recipes
                 .filter((r) => !s.known.includes(r.id))
                 .map((r) => (
@@ -132,11 +132,6 @@ export function Brewing({
                   {missing
                     ? `納品に必要：あと${missing}個`
                     : "納品用の薬が揃いました"}
-                  {!missing && (
-                    <Button primary onClick={deliver}>
-                      納品を確認する
-                    </Button>
-                  )}
                 </div>
               )}
               <div className="quantity-line">
@@ -182,7 +177,7 @@ export function Brewing({
               </div>
               {shortages.length > 0 && (
                 <section className="source-options">
-                  <h3>素材を入手する</h3>
+                  <h3>不足素材を集める</h3>
                   {places
                     .filter(
                       (p) =>
@@ -237,7 +232,9 @@ export function Brewing({
                             </small>
                           </span>
                           <span>
-                            {price}G・1日
+                            {p.sells
+                              ? `${price}G`
+                              : `スタミナ −${p.gatherStamina}`}
                             <small>体力 {p.gatherStamina ?? 0}</small>
                           </span>
                           <ArrowRight size={16} />
@@ -252,12 +249,17 @@ export function Brewing({
                 <p>{RECIPE_SOURCE[r.id]}</p>
               </details>
               <ActionDock
+                next={
+                  ui.preparing && target > 0 && !missing
+                    ? { label: "依頼へ戻る", onClick: deliver }
+                    : undefined
+                }
                 state={s}
                 action={{ type: "brew", recipe: r.id, quantity: ui.quantity }}
                 back={back}
                 confirm={confirm}
                 title={r.name + "を" + ui.quantity + "個調合する"}
-                label={r.name + "を" + ui.quantity + "個調合する・0日"}
+                label={r.name + "を" + ui.quantity + "個調合する"}
               />
             </section>
           )}
@@ -279,7 +281,7 @@ export function Brewing({
               {ui.brewTab === "potions" &&
                 s.known.includes(item.id as RecipeId) && (
                   <Button onClick={() => select(item.id as RecipeId)}>
-                    この薬を調合する
+                    調合へ
                   </Button>
                 )}
             </article>

@@ -47,7 +47,7 @@ export function HomeScreen({
           <span className="speaker-name">エレオノール</span>
           <h1>
             {s.stamina < 30
-              ? "少し、ひと休みしようかしら。"
+              ? "今日は、そろそろ終わりかしら。"
               : "今日は、何をしようかしら。"}
           </h1>
         </div>
@@ -62,16 +62,16 @@ export function HomeScreen({
             <span>確認 →</span>
           </button>
         )}
-        <p className="browse-note">選ぶだけなら日数は進みません</p>
+        <p className="browse-note">スタミナがある限り、今日も行動できます</p>
         <Actions s={s} ui={ui} choose={choose} />
         <Utilities
-          brew={() => choose("brew")}
+          brew={() => choose("rest")}
           inventory={inventory}
           settings={settings}
         />
         {!ui.helpSeen && (
           <div className="first-hint">
-            <p>仕事を選び、必要ならその場で薬を準備できます。</p>
+            <p>依頼を確認 → 素材を収集 → 薬を調合 → 納品。</p>
             <button
               aria-label="初回のヒントを閉じる"
               onClick={() => patch({ helpSeen: true })}

@@ -225,7 +225,7 @@ export function Journal({
                         .map((c) =>
                           actionButton(
                             { type: "fulfill", id: o.id, option: c.id },
-                            `${c.label}・2日で納品`,
+                            `${c.label}・スタミナ${c.stamina}`,
                           ),
                         )}
                     </div>
@@ -255,8 +255,8 @@ export function Journal({
                   </p>
                   {o.terms.options.map((c) => (
                     <p key={c.id}>
-                      {recipeOf(c.recipe).name} × {c.count} ／ 体力{c.stamina}{" "}
-                      ／ {c.days}日
+                      {recipeOf(c.recipe).name} × {c.count} ／ スタミナ
+                      {c.stamina}{" "}
                     </p>
                   ))}
                 </details>

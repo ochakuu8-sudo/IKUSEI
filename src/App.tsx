@@ -26,6 +26,7 @@ import {
 } from "./presentation";
 import {
   LEGACY_SAVE_KEY,
+  V9_SAVE_KEY,
   parseSave,
   PREVIOUS_SAVE_KEY,
   SAVE_KEY,
@@ -58,6 +59,7 @@ function loadGame() {
   try {
     return (
       parseSave(localStorage.getItem(SAVE_KEY)) ??
+      parseSave(localStorage.getItem(V9_SAVE_KEY)) ??
       parseSave(localStorage.getItem(PREVIOUS_SAVE_KEY)) ??
       parseSave(localStorage.getItem(LEGACY_SAVE_KEY))
     );
@@ -106,8 +108,8 @@ export default function App() {
     try {
       if (next) localStorage.setItem(SAVE_KEY, JSON.stringify(next));
       else
-        [SAVE_KEY, PREVIOUS_SAVE_KEY, LEGACY_SAVE_KEY].forEach((k) =>
-          localStorage.removeItem(k),
+        [SAVE_KEY, V9_SAVE_KEY, PREVIOUS_SAVE_KEY, LEGACY_SAVE_KEY].forEach(
+          (k) => localStorage.removeItem(k),
         );
       setSaveError("");
       return true;
@@ -139,6 +141,11 @@ export default function App() {
         : { ...u, selection };
     });
   }, [game]);
+  useEffect(() => {
+    if (!receipt || resultOpen || scene) return;
+    const timer = window.setTimeout(() => setReceipt(null), 2400);
+    return () => clearTimeout(timer);
+  }, [receipt, resultOpen, scene]);
   const scrollKey = `${route}:${ui.orderTab}:${ui.orderId}:${ui.brewTab}:${ui.brewDetail}:${ui.recipe}:${place}:${ui.placeMode}:${ui.person}`;
   useLayoutEffect(() => {
     if (content.current) content.current.scrollTop = ui.scroll[scrollKey] ?? 0;
@@ -212,14 +219,14 @@ export default function App() {
   }
   function choose(action: HomeAction) {
     if (action === "rest") {
-      ask({ type: "rest" }, "屋敷で休養する");
+      ask({ type: "end-day" }, "一日を終える");
       return;
     }
     go(action, {
       preparing: false,
       ...(action === "orders"
         ? {
-            orderTab: "all",
+            orderTab: "normal",
             orderId: null,
             personFilter: null,
             workKind: "all",
@@ -376,7 +383,7 @@ export default function App() {
     const firstJob =
       a.type === "job" &&
       !before.history.some((h) => h.kind === "job" && h.target === a.id);
-    if (outcome.scene && (firstJob || a.type === "accept")) {
+    if (outcome.scene?.length) {
       setScene({
         lines: outcome.scene,
         title: request.title,
@@ -407,13 +414,11 @@ export default function App() {
         ),
       ]),
     );
-    ask(
-      p.sells
-        ? { type: "buy", place: id, basket }
-        : { type: "gather", place: id },
-      `${p.short}で素材を入手する`,
-      snapshot(),
-    );
+    go("map", {
+      preparing: true,
+      placeMode: p.sells ? "supply" : "menu",
+      basket,
+    });
   }
   function start(mode: "new" | "demo") {
     const next = structuredClone(mode === "demo" ? midGameState : initialState);
@@ -434,13 +439,13 @@ export default function App() {
   const pendingPreview = pending && s ? previewAction(s, pending.action) : null;
   const routeLabel =
     route === "place"
-      ? `出かける › ${placeOf(place).short}${ui.placeMode === "supply" ? " › 素材を買う" : ui.placeMode === "people" ? " › 人物に会う" : ui.placeMode === "person" && ui.person ? ` › ${personOf(ui.person as Parameters<typeof personOf>[0]).name}` : ""}`
+      ? `収集 › ${placeOf(place).short}${ui.placeMode === "supply" ? " › 素材を買う" : ui.placeMode === "people" ? " › 人物に会う" : ui.placeMode === "person" && ui.person ? ` › ${personOf(ui.person as Parameters<typeof personOf>[0]).name}` : ""}`
       : route === "brew"
         ? `調合する${ui.brewDetail ? ` › ${recipeOf(ui.recipe).name}` : ""}`
         : route === "orders"
-          ? "仕事をする"
+          ? "依頼"
           : route === "map"
-            ? "出かける"
+            ? "収集"
             : route === "inventory"
               ? "持ち物"
               : "約束帳";
@@ -501,7 +506,7 @@ export default function App() {
                     ui={ui}
                     patch={patch}
                     confirm={ask}
-                    prepareAction={(action, title) => {
+                    prepare={(recipe, required, collect) => {
                       if (
                         jobs.some(
                           (j) =>
@@ -511,7 +516,17 @@ export default function App() {
                         patch({
                           memo: [...new Set([...ui.memo, ui.orderId!])],
                         });
-                      ask(action, title, snapshot());
+                      go(collect ? "map" : "brew", {
+                        preparing: true,
+                        recipe,
+                        quantity: Math.max(
+                          1,
+                          required - (s.stock[recipe] ?? 0),
+                        ),
+                        brewDetail: true,
+                        brewTab: "recipes",
+                        placeMode: "menu",
+                      });
                     }}
                     back={back}
                     journal={() => go("journal")}
@@ -529,15 +544,7 @@ export default function App() {
                       route === "brew" ? patch(changes) : go("brew", changes)
                     }
                     inventory={route === "inventory"}
-                    deliver={() =>
-                      go("orders", {
-                        orderTab:
-                          ui.selection.ordinary.length +
-                          ui.selection.promises.length
-                            ? "batch"
-                            : "normal",
-                      })
-                    }
+                    deliver={() => resume("orders", { preparing: false })}
                   />
                 )}
                 {route === "map" && (
@@ -545,6 +552,10 @@ export default function App() {
                     s={s}
                     ui={ui}
                     confirm={ask}
+                    patch={patch}
+                    toBrew={() =>
+                      go("brew", { brewDetail: true, brewTab: "recipes" })
+                    }
                     shop={(id) => visit(id, "supply")}
                     viewPerson={viewPerson}
                     personJobs={personJobs}
@@ -593,8 +604,8 @@ export default function App() {
             </main>
             {receipt && !resultOpen && !scene && (
               <div className="receipt" role="status">
-                <span>✓ {receipt.title}</span>
-                <Button onClick={() => setResultOpen(true)}>結果の詳細</Button>
+                <span>✓ {receipt.title.replace(/する$/, "しました")}</span>
+                <Button onClick={() => setResultOpen(true)}>内訳</Button>
                 <Button
                   aria-label="結果通知を閉じる"
                   onClick={() => setReceipt(null)}
@@ -740,24 +751,24 @@ export default function App() {
           <ol className="help-steps">
             <li>
               <b>通常依頼で日々の収入を</b>
-              <p>事前受注は不要。薬を揃えて選び、まとめて1日で納めます。</p>
+              <p>通常依頼は事前受注不要。薬を揃えて納品します。</p>
             </li>
             <li>
               <b>足りない薬は調合で</b>
               <p>
-                仕事の詳細で不足する薬・素材を確認し、その場で調合できます。調合は体力を使いますが0日です。
+                依頼の不足品を確認し、収集で素材を集め、調合で薬を作ります。
               </p>
             </li>
             <li>
               <b>素材の入手先を調べる</b>
               <p>
-                依頼の詳細から「買う」「採る」を選ぶと、そのまま内容を確認できます。実行は1日、終わったら同じ依頼へ戻ります。
+                採集・調合・納品はスタミナを使います。仕入れは資金だけを使い、行動では日付は進みません。
               </p>
             </li>
             <li>
-              <b>指定日の約束を守る</b>
+              <b>一日の終わりに約束を確認</b>
               <p>
-                特別依頼は期間内に前金で受諾し、指定日当日に納品。画面上の日付から約束と返済予定を確認できます。
+                特別依頼は指定日当日に納品。「一日を終える」で翌日へ進み、スタミナが回復します。日付から約束と返済予定を確認できます。
               </p>
             </li>
           </ol>

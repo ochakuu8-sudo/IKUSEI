@@ -68,7 +68,7 @@ export function cleanSelection(
           (o) =>
             o.id === p.id &&
             o.status === "active" &&
-            o.terms.options.some((c) => c.id === p.option && c.days === 1) &&
+            o.terms.options.some((c) => c.id === p.option) &&
             (o.terms.schedule
               ? o.due === absoluteDay(s)
               : o.due >= absoluteDay(s)),

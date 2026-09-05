@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 const browser = await chromium.launch();
 const output = resolve("../scenario-validation");
 mkdirSync(output, { recursive: true });
-const saveKey = "ikusei-prototype-save-v9";
+const saveKey = "ikusei-prototype-save-v10";
 try {
   const page = await browser.newPage({
     viewport: { width: 1280, height: 720 },
@@ -20,20 +20,8 @@ try {
     process.env.IKUSEI_TEST_URL ?? "http://127.0.0.1:5173/IKUSEI/",
   );
   await button("はじめから").click();
-  await button("出かける").click();
-  assert.equal(
-    await page
-      .locator(".outing-target")
-      .filter({ hasText: "ラティエ邸" })
-      .count(),
-    0,
-  );
-  assert.equal(await button("地図表示").count(), 0);
-  assert((await page.locator(".outing-target").count()) > 0);
-  assert.equal(
-    await page.locator(".outing-target").filter({ hasText: "屋敷" }).count(),
-    0,
-  );
+  await button("収集").click();
+  assert((await page.locator(".gather-card").count()) > 0);
   await page.evaluate((key) => {
     const state = JSON.parse(localStorage.getItem(key));
     state.eventQueue = [

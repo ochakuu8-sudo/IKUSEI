@@ -30,6 +30,7 @@ export function ActionDock({
   label,
   title,
   children,
+  next,
 }: {
   state: GameState;
   action?: Action;
@@ -38,8 +39,10 @@ export function ActionDock({
   label?: string;
   title?: string;
   children?: ReactNode;
+  next?: { label: string; onClick: () => void };
 }) {
-  const error = action ? previewAction(state, action).error : undefined;
+  const error =
+    action && !next ? previewAction(state, action).error : undefined;
   return (
     <div className="action-dock">
       <DeadlineWarning state={state} action={action} />
@@ -49,21 +52,29 @@ export function ActionDock({
         </Button>
         <div className="dock-summary">
           {children}
-          {action && <small>{quoteSummary(state, action)}</small>}
+          {action && !next && <small>{quoteSummary(state, action)}</small>}
           {error && (
             <small className="error" role="status">
               {error}
             </small>
           )}
         </div>
-        {action && (
-          <Button
-            primary
-            disabled={!!error}
-            onClick={() => confirm(action, title ?? actionLabel(state, action))}
-          >
-            {label ?? actionLabel(state, action)}
+        {next ? (
+          <Button primary onClick={next.onClick}>
+            {next.label}
           </Button>
+        ) : (
+          action && (
+            <Button
+              primary
+              disabled={!!error}
+              onClick={() =>
+                confirm(action, title ?? actionLabel(state, action))
+              }
+            >
+              {label ?? actionLabel(state, action)}
+            </Button>
+          )
         )}
       </div>
     </div>

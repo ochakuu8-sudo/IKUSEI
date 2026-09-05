@@ -34,7 +34,7 @@ export type UIState = {
 export const freshUI = (): UIState => ({
   memo: [],
   selection: { ordinary: [], promises: [] },
-  orderTab: "all",
+  orderTab: "normal",
   filter: "all",
   sort: "name",
   recipe: "tisane",
@@ -73,6 +73,7 @@ export function parseUI(raw: string | null): UIState {
           ] as string[])
         : [];
     d.memo = ids(v.memo);
+    if (v.orderTab === "personal") d.orderTab = "normal";
     d.selection.ordinary = ids(v.selection?.ordinary);
     d.selection.promises = Array.isArray(v.selection?.promises)
       ? v.selection.promises
@@ -83,7 +84,7 @@ export function parseUI(raw: string | null): UIState {
           .map((p: any) => ({ id: p.id, option: p.option }))
       : [];
     const tabs = {
-      orderTab: ["all", "normal", "personal", "special", "batch"],
+      orderTab: ["all", "normal", "special", "batch"],
       filter: ["all", "ready", "need"],
       sort: ["name", "pay"],
       brewTab: ["recipes", "potions", "materials"],
@@ -126,6 +127,10 @@ export function parseUI(raw: string | null): UIState {
       for (const [key, value] of Object.entries(v.scroll))
         if (typeof value === "number" && Number.isFinite(value) && value >= 0)
           d.scroll[key] = value;
+    if (d.orderTab === "all") d.orderTab = "normal";
+    if (jobs.some((j) => j.id === d.orderId && j.category === "personal"))
+      d.orderId = null;
+    d.personFilter = null;
     return d;
   } catch {
     return d;

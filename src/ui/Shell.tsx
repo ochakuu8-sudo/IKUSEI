@@ -89,7 +89,7 @@ export function Shell({
         <div className="hud-resource hud-stamina">
           <Heart />
           <span>
-            <small>体力</small>
+            <small>スタミナ</small>
             <b>
               {s.stamina}
               <small> / 100</small>
@@ -131,7 +131,7 @@ export function Shell({
               }
             />
             <Utilities
-              brew={() => choose("brew")}
+              brew={() => choose("rest")}
               inventory={inventory}
               settings={settings}
             />
