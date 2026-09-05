@@ -4,6 +4,7 @@ import {
   FlaskConical, Flower2, Map as MapIcon, Moon, RotateCcw, Scale, Store, Trees,
 } from 'lucide-react';
 import {
+  placeOpen, personalJobsAt, personalLimitReason,
   CHAPTERS, CHAPTER_DAYS, NETWORK_COST, NETWORK_STAMINA, REST_RECOVERY,
   TOTAL_DEBT, axes, axisStage, capDropOf, closedBy, closedJobsAt,
   fatigueRate, hasStaminaFor, initialState, isOpen, jobsBy, listPrice, midGameState,
@@ -22,14 +23,16 @@ import {
 import { Mark } from './marks';
 
 import { performAction, type Action } from './engine';
-import { parseSave, SAVE_KEY, LEGACY_SAVE_KEY } from './save';
+import { parseSave, SAVE_KEY, PREVIOUS_SAVE_KEY, LEGACY_SAVE_KEY } from './save';
+import { MedicinePanel } from './MedicinePanel';
 import { SupportPanel } from './SupportPanel';
 import { dueSoon, dateLabel, outstandingTotal, offerReason } from './contracts';
 import { supportOffers } from './content/support';
+import { storyEvents } from './content/events';
 
 const PLACE_ICON: Record<PlaceId, typeof Store> = {
   estate: Landmark, arnaud: Store, academy: BookOpen, valere: Landmark, guild: Scale,
-  hill: Flower2, wood: Trees, backstreet: Moon,
+  hill: Flower2, wood: Trees, backstreet: Moon, garden: Flower2,
 };
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -105,7 +108,7 @@ type View =
   | { kind: 'home' }
   | { kind: 'jobs' }
   | { kind: 'brew' }
-  | { kind: 'support'; offer?: string; obligation?: string }
+  | { kind: 'support'; offer?: string; obligation?: string; person?: PersonId }
   | { kind: 'map' }
   | { kind: 'place'; place: PlaceId }
   | { kind: 'contract'; job: Job; from: 'jobs' | 'place' }
@@ -117,7 +120,7 @@ type View =
 function loadGame(): GameState | null {
   if (typeof window === 'undefined') return null;
   try {
-    return parseSave(localStorage.getItem(SAVE_KEY)) ?? parseSave(localStorage.getItem(LEGACY_SAVE_KEY));
+    return parseSave(localStorage.getItem(SAVE_KEY)) ?? parseSave(localStorage.getItem(PREVIOUS_SAVE_KEY)) ?? parseSave(localStorage.getItem(LEGACY_SAVE_KEY));
   } catch { return null; }
 }
 
@@ -125,16 +128,24 @@ export default function App() {
   const [game, setGame] = useState<GameState | null>(loadGame);
   const [view, setView] = useState<View>(() => { const saved = loadGame(); return { kind: saved?.ended ? 'ending' : saved?.awaitingSettlement ? 'settlement' : 'home' }; });
   const [error, setError] = useState('');
+  const [eventLine, setEventLine] = useState(0);
 
   useEffect(() => {
     try {
       if (game) localStorage.setItem(SAVE_KEY, JSON.stringify(game));
-      else { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(LEGACY_SAVE_KEY); }
+      else { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(LEGACY_SAVE_KEY); localStorage.removeItem(PREVIOUS_SAVE_KEY); }
     } catch { setError('保存できませんでした。ブラウザの空き容量を確認してください。'); }
   }, [game]);
 
   if (!game) {
     return <TitleScreen onStart={(s) => { setGame(s); setView({ kind: 'home' }); }} />;
+  }
+  if (game.eventQueue.length && view.kind !== 'result' && view.kind !== 'scene') {
+    const event = game.eventQueue[0], last = eventLine >= event.lines.length - 1;
+    return <button className="screen scene" aria-label="特別イベントを進める" onClick={() => {
+      if (last) { const out = performAction(game, { type: 'read-event', id: event.id }); setGame(out.state); setEventLine(0); }
+      else setEventLine(eventLine + 1);
+    }}><Art className="scene-art" sources={[PLACEHOLDER]} alt={event.title} /><div className="scene-veil" /><div className="textbox"><span className="textbox-name">{event.title} ／ 0日</span><p>{event.lines[eventLine] ?? event.lines[0]}</p><span className="textbox-next"><ChevronDown /></span></div><span className="scene-progress">{eventLine + 1} / {event.lines.length}</span></button>;
   }
   if (view.kind === 'ending') {
     return <EndingScreen game={game} onRestart={() => { setGame(null); setView({ kind: 'home' }); }} />;
@@ -156,6 +167,11 @@ export default function App() {
   }
   function jobsByForScene(id: string) { return openJobs(game!).find(j => j.id === id); }
   function acceptJob(job: Job) { act({ type: 'job', id: job.id }); }
+  function visit(place: PlaceId) {
+    const out = performAction(game!, { type: 'visit', place });
+    if (out.error) { setError(out.error); return; }
+    setGame(out.state); setView({ kind: 'place', place });
+  }
   function rest() { act({ type: 'rest' }); }
   function network(person: PersonId) { act({ type: 'network', person }, { kind: 'place', place: personOf(person).place }); }
   function gather(place: PlaceId) { act({ type: 'gather', place }, { kind: 'map' }); }
@@ -166,8 +182,8 @@ export default function App() {
     <div className="backdrop" />
     <Hud game={game} onReset={reset} />
     {error && <p role="alert">{error}</p>}
-    <SupportPanel game={game} allocation={game.awaitingSettlement} focusOffer={view.offer} focusObligation={view.obligation}
-      onBack={() => setView({ kind: game.awaitingSettlement ? 'settlement' : 'jobs' })}
+    <SupportPanel game={game} allocation={game.awaitingSettlement} focusOffer={view.offer} focusObligation={view.obligation} person={view.person}
+      onBack={() => setView(game.awaitingSettlement ? { kind: 'settlement' } : view.person ? { kind: 'place', place: personOf(view.person).place } : { kind: 'jobs' })}
       onAction={a => act(a, view)} />
   </div>;
 
@@ -213,144 +229,11 @@ export default function App() {
     );
   }
 
-  /* ---- 仕事メニュー：受けられる依頼を一画面で比べる ---- */
-  if (view.kind === 'jobs') {
-    const counts = countsByKind(game);
-    const list = openJobs(game).sort((a, b) => {
-      const ka = hasStaminaFor(a, game) ? 0 : 1;
-      const kb = hasStaminaFor(b, game) ? 0 : 1;
-      if (ka !== kb) return ka - kb;
-      const oa = jobKinds.indexOf(a.kind);
-      const ob = jobKinds.indexOf(b.kind);
-      if (oa !== ob) return oa - ob;
-      return payWithRelation(b, game) - payWithRelation(a, game);
-    });
-    return (
-      <div className="screen worklist">
-        <div className="backdrop"><div className="bg-veil" /></div>
-        <Hud game={game} onReset={reset} />
-        <div className="topbar">
-          <Button variant="ghost" size="sm" onClick={() => setView({ kind: 'home' })}>
-            <ChevronLeft />戻る
-          </Button>
-          <h2>仕事を受ける</h2>
-          <Button size="sm" variant="outline" onClick={() => setView({ kind: 'support' })}>支援と約束</Button>
-          <span className="topbar-sub">{list.length}件</span>
-        </div>
-        <div className="kindbar">
-          {jobKinds.map((k) => (
-            <span key={k} className={`kindchip k-${k} ${counts[k] === 0 ? 'gone' : ''}`} title={kindNote[k]}>
-              {k}<b>{counts[k]}</b>
-            </span>
-          ))}
-        </div>
-        <div className="jobgrid">
-          {game.obligations.filter(o => o.status === 'active' || o.outstanding > 0).map(o => (
-            <button className="jobcard2 paper paper-調剤" key={o.id} onClick={() => setView({ kind: 'support', obligation: o.id })}>
-              <span className="stamp stamp-調剤">約束</span>
-              <span className="jc-name"><b>{o.terms.title}</b><i>{personOf(o.terms.person).name} ／ {o.status === 'active' ? dateLabel(o.due) + 'まで' : '未精算あり'}</i></span>
-              <div className="jc-ledger"><span>{o.terms.kind === 'advance' && o.status === 'active' ? o.terms.options.map(c => recipeOf(c.recipe).name + '×' + c.count).join(' ／ ') : '未精算 ' + o.outstanding + 'G'}</span></div>
-              <div className="jc-foot"><span>納品・支払い・条件の確認</span></div>
-            </button>
-          ))}
-          {supportOffers.filter(o => !offerReason(game, o)).map(o => (
-            <button className="jobcard2 paper paper-調剤" key={'offer-' + o.id} onClick={() => setView({ kind: 'support', offer: o.id })}>
-              <span className="stamp stamp-調剤">支援</span>
-              <span className="jc-name"><b>{o.title}</b><i>{personOf(o.person).name} ／ 提示は今章{o.closes}日まで</i></span>
-              <div className="jc-ledger"><span>{o.kind === 'advance' ? '前金' + o.money + 'G・納品の約束' : '素材を後払いで仕入れる'}</span><span>期限：受諾から{o.term}日 ／ 未精算{o.repayment}G</span></div>
-              <div className="jc-foot"><span>条件を読んで検討する</span></div>
-            </button>
-          ))}
-          {list.map((job) => {
-            const person = personOf(job.person);
-            const tired = !hasStaminaFor(job, game);
-            const noStock = !hasStockFor(job, game);
-            const blocked = tired || noStock;
-            const list0 = listPrice(job, game);
-            const now = payWithRelation(job, game);
-            const cap = capDropOf(job);
-            // 透かしは「この依頼が主に削る軸」の紋。無償の依頼は結びの紋。
-            const seal = primaryAxis(job) ?? '関係';
-            const needs = axes.filter((a) => job.needs[a] !== undefined);
-            return (
-              <button key={job.id} className={`jobcard2 paper paper-${job.kind} ${blocked ? 'disabled' : ''}`} disabled={blocked}
-                onClick={() => setView({ kind: 'contract', job, from: 'jobs' })}>
-                <span className={`stamp stamp-${job.kind}`} aria-hidden="true">{job.kind}</span>
-                {/* 紙に薄く刷られた紋。何を差し出す依頼かが、読む前に分かる */}
-                <span className={`jc-seal axis-${seal}`} aria-hidden="true"><Mark name={seal} /></span>
-
-                <span className="jc-name">
-                  <b>{job.title}</b>
-                  <i>{person.name}・{placeOf(person.place).short}　様</i>
-                </span>
-
-                {/* この依頼を受けると何が減るか。紋・量・払ったあとの値だけ。 */}
-                <div className="jc-ledger">
-                  {job.costs.length === 0 ? (
-                    <div className="ledger-row ledger-none">
-                      {job.bond && job.bond > 1
-                        ? <><Mark name="関係" /><b className="ledger-num">＋{job.bond}</b></>
-                        : <b className="ledger-num ledger-dash">—</b>}
-                      <span className="leader" />
-                      <span className="ledger-after">
-                        {job.recipe ? `${recipeOf(job.recipe).name}を${job.count ?? 1}つ納める` : '差し出すもの無し'}
-                      </span>
-                    </div>
-                  ) : job.costs.map((c) => {
-                    const after = Math.max(0, game.axes[c.axis] - c.amount);
-                    return (
-                      <div className={`ledger-row axis-${c.axis}`} key={c.axis}>
-                        <Mark name={c.axis} />
-                        <b className="ledger-num">−{c.amount}</b>
-                        <span className="leader" />
-                        <span className="ledger-after">{game.axes[c.axis]}<em>→</em>{after}</span>
-                      </div>
-                    );
-                  })}
-                  {cap > 0 && (
-                    <div className="ledger-row ledger-cap">
-                      <Mark name="品位" />
-                      <b className="ledger-num">−{cap}</b>
-                      <span className="leader" />
-                      <span className="ledger-after">上限。戻らない</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="jc-foot">
-                  {/* 受けるのに要るもの。余白の走り書きの扱いにして、代償より小さく */}
-                  <span className="jc-req">
-                    {/* 「要」は一度だけ。あとは紋と数だけ並べる ── 一件ごとに「以上」を書かない */}
-                    <em className="req-label">要</em>
-                    {/* 調剤の注文は、在庫が無ければ受けられない */}
-                    {job.recipe && (
-                      <span className={noStock ? 'req-note bad' : 'req-note stocked'}>
-                        {recipeOf(job.recipe).name}
-                        <em>{game.stock[job.recipe] ?? 0}/{job.count ?? 1}</em>
-                      </span>
-                    )}
-                    <span className={tired ? 'req-note bad' : 'req-note'}>
-                      <Mark name="体力" />{job.stamina}
-                    </span>
-                    {needs.map((a) => (
-                      <span key={a} className="req-note">
-                        <Mark name={a} />{job.needs[a]}
-                      </span>
-                    ))}
-                  </span>
-                  <span className="jc-pay">
-                    {now < list0 && <s>{list0.toLocaleString()}</s>}
-                    <b>{now.toLocaleString()}<small>G</small></b>
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-          {list.length === 0 && <p className="empty-note">受けられる依頼が一つも無い。</p>}
-        </div>
-      </div>
-    );
-  }
+  if (view.kind === 'jobs') return <div className="screen support-screen"><div className="backdrop" /><Hud game={game} onReset={reset} />
+    {error && <p role="alert">{error}</p>}
+    <MedicinePanel game={game} onBack={() => setView({ kind: 'home' })} onJournal={() => setView({ kind: 'support' })}
+      onOffer={offer => setView({ kind: 'support', offer })} onAction={a => act(a, { kind: 'jobs' })} />
+  </div>;
 
   /* ---- 調合：日は進まない。減るのは体力と素材(§2-3) ---- */
   if (view.kind === 'brew') {
@@ -445,11 +328,12 @@ export default function App() {
             return (
               <button key={place.id} className={`marker gatherpin ${tired ? 'shut' : ''}`}
                 style={{ left: `${place.map.x}%`, top: `${place.map.y}%` }}
-                onClick={() => setView({ kind: 'place', place: place.id })}>
+                onClick={() => visit(place.id)}>
                 <span className="marker-pin"><Icon /></span>
                 <span className="marker-body">
-                  <b>{place.short}</b>
+                  <b>{place.short}{game.newPlaces.includes(place.id) ? '・NEW' : ''}</b>
                   <i>{got.map((g) => materialOf(g.id).name).join('・')}</i>
+                  {storyEvents.some(e => e.place === place.id && game.newEvents.includes(e.id)) && <small className="map-new">新しい出来事</small>}
                 </span>
                 <span className="marker-flags">
                   <em className={tired ? 'flag bad' : 'flag'}><Mark name="体力" />{cost}</em>
@@ -457,21 +341,23 @@ export default function App() {
               </button>
             );
           })}
-          {workPlaces.map((place) => {
+          {workPlaces.filter(p => placeOpen(p, game)).map((place) => {
             const Icon = PLACE_ICON[place.id];
-            const roster = peopleAt(place.id);
-            const open = openCountAt(place.id, game);
+            const roster = peopleAt(place.id, game);
+            const open = personalJobsAt(place.id, game).filter(j => hasStaminaFor(j, game)).length;
             const shut = closedJobsAt(place.id, game).length;
             const best = Math.max(0, ...roster.map((p) => game.relations[p.id]));
             const canVisit = roster.some((p) => game.relations[p.id] < 3);
             return (
               <button key={place.id} className={`marker ${open === 0 && shut > 0 ? 'shut' : ''}`}
                 style={{ left: `${place.map.x}%`, top: `${place.map.y}%` }}
-                onClick={() => setView({ kind: 'place', place: place.id })}>
+                onClick={() => visit(place.id)}>
                 <span className="marker-pin"><Icon />{canVisit && <em className="marker-dot" />}</span>
                 <span className="marker-body">
                   <b>{place.short}</b>
-                  <i>{roster.map((p) => p.name).join('・')}</i>
+                  <i>頼まれごと {open}件</i>
+                  {roster.some(p => game.newPeople.includes(p.id)) && <small className="map-new">新しい人物</small>}
+                  {storyEvents.some(e => e.place === place.id && game.newEvents.includes(e.id)) && <small className="map-new">新しい出来事</small>}
                 </span>
                 {best > 0 && (
                   <span className="marker-flags"><em className="flag rel">{relationStage(best)}</em></span>
@@ -486,6 +372,7 @@ export default function App() {
 
   /* ---- 場所：人に会いに行く。仕事は一覧から受けるので、ここには置かない ---- */
   /* ---- 採集地：金の代わりに体力を払って素材を採る ---- */
+  if (view.kind === 'place' && !placeOpen(placeOf(view.place), game)) return <div className="screen support-screen"><p>この場所はまだ解禁されていません。</p><Button onClick={() => setView({ kind: 'map' })}>地図へ戻る</Button></div>;
   if (view.kind === 'place' && placeOf(view.place).kind === 'gather') {
     const place = placeOf(view.place);
     const got = gatherYield(place);
@@ -534,7 +421,7 @@ export default function App() {
 
   if (view.kind === 'place') {
     const place = placeOf(view.place);
-    const roster = peopleAt(place.id);
+    const roster = peopleAt(place.id, game);
     const forSale = sellsAt(place);
     return (
       <div className="screen place">
@@ -560,7 +447,7 @@ export default function App() {
           {roster.map((person) => {
             const rel = game.relations[person.id];
             const rate = fatigueRate(person.id, game);
-            const mine = jobsBy(person.id);
+            const mine = jobsBy(person.id).filter(j => j.category === 'personal');
             const open = mine.filter((job) => isOpen(job, game));
             const shut = mine.filter((job) => !isOpen(job, game));
             return (
@@ -587,19 +474,9 @@ export default function App() {
                   </Button>
                 </header>
 
-                <p className="person-line">
-                  {open.length > 0
-                    ? <>回せる仕事が <b>{open.length}件</b>。受けるのは「仕事を受ける」から。</>
-                    : '回せる仕事は、いまは無い。'}
-                  {rate < 1 && <em className="inline-warn">　続けて頼んだので −{Math.round((1 - rate) * 100)}%</em>}
-                </p>
-
-                {shut.map((job) => (
-                  <div className="jobcard closed" key={job.id}>
-                    <s>{job.title}</s>
-                    <span>── {closedBy(job, game).join('と')}が足りず、もう紹介できません</span>
-                  </div>
-                ))}
+                <p className="person-line">頼まれごと：{open.length}件 ／ 確認は0日、実行は1日{rate < 1 && <em>　相場 −{Math.round((1 - rate) * 100)}%</em>}</p>
+                {mine.map(job => <div className="personal-request" key={job.id}><div><b>{job.title}</b><p>{payWithRelation(job, game)}G ／ 体力 −{job.stamina} ／ {job.costs.map(c => c.axis + ' −' + c.amount).join('・') || '3軸の代償なし'}{capDropOf(job) > 0 ? ' ／ 品位上限 −' + capDropOf(job) : ''}</p><small>{job.cadence === 'once' ? '1プレイに1回' : job.cadence === 'chapter' ? '各章1回' : '常設'}{!isOpen(job, game) ? ' ／ ' + (personalLimitReason(job, game) ?? '紹介条件を満たしていません') : ''}</small></div><Button size="sm" disabled={!isOpen(job, game) || !hasStaminaFor(job, game)} onClick={() => setView({ kind: 'contract', job, from: 'place' })}>頼まれごとを確認</Button></div>)}
+                {supportOffers.some(o => o.kind === 'credit' && o.person === person.id) && <Button size="sm" variant="outline" onClick={() => setView({ kind: 'support', person: person.id })}>掛け仕入れを相談</Button>}
               </section>
             );
           })}
@@ -642,13 +519,13 @@ export default function App() {
         <h2 className="command-title">今日をどう使う<small>1日 ＝ 1行動</small></h2>
         {error && <p role="alert">{error}</p>}
         <button className="promise-ticker" onClick={() => setView({ kind: 'support' })}>
-          {dueSoon(game) ? '次の約束：' + dateLabel(dueSoon(game)!.due) : '支援を相談する'} ／ 未精算{outstandingTotal(game)}G
+          {dueSoon(game) ? '次の約束：' + dateLabel(dueSoon(game)!.due) : '約束帳'} ／ 未精算{outstandingTotal(game)}G
         </button>
         {game.log[0] && <p className="ticker">{game.log[0]}</p>}
         <div className="commands">
           <button className="cmd primary" onClick={() => setView({ kind: 'jobs' })}>
             <BriefcaseBusiness />
-            <span><b>仕事を受ける</b><i>受けられる依頼を見比べる</i></span>
+            <span><b>薬の依頼書</b><i>通常販売／特別依頼／まとめ納品</i></span>
           </button>
           <button className="cmd" onClick={() => setView({ kind: 'brew' })}>
             <FlaskConical />
@@ -656,7 +533,7 @@ export default function App() {
           </button>
           <button className="cmd" onClick={() => setView({ kind: 'map' })}>
             <MapIcon />
-            <span><b>出かける</b><i>素材を採る／買う／人に会う</i></span>
+            <span><b>出かける</b><i>採集／仕入れ／人物の頼まれごと</i></span>
           </button>
           <button className="cmd" onClick={rest}>
             <Moon />
@@ -799,6 +676,7 @@ function ResultScreen({ result, stage, onClose }: { result: DayResult; stage: st
         <h2>{result.title}</h2>
         <p className="result-narrative">{result.narrative}</p>
         <div className="result-details">
+          {result.deliveries && <div className="result-block"><h3>納品の内訳</h3>{result.deliveries.map((l, i) => <p key={i}>{l.title}：{recipeOf(l.recipe).name}×{l.count} ／ {l.pay}G</p>)}</div>}
         <div className="result-cols">
           <div className="result-block">
             <h3>{result.kind === 'job' ? '報酬の内訳' : '収支'}</h3>

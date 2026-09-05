@@ -272,6 +272,8 @@ img { display: block; max-width: 100%; }
 }
 .marker-body b { display: block; font-family: var(--font-serif-jp); font-size: var(--fs-sm); line-height: 1.3; }
 .marker-body i { font-style: normal; font-size: var(--fs-xs); color: var(--ink-3); }
+.marker { width: max-content; max-width: 150px; }
+.map-new { display: block; font-size: 10px; color: var(--gold); }
 .marker-flags { display: flex; gap: 4px; }
 .flag { padding: 1px 6px; border-radius: 3px; font-style: normal; font-size: 10px; font-weight: 700; }
 .flag.rel { color: var(--gold); background: #d9b76a26; }
@@ -1077,7 +1079,7 @@ img { display: block; max-width: 100%; }
 .support-panel .topbar { margin: 0; padding: 0; flex-shrink: 0; }
 .support-nav { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 .support-nav > span { color: var(--ink-2); font-size: var(--fs-xs); }
-.support-sheet { background: var(--panel); border: 1px solid var(--line-strong); padding: 16px; border-radius: 6px; flex: 1; min-height: 0; }
+.support-sheet { background: var(--panel); border: 1px solid var(--line-strong); padding: 16px; border-radius: 6px; flex: 1; min-height: 0; overflow-y: auto; }
 .support-sheet header { margin-bottom: 12px; }
 .support-sheet header small { color: var(--gold); }
 .support-sheet h3 { font-size: var(--fs-xl); }
@@ -1142,6 +1144,48 @@ img { display: block; max-width: 100%; }
 .settle-details { min-height: 0; overflow-y: auto; }
 .settle > .btn + .btn { margin-top: 6px; }
 .support-management { display: flex; gap: 8px; align-items: flex-start; }
+.medicine-panel { position: relative; z-index: 1; display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px; }
+.medicine-panel .topbar { margin: 0; padding: 0; flex-shrink: 0; }
+.medicine-tabs { display: flex; gap: 6px; flex-shrink: 0; }
+.medicine-scroll { overflow-y: auto; min-height: 0; flex: 1; padding: 3px; font-size: var(--fs-sm); }
+.medicine-help { margin: 0 0 10px; color: var(--ink-2); }
+.medicine-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr)); gap: 10px; }
+.medicine-card { display: block; width: 100%; text-align: left; color: var(--ink); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 6px; padding: 12px; margin-bottom: 8px; font-size: var(--fs-sm); line-height: 1.6; overflow-wrap: anywhere; }
+button.medicine-card { cursor: pointer; }
+.medicine-card[aria-pressed="true"] { border-color: var(--gold); box-shadow: inset 3px 0 var(--gold); background: #252b34; }
+.medicine-card h3 { font-size: var(--fs-lg); margin: 4px 0; }
+.medicine-card small { color: var(--gold); }
+.delivery-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-shrink: 0; padding-top: 6px; border-top: 1px solid var(--line); font-size: var(--fs-sm); }
+.delivery-footer small { display: block; color: var(--ink-2); font-size: 11px; }
+.delivery-footer > button { flex-shrink: 0; }
+.delivery-totals { border: 1px solid var(--line); padding: 8px; line-height: 1.5; margin-bottom: 8px; }
+.support-confirm > div > .delivery-totals { display: block; }
+.support-confirm > div { max-height: 100%; overflow-y: auto; }
+.personal-request { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px; border-top: 1px solid var(--line); font-size: var(--fs-sm); }
+.personal-request small { color: var(--ink-2); }
+.personal-request > button { flex-shrink: 0; }
+@media (max-height: 560px) {
+  .medicine-panel { gap: 4px; }
+  .medicine-panel .btn.sm { font-size: 11px; min-height: 26px; padding: 4px 8px; }
+  .medicine-panel .topbar h2 { font-size: 16px; }
+  .medicine-card { padding: 8px; font-size: 11px; }
+  .medicine-card h3 { font-size: 14px; }
+  .delivery-footer { font-size: 11px; padding-top: 3px; }
+  .support-confirm { padding: 8px; }
+  .support-confirm > div { padding: 10px; font-size: 12px; }
+  .support-confirm p { margin: 5px 0; }
+}
+@media (max-width: 500px) {
+  .map-field { display: grid; grid-template-columns: 1fr 1fr; align-content: start; gap: 12px; overflow-y: auto; padding: 8px 4px; }
+  .map-routes { display: none; }
+  .map-field .marker { position: static; transform: none; width: 100%; max-width: none; min-height: 126px; padding: 6px; }
+  .map-field .marker:hover { transform: none; }
+  .personal-request { flex-wrap: wrap; }
+  .medicine-tabs { gap: 4px; }
+  .medicine-tabs .btn { font-size: 12px; padding: 6px 8px; }
+  .delivery-footer { font-size: 11px; }
+  .medicine-panel .topbar h2 { font-size: 18px; }
+}
 @media (max-height: 560px) {
   .command { gap: 4px; }
   .cmd { padding: 5px 10px; }

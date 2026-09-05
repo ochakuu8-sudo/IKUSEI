@@ -6,7 +6,7 @@ import { emptySupportState } from './supportTypes';
 export type Axis = '貞操' | '品位' | '威厳';
 export type PlaceId =
   | 'estate' | 'arnaud' | 'academy' | 'valere' | 'guild'
-  | 'hill' | 'wood' | 'backstreet';
+  | 'hill' | 'wood' | 'backstreet' | 'garden';
 
 export const axes: Axis[] = ['貞操', '品位', '威厳'];
 
@@ -104,6 +104,7 @@ export type Place = {
   kind: 'home' | 'work' | 'gather';
   map: { x: number; y: number };
   /** 採集地で採れるもの。1回の採集で丸ごと手に入る。 */
+  requiresUnlock?: boolean;
   gathers?: Partial<Record<MaterialId, number>>;
   /** 採集に要る体力。 */
   gatherStamina?: number;
@@ -114,6 +115,8 @@ export type Place = {
 };
 
 export const places: Place[] = [
+  { id: 'garden', name: '紹介された薬草園', short: '薬草園', kind: 'gather', requiresUnlock: true,
+    tagline: '特別依頼で開いた採集地。', map: { x: 88, y: 76 }, gathers: { rose: 5, silversand: 1 }, gatherStamina: 24 },
   { id: 'estate',  name: 'ラティエ邸',       short: '屋敷',   kind: 'home', tagline: '帰る場所。休み、学ぶ。',         map: { x: 14, y: 70 } },
   { id: 'arnaud',  name: 'アルノー商会',     short: '商会',   kind: 'work', tagline: '金の話が早い。素材も買える。',   map: { x: 26, y: 62 },
     sells: ['rose', 'wax', 'poppy', 'wormwood', 'silversand'] },
@@ -139,6 +142,7 @@ export const workPlaces = places.filter((p) => p.kind === 'work');
 
 /** その場所へ行けるか。採集地は堕ちて開くものがある。 */
 export function placeOpen(place: Place, state: GameState): boolean {
+  if (place.requiresUnlock && !state.unlockedPlaces.includes(place.id)) return false;
   if (!place.opensBelow) return true;
   return axes.some((axis) => {
     const line = place.opensBelow?.[axis];
@@ -147,7 +151,7 @@ export function placeOpen(place: Place, state: GameState): boolean {
 }
 
 /** 依頼人。関係は組織ではなく、この人と結ぶ。 */
-export type PersonId = 'vernet' | 'jean' | 'claire' | 'guillaume' | 'count' | 'marc';
+export type PersonId = 'vernet' | 'jean' | 'claire' | 'guillaume' | 'count' | 'marc' | 'herbalist';
 
 export type Person = {
   id: PersonId;
@@ -156,12 +160,16 @@ export type Person = {
   place: PlaceId;
   note: string;
   /** 関係が段階1/2/3に上がった日に、その人が言うこと。 */
+  requiresUnlock?: boolean;
   stageLines: [string, string, string];
   /** この段階に達した日に教わる処方。レシピは金では買えない(§2-1)。 */
   teaches?: { stage: number; recipe: RecipeId }[];
 };
 
 export const people: Person[] = [
+  { id: 'herbalist', name: '紹介された薬師', role: '協力者（仮）', place: 'academy', requiresUnlock: true,
+    note: '薬の納品をきっかけに紹介された相手。', stageLines: ['顔を覚えた。', '相談できるようになった。', '信頼が深まった。'],
+    teaches: [{ stage: 1, recipe: 'balm' }] },
   {
     id: 'vernet', name: 'ヴェルネ', role: '番頭', place: 'arnaud',
     note: '帳簿より正確に人を見る。感情は挟まない。',
@@ -226,8 +234,11 @@ export function personOf(id: PersonId): Person {
   return people.find((p) => p.id === id) ?? people[0];
 }
 
-export function peopleAt(place: PlaceId): Person[] {
-  return people.filter((p) => p.place === place);
+export function personOpen(person: Person, state: GameState): boolean {
+  return (!person.requiresUnlock || state.unlockedPeople.includes(person.id)) && placeOpen(placeOf(person.place), state);
+}
+export function peopleAt(place: PlaceId, state: GameState): Person[] {
+  return people.filter((p) => p.place === place && personOpen(p, state));
 }
 
 /** 関係の段階。数値ではなく言葉で出す。 */
@@ -296,6 +307,9 @@ export type Job = {
   id: string;
   title: string;
   kind: JobKind;
+  category: 'ordinary' | 'personal';
+  cadence: 'repeat' | 'once' | 'chapter';
+  requiresCapability?: string;
   person: PersonId;
   pay: number;
   stamina: number;
@@ -336,7 +350,7 @@ export type GameState = SupportState & {
   /** 覚えた処方。レシピ帳。 */
   known: RecipeId[];
   /** 直近に仕事を受けた相手（新しい順）。同じ人に通い詰めると買い叩かれる。 */
-  recent: (PersonId | 'none')[];
+  recent: (PersonId | 'none' | PersonId[])[];
   log: string[];
   ended: boolean;
 };
@@ -362,6 +376,7 @@ export type DayResult = {
   materialDeltas?: { id: MaterialId; amount: number }[];
   /** 納めた品。 */
   delivered?: { recipe: RecipeId; count: number };
+  deliveries?: { title: string; recipe: RecipeId; count: number; pay: number }[];
   /** その日に覚えた処方。 */
   learned?: RecipeId[];
 };
@@ -375,13 +390,15 @@ function makeJob(
     recipe?: RecipeId; count?: number; teaches?: RecipeId;
   } = {},
 ): Job {
-  return { id, title, kind, person, pay, stamina, needs, costs, description, ...extra };
+  return { id, title, kind, person, pay, stamina, needs, costs, description, category: extra.recipe ? 'ordinary' : 'personal',
+    cadence: extra.recipe || ['ledger', 'packing'].includes(id) ? 'repeat' : id === 'copyist' ? 'once' : 'chapter', ...extra };
 }
 
 // needs が「まだ紹介してもらえる線」。尊厳が下がるほど上から順に閉じ、
 // 最後には底辺の仕事しか残らない。
 // costs が空の依頼が「何も差し出さずに済む道」。報酬は低い。
 export const jobs: Job[] = [
+  { ...makeJob('ord-garden', '薬草園へ傷薬を届ける', '調剤', 'vernet', 390, 12, {}, [], '紹介状で開いた売り先。', { recipe: 'balm', count: 2 }), requiresCapability: 'garden-orders' },
   // 調剤 ── 主軸。素材を集めて調合し、納める。日はかかるが身体は削らない。
   // 下の格（媚薬・堕胎薬）だけが威厳を削り、それが上の注文を閉じる(§3-2)。
   makeJob('ord-balm', '傷薬をまとめて納める', '調剤', 'vernet', 360, 12,
@@ -481,7 +498,7 @@ export const initialState: GameState = {
   stamina: 82,
   dignityCap: 100,
   axes: { 貞操: 100, 品位: 100, 威厳: 100 },
-  relations: { vernet: 0, jean: 0, claire: 0, guillaume: 0, count: 0, marc: 0 },
+  relations: { herbalist: 0, vernet: 0, jean: 0, claire: 0, guillaume: 0, count: 0, marc: 0 },
   materials: { rose: 0, wax: 0, poppy: 0, wormwood: 0, ambergris: 0, silversand: 0 },
   stock: {},
   known: [...INITIAL_RECIPES],
@@ -499,7 +516,7 @@ export const midGameState: GameState = {
   stamina: 44,
   dignityCap: 74,
   axes: { 貞操: 62, 品位: 51, 威厳: 47 },
-  relations: { vernet: 1, jean: 0, claire: 1, guillaume: 2, count: 1, marc: 1 },
+  relations: { herbalist: 0, vernet: 1, jean: 0, claire: 1, guillaume: 2, count: 1, marc: 1 },
   materials: { rose: 3, wax: 1, poppy: 2, wormwood: 2, ambergris: 0, silversand: 0 },
   stock: { tisane: 1 },
   known: ['tisane', 'balm', 'sleeper', 'tonic'],
@@ -538,8 +555,17 @@ export function unknownRecipe(job: Job, state: GameState): boolean {
 
 /** いま受けられるか。上の仕事は尊厳で閉じ、裏の仕事は落ちて初めて開く。 */
 export function isOpen(job: Job, state: GameState): boolean {
-  return meetsNeeds(job, state) && !notYetFallen(job, state) && !unknownRecipe(job, state);
+  return personOpen(personOf(job.person), state) && !personalLimitReason(job, state)
+    && (!job.requiresCapability || state.capabilities.includes(job.requiresCapability))
+    && meetsNeeds(job, state) && !notYetFallen(job, state) && !unknownRecipe(job, state);
 }
+
+export const personalRunKey = (job: Job, s: GameState) => job.cadence === 'chapter' ? `chapter:${s.chapter}:${job.id}` : `once:${job.id}`;
+export function personalLimitReason(job: Job, s: GameState): string | null {
+  if (job.category !== 'personal' || job.cadence === 'repeat' || !s.personalRuns[personalRunKey(job, s)]) return null;
+  return job.cadence === 'once' ? '実行済み（1プレイに1回）' : '今章は実行済み';
+}
+export const personalJobsAt = (place: PlaceId, s: GameState) => jobsAt(place).filter(j => j.category === 'personal' && isOpen(j, s));
 
 /** 尊厳が足りずに閉じた軸。跡の表示に使う（まだ現れていない依頼は跡ではない）。 */
 export function closedBy(job: Job, state: GameState): Axis[] {
@@ -641,7 +667,7 @@ const FATIGUE_RATE = [1, 0.82, 0.68, 0.58];
 
 /** 直近 RECENT_WINDOW 日のうち、その場所で働いた回数。 */
 export function personFatigue(person: PersonId, state: GameState): number {
-  return state.recent.slice(0, RECENT_WINDOW).filter((id) => id === person).length;
+  return state.recent.slice(0, RECENT_WINDOW).filter((id) => Array.isArray(id) ? id.includes(person) : id === person).length;
 }
 
 /** 通い詰めによる相場の下落率（1 = 定価）。 */
@@ -651,7 +677,7 @@ export function fatigueRate(person: PersonId, state: GameState): number {
 
 /** その場所の誰かが買い叩いてくる状態か。地図の表示に使う。 */
 export function placeDiscount(place: PlaceId, state: GameState): number {
-  const rates = peopleAt(place).map((p) => fatigueRate(p.id, state));
+  const rates = peopleAt(place, state).map((p) => fatigueRate(p.id, state));
   return rates.length ? Math.min(...rates) : 1;
 }
 

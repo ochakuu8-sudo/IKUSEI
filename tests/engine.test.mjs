@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import * as G from '@game/game';
-import { performAction } from '@game/engine';
+import { performAction as currentAction } from '@game/engine';
 import { validateOffers, offerReason, offerKey, absoluteDay, outstandingTotal } from '@game/contracts';
-import { supportOffers } from '@game/content/support';
+import { legacyOffers as supportOffers, supportOffers as currentOffers, specialOffers } from '@game/content/support';
 import { parseSave } from '@game/save';
+// 旧契約の回帰検証は旧データを明示的に渡す。実ゲームに新規提示しない。
+const performAction = (s, a, offers = supportOffers) => currentAction(s, a, offers);
 const fresh = () => structuredClone(G.initialState);
 const run = (s, a, offers) => { const r = performAction(s, a, offers); assert.equal(r.error, undefined); return r.state; };
 const accept = (s = fresh(), id = 'reservation', offers) => run(s, { type: 'accept', offer: id }, offers);
@@ -165,7 +167,7 @@ test('invalid references and economic conditions are rejected', () => {
 });
 test('legacy save migration does not invent obligations', () => {
   const old=fresh(); for(const k of ['saveVersion','obligations','offerStates','capabilities','history']) delete old[k];
-  const migrated=parseSave(JSON.stringify(old)); assert.equal(migrated.saveVersion,8); assert.deepEqual(migrated.obligations,[]);
+  const migrated=parseSave(JSON.stringify(old)); assert.equal(migrated.saveVersion,9); assert.deepEqual(migrated.obligations,[]);
   assert.equal(migrated.money,old.money);
 });
 test('v8 save retains snapshots and chapter-end state', () => {
@@ -192,5 +194,165 @@ test('paying does not recover axes or advance time', () => {
   const s=accept(fresh(),'supply-credit'); s.money=200; s.axes.威厳=50;
   const n=run(s,{type:'pay',id:'1:supply-credit'});
   assert.equal(n.axes.威厳,50); assert.equal(absoluteDay(n),absoluteDay(s));
+});
+
+const now = (s, a, content) => { const out = currentAction(s, a, content); assert.equal(out.error, undefined, JSON.stringify(a)); return out.state; };
+const at = (day) => ({ ...fresh(), chapter: Math.floor((day - 1) / 14) + 1, day: (day - 1) % 14 + 1 });
+const special = (id = 'special-a', day = 2, content) => now(at(day), { type: 'accept', offer: id }, content);
+const batch = (ordinary = [], ids = []) => ({ type: 'deliver', ordinary, promises: ids.map(id => ({ id, option: 'standard' })) });
+const ready = () => ({ ...fresh(), known: G.recipes.map(r => r.id), stock: Object.fromEntries(G.recipes.map(r => [r.id, 20])), stamina: 100 });
+test('new content replaces generic advances and validates schedules/rewards', () => {
+  assert.deepEqual(validateOffers(currentOffers), []);
+  assert.equal(currentOffers.filter(o => o.kind === 'advance' && !o.schedule).length, 0);
+  for (const change of [o => o.schedule.closes = 8, o => o.schedule.delivery = 85, o => o.rewards[0] = { kind: 'place', id: 'missing' }, o => o.extensionLimit = 1]) {
+    const content = structuredClone(currentOffers); change(content[0]); assert.ok(validateOffers(content).length);
+  }
+});
+test('ordinary sheets repeat without acceptance, limits, or suspension', () => {
+  let s = ready(); s = now(s, batch(['ord-tisane']));
+  assert.equal(s.obligations.length, 0); assert.deepEqual(s.offerStates, {});
+  s = now(s, batch(['ord-tisane'])); assert.equal(s.day, 3); assert.equal(s.stock.tisane, 16);
+  let cancelled = now(special(), { type: 'cancel', id: 'special:special-a' }); cancelled.stock.tisane = 4;
+  cancelled = now(cancelled, batch(['ord-tisane'])); assert.equal(cancelled.stock.tisane, 2);
+});
+test('batch sums inventory stamina axes and cap but uses one day', () => {
+  const s = ready(); const before = structuredClone(s);
+  const n = now(s, batch(['ord-philtre', 'ord-abortive', 'ord-tisane']));
+  assert.equal(n.day, 2); assert.equal(n.stamina, 68); assert.equal(n.axes.威厳, 84); assert.equal(n.axes.品位, 94);
+  assert.equal(n.dignityCap, 97); assert.equal(n.stock.philtre, 19); assert.equal(n.stock.abortive, 19); assert.equal(n.stock.tisane, 18);
+  assert.deepEqual(s, before); assert.deepEqual(n.recent[0], ['claire', 'jean', 'marc']);
+});
+test('batch fails atomically for shared stock shortage, stamina, duplicate and invalid ids', () => {
+  const s = special(); s.day = 8; s.stock.tisane = 3;
+  const actions = [batch(['ord-tisane'], ['special:special-a']), batch(['ord-tisane', 'ord-tisane']), batch(['missing']), batch(['ledger']), batch([], ['special:special-a', 'special:special-a']), batch()];
+  for (const a of actions) { const out = currentAction(s, a); assert.ok(out.error); assert.strictEqual(out.state, s); }
+  s.stock.tisane = 4; s.stamina = 23; assert.ok(currentAction(s, actions[0]).error);
+});
+test('ordinary same-person relation grows once and every batch participant counts in fatigue', () => {
+  const s = ready(), n = now(s, batch(['ord-tisane', 'ord-sleeper', 'ord-balm']));
+  assert.equal(n.relations.claire, 1); assert.equal(n.relations.vernet, 1);
+  assert.equal(G.personFatigue('claire', n), 1); assert.equal(G.personFatigue('vernet', n), 1);
+  assert.equal(n.money - s.money, 330 + 430 + 360);
+});
+test('predeparture conditions and prices are unaffected by delivery ordering or rewards', () => {
+  const s = ready(); s.axes.品位 = 45;
+  const a = now(s, batch(['ord-tisane', 'ord-abortive']));
+  const b = now(s, batch(['ord-abortive', 'ord-tisane'])); assert.deepEqual(a, b);
+  const t = special(); t.day = 8; t.stock = { tisane: 4, sleeper: 2 };
+  // A would teach sleeper, but an unknown sheet is not eligible at departure.
+  assert.ok(currentAction(t, batch(['ord-sleeper'], ['special:special-a'])).error);
+});
+test('special acceptance only during fixed window, is free of days, stock optional, and unique', () => {
+  for (const day of [1, 6, 8, 16]) assert.ok(currentAction(at(day), { type: 'accept', offer: 'special-a' }).error);
+  for (const day of [2, 5]) {
+    const s = special('special-a', day); assert.equal(absoluteDay(s), day); assert.equal(s.money, 280); assert.equal(s.obligations[0].due, 8);
+    assert.ok(currentAction(s, { type: 'accept', offer: 'special-a' }).error);
+  }
+});
+test('two specials may coexist separately from credit supports', () => {
+  const content = structuredClone(currentOffers);
+  content[1].schedule = { appears: 2, closes: 5, delivery: 8 };
+  content.push({ ...structuredClone(content[0]), id: 'special-c' });
+  let s = special('special-a', 2, content);
+  s = now(s, { type: 'accept', offer: 'supply-credit' }, content);
+  s = now(s, { type: 'accept', offer: 'special-b' }, content);
+  assert.match(currentAction(s, { type: 'accept', offer: 'special-c' }, content).error, /2件/);
+});
+test('special cannot deliver early via either entry point or extend', () => {
+  const s = special(); s.stock.tisane = 2;
+  assert.ok(currentAction(s, batch([], ['special:special-a'])).error);
+  assert.ok(currentAction(s, { type: 'fulfill', id: 'special:special-a', option: 'standard' }).error);
+  assert.ok(currentAction(s, { type: 'renegotiate', id: 'special:special-a' }).error);
+});
+test('due-day mixed delivery pays remainder once and special relation is additional', () => {
+  const s = special(); s.day = 8; s.stock.tisane = 4;
+  const n = now(s, batch(['ord-tisane'], ['special:special-a']));
+  assert.equal(n.money, 280 + 330 + 200); assert.equal(n.relations.claire, 2); assert.equal(n.day, 9);
+  assert.equal(n.obligations[0].status, 'fulfilled'); assert.equal(n.obligations[0].outstanding, 0);
+  assert.deepEqual(n.unlockedPeople, ['herbalist']);
+  assert.ok(currentAction(n, batch([], ['special:special-a'])).error);
+  assert.deepEqual(parseSave(JSON.stringify(n)), n);
+});
+test('same-day multiple specials produce identical state for both selection orders', () => {
+  const content = structuredClone(currentOffers); content[1].schedule = { appears: 2, closes: 5, delivery: 8 };
+  let s = special('special-a', 2, content); s = now(s, { type: 'accept', offer: 'special-b' }, content); s.day = 8; s.stock.tisane = 6;
+  const n = now(s, batch(['ord-tisane'], ['special:special-a', 'special:special-b']));
+  assert.deepEqual(n, now(s, batch(['ord-tisane'], ['special:special-b', 'special:special-a'])));
+  assert.equal(n.eventQueue.length, 1); assert.equal(n.rewardedObligations.length, 2);
+});
+test('end of designated day defaults only the unselected promise without extra axis penalty', () => {
+  const s = special(); s.day = 8; s.stock.tisane = 2; s.axes.威厳 = 70;
+  const n = now(s, batch(['ord-tisane']));
+  assert.equal(n.obligations[0].status, 'defaulted'); assert.equal(n.obligations[0].outstanding, 160); assert.equal(n.axes.威厳, 72);
+  assert.equal(now(n, { type: 'rest' }).history.filter(h => h.kind === 'defaulted').length, 1);
+});
+test('refund blocks only same provider new support and never adds fees', () => {
+  const content = structuredClone(currentOffers); content[1].person = 'claire';
+  let s = special(); s = now(s, { type: 'cancel', id: 'special:special-a' }); s.day = 9;
+  assert.match(offerReason(s, content[1]), /未精算/); assert.equal(offerReason(s, currentOffers[1]), null);
+  s = now(s, { type: 'pay', id: 'special:special-a' }); assert.equal(s.money, 120); assert.equal(offerReason(s, content[1]), null);
+});
+test('all accepted terms including rewards and dates survive later definition changes', () => {
+  const content = structuredClone(currentOffers), s = special('special-a', 2, content);
+  content[0].schedule.delivery = 10; content[0].money = 1; content[0].totalPay = 9999; content[0].options[0].count = 9; content[0].rewards = [];
+  s.day = 8; s.stock.tisane = 2; const n = now(s, batch([], ['special:special-a']), content);
+  assert.equal(n.money, 480); assert.ok(n.unlockedPeople.includes('herbalist')); assert.equal(n.obligations[0].due, 8);
+});
+test('B crosses chapter boundary and unlocks place, event, recipe and additional sheet', () => {
+  let s = special('special-b', 12); s.stock.tisane = 2; s.money = 2000;
+  while (!s.awaitingSettlement) s = now(s, { type: 'rest' });
+  assert.equal(s.obligations[0].status, 'active'); s = now(s, { type: 'settle' }); assert.equal(absoluteDay(s), 15);
+  s = now(s, batch([], ['special:special-b']));
+  assert.ok(G.placeOpen(G.placeOf('garden'), s)); assert.ok(s.known.includes('balm')); assert.ok(G.isOpen(G.jobs.find(j => j.id === 'ord-garden'), s));
+  const loaded = parseSave(JSON.stringify(s)); assert.deepEqual(loaded.eventQueue, s.eventQueue);
+  assert.equal(s.eventQueue[0].id, 'garden-introduction');
+  const read = now(loaded, { type: 'read-event', id: 'garden-introduction' });
+  assert.equal(absoluteDay(read), absoluteDay(s)); assert.equal(read.money, s.money); assert.equal(read.eventQueue.length, 0);
+  assert.deepEqual(parseSave(JSON.stringify(read)), read); assert.ok(currentAction(read, { type: 'read-event', id: 'garden-introduction' }).error);
+});
+test('locked people and locations are blocked through all relevant action routes', () => {
+  const s = ready(); assert.ok(!G.peopleAt('academy', s).some(p => p.id === 'herbalist'));
+  for (const a of [{ type: 'network', person: 'herbalist' }, { type: 'visit', place: 'garden' }, { type: 'gather', place: 'garden' }, { type: 'buy', place: 'garden', basket: { rose: 1 } }, batch(['ord-garden'])]) assert.ok(currentAction(s, a).error);
+  const content = structuredClone(currentOffers); content[0].person = 'herbalist';
+  assert.ok(currentAction(at(2), { type: 'accept', offer: 'special-a' }, content).error);
+  let n = special(); n.day = 8; n.stock.tisane = 2; n = now(n, batch([], ['special:special-a']));
+  assert.ok(G.peopleAt('academy', n).some(p => p.id === 'herbalist')); assert.ok(n.newPeople.includes('herbalist'));
+  const visited = now(n, { type: 'visit', place: 'academy' }); assert.equal(visited.day, n.day); assert.equal(visited.newPeople.length, 0);
+  now(visited, { type: 'network', person: 'herbalist' });
+});
+test('personal job cadences are once, per chapter, or repeatable and visits are free', () => {
+  let s = now(fresh(), { type: 'visit', place: 'academy' }); assert.equal(s.day, 1);
+  s = now(s, { type: 'job', id: 'copyist' }); assert.ok(currentAction(s, { type: 'job', id: 'copyist' }).error);
+  s = now(s, { type: 'job', id: 'salon' }); assert.ok(currentAction(s, { type: 'job', id: 'salon' }).error);
+  s.chapter = 2; s.day = 1; s.stamina = 100; assert.equal(currentAction(s, { type: 'job', id: 'salon' }).error, undefined);
+  assert.ok(currentAction(s, { type: 'job', id: 'copyist' }).error);
+  s = now(s, { type: 'job', id: 'ledger' }); s = now(s, { type: 'job', id: 'ledger' }); assert.equal(s.personalRuns['once:ledger'], 2);
+});
+test('v8 migrates real history and old deadlines but never grants new unlocks', () => {
+  const old = accept(); old.saveVersion = 8; delete old.relations.herbalist;
+  for (const key of ['unlockedPeople','unlockedPlaces','newPeople','newPlaces','eventQueue','playedEvents','rewardedObligations','personalRuns']) delete old[key];
+  old.history.push({ day: 1, kind: 'job', target: 'copyist' }, { day: 14, kind: 'job', target: 'salon' });
+  const s = parseSave(JSON.stringify(old)); assert.ok(s); assert.equal(s.saveVersion, 9); assert.deepEqual(s.obligations, old.obligations);
+  assert.equal(s.relations.herbalist, 0); assert.deepEqual(s.unlockedPeople, []); assert.deepEqual(s.eventQueue, []);
+  assert.equal(s.personalRuns['once:copyist'], 1); assert.equal(s.personalRuns['chapter:1:salon'], 1);
+  s.stock.tisane = 4; const n = now(s, batch(['ord-tisane'], ['1:reservation'])); assert.equal(n.money, 280 + 330 + 180); assert.equal(n.day, 2);
+});
+test('legacy two-day alternative remains individual after v8 migration', () => {
+  const old = fresh(); old.capabilities.push('flexible-orders'); const accepted = accept(old, 'flexible-reservation'); accepted.saveVersion = 8;
+  let s = parseSave(JSON.stringify(accepted)); s.stock.sleeper = 1;
+  assert.ok(currentAction(s, { type: 'deliver', ordinary: [], promises: [{ id: '1:flexible-reservation', option: 'alternative' }] }).error);
+  s = now(s, { type: 'fulfill', id: '1:flexible-reservation', option: 'alternative' }); assert.equal(s.day, 3);
+});
+test('final-day batch grants rewards before settlement and event replay is still available after ending', () => {
+  const content = structuredClone(currentOffers); content[1].schedule = { appears: 80, closes: 83, delivery: 84 };
+  let s = special('special-b', 80, content); s.day = 14; s.stock.tisane = 4;
+  s = now(s, batch(['ord-tisane'], ['special:special-b'])); assert.ok(s.awaitingSettlement); assert.equal(s.obligations[0].status, 'fulfilled');
+  s = now(s, { type: 'settle' }); assert.ok(s.ended); assert.equal(s.eventQueue.length, 1);
+  s = now(parseSave(JSON.stringify(s)), { type: 'read-event', id: 'garden-introduction' }); assert.equal(s.playedEvents.length, 1);
+});
+test('malformed v9 schedules, rewards, queues and counters are rejected', () => {
+  for (const change of [s => s.obligations[0].due++, s => s.obligations[0].terms.rewards = [{ kind: 'place', id: 'fake' }], s => s.eventQueue = [{ id: 'bad' }], s => s.personalRuns = { copyist: -1 }, s => s.unlockedPeople = ['fake']]) {
+    const s = special(); change(s); assert.equal(parseSave(JSON.stringify(s)), null);
+  }
 });
 console.log(`${checks} engine checks passed`);
