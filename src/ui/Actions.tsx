@@ -107,9 +107,13 @@ export function Actions({
           <span className="command-copy">
             <b>{actionLabels[id]}</b>
             {!compact && <small>{note}</small>}
-            <span className={`command-status ${urgent ? "urgent" : ""}`}>
-              {status}
-            </span>
+            {/* 側のレールでは進行中の急ぎだけを出す。常設の一言まで置くと
+                3段になり、固定キャンバスの縦を食い切る。 */}
+            {(!compact || urgent) && (
+              <span className={`command-status ${urgent ? "urgent" : ""}`}>
+                {status}
+              </span>
+            )}
           </span>
           <ArrowRight className="command-arrow" size={18} aria-hidden="true" />
         </button>
@@ -121,10 +125,12 @@ export function Utilities({
   endDay,
   inventory,
   settings,
+  compact = false,
 }: {
   endDay: () => void;
   inventory: () => void;
   settings: () => void;
+  compact?: boolean;
 }) {
   return (
     <nav className="home-utilities" aria-label="準備と管理">
@@ -135,16 +141,21 @@ export function Utilities({
         onClick={endDay}
       >
         <Moon size={17} />
-        <span>一日を終える</span>
+        <span className="util-long">一日を終える</span>
+        <span className="util-short">終了</span>
       </button>
       <button type="button" className="util-inventory" onClick={inventory}>
         <Package size={17} />
-        <span>持ち物</span>
+        <span className="util-long">持ち物</span>
+        <span className="util-short">持物</span>
       </button>
-      <button type="button" className="util-settings" onClick={settings}>
-        <Settings size={17} />
-        設定
-      </button>
+      {/* レールでは設定をHUDの歯車に任せる。 */}
+      {!compact && (
+        <button type="button" className="util-settings" onClick={settings}>
+          <Settings size={17} />
+          設定
+        </button>
+      )}
     </nav>
   );
 }

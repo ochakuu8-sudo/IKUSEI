@@ -104,17 +104,21 @@ export function Shell({
       {navigating && (
         <>
           <aside className="action-sidebar">
-            <Button onClick={back} aria-label="ひとつ戻る">
-              <ArrowLeft size={17} />
-              戻る
-            </Button>
-            <Button onClick={home}>
-              <Home size={17} />
-              自室へ
-            </Button>
-            <p>今日の行動</p>
+            {/* 戻ると自室は同じ「移動」なので1行に並べ、
+                固定キャンバスの縦をコマンドに回す。 */}
+            <div className="rail-top">
+              <Button onClick={back} aria-label="ひとつ戻る">
+                <ArrowLeft size={17} />
+                戻る
+              </Button>
+              <Button onClick={home} aria-label="自室へ">
+                <Home size={17} />
+                自室
+              </Button>
+            </div>
             <Actions s={s} choose={choose} compact active={current} />
             <Utilities
+              compact
               endDay={() => choose("rest")}
               inventory={inventory}
               settings={settings}

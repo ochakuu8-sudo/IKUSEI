@@ -142,6 +142,42 @@ export default function App() {
     document.documentElement.dataset.motion = ui.motion ? "reduced" : "normal";
   }, [ui.motion]);
   useEffect(() => {
+    // 固定キャンバス(1200x500)を画面に収まる最大の倍率で表示する。
+    // ノッチ（セーフエリア）はキャンバスの外側で避ける。内側に余白を足すと
+    // 1200x500 の設計そのものが歪むので、倍率と位置の側で吸収する。
+    const probe = document.createElement("div");
+    probe.style.cssText =
+      "position:fixed;left:0;top:0;width:0;height:0;pointer-events:none;visibility:hidden;" +
+      "padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);" +
+      "padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)";
+    document.body.appendChild(probe);
+    const fit = () => {
+      const box = getComputedStyle(probe);
+      const inset = (v: string) => parseFloat(v) || 0;
+      const left = inset(box.paddingLeft);
+      const right = inset(box.paddingRight);
+      const top = inset(box.paddingTop);
+      const bottom = inset(box.paddingBottom);
+      const w = Math.max(240, window.innerWidth - left - right);
+      const h = Math.max(160, window.innerHeight - top - bottom);
+      const k = Math.min(w / 1200, h / 500);
+      const root = document.documentElement.style;
+      root.setProperty("--fit", String(k));
+      root.setProperty("--shift-x", `${(left - right) / 2}px`);
+      root.setProperty("--shift-y", `${(top - bottom) / 2}px`);
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    window.addEventListener("orientationchange", fit);
+    window.visualViewport?.addEventListener("resize", fit);
+    return () => {
+      window.removeEventListener("resize", fit);
+      window.removeEventListener("orientationchange", fit);
+      window.visualViewport?.removeEventListener("resize", fit);
+      probe.remove();
+    };
+  }, []);
+  useEffect(() => {
     if (!game) return;
     setUI((u) => {
       const selection = cleanSelection(game, u.selection);
@@ -404,6 +440,7 @@ export default function App() {
   const pendingPreview = pending && s ? previewAction(s, pending.action) : null;
   const onStage = ["orders", "brew", "map", "journal"].includes(route);
   return (
+    <div className="viewport">
     <div
       className={`app command-app ${route === "title" ? "title-app" : ""} ${route === "home" || s?.ended || s?.awaitingSettlement ? "no-sidebar" : ""} ${saveError ? "save-failed" : ""}`}
     >
@@ -443,7 +480,7 @@ export default function App() {
                       className="stage-portrait"
                       alt="エレオノール"
                     />
-                    <AxisPanel state={s} />
+                    <AxisPanel state={s} compact />
                   </aside>
                 )}
                 <div className="stage-main">
@@ -880,6 +917,17 @@ export default function App() {
           }}
         />
       )}
+    </div>
+    <div className="rotate-hint" role="note">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="6" y="2" width="12" height="20" rx="2" />
+        <path d="M2 14a10 10 0 0 0 6 6M22 10a10 10 0 0 0-6-6" />
+      </svg>
+      <p>
+        <b>横向きにしてください</b>
+        <small>この物語は横長の画面で組まれています</small>
+      </p>
+    </div>
     </div>
   );
 }

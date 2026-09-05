@@ -38,9 +38,17 @@ async function seed(p, s) {
   await p.reload();
   await b(p, "続きから").click();
 }
+// 画面は固定キャンバス(1200x500)を --fit 倍して出しているので、
+// はみ出しはビューポートではなく .app の矩形で見る。当たり判定の高さも
+// --fit で割ってステージ座標に戻してから 43px と比べる。
 async function inspect(p, name, selector) {
-  const issues = await p.locator(selector).evaluateAll((es) =>
-    es
+  const issues = await p.locator(selector).evaluateAll((es) => {
+    const app = document.querySelector(".app").getBoundingClientRect();
+    const fit =
+      parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue("--fit"),
+      ) || 1;
+    return es
       .filter(
         (e) =>
           e.getClientRects().length &&
@@ -52,16 +60,16 @@ async function inspect(p, name, selector) {
             r.x + r.width / 2,
             r.y + r.height / 2,
           );
-        return r.x < 0 ||
-          r.y < 0 ||
-          r.right > innerWidth + 1 ||
-          r.bottom > innerHeight + 1 ||
-          r.height < 43 ||
+        return r.left < app.left - 1 ||
+          r.top < app.top - 1 ||
+          r.right > app.right + 1 ||
+          r.bottom > app.bottom + 1 ||
+          r.height / fit < 43 ||
           !e.contains(hit)
           ? [e.textContent]
           : [];
-      }),
-  );
+      });
+  });
   assert.deepEqual(issues, [], name);
   await p.screenshot({ path: resolve(out, name + ".png") });
 }
@@ -71,9 +79,11 @@ const browser = await chromium.launch(
 const errors = [],
   checks = [];
 try {
+  // 縦持ちは「横向きにしてください」の案内だけを出すので、
+  // 操作の検証は横持ちの実寸(851x337)で行う。
   for (const [w, h] of [
     [1280, 720],
-    [390, 844],
+    [851, 337],
   ]) {
     const p = await browser.newPage({
       viewport: { width: w, height: h },

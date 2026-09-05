@@ -52,7 +52,7 @@ try {
   );
   for (const [width, height] of [
     [1280, 720],
-    [390, 844],
+    [851, 337],
     [667, 375],
     [800, 360],
     [844, 390],
@@ -61,15 +61,22 @@ try {
     await page.setViewportSize({ width, height });
     const issues = await page.evaluate(() => {
       const failures = [];
+      // 画面は固定キャンバス(1200x500)を --fit 倍して出す。シーンは
+      // 「ビューポート全面」ではなく「キャンバス全面」であることを見る。
+      const stage = document.querySelector(".app").getBoundingClientRect();
+      const fit =
+        parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue("--fit"),
+        ) || 1;
       for (const selector of [".scenario-dialog", ".scenario-art"]) {
         const r = document.querySelector(selector).getBoundingClientRect();
         if (
-          Math.abs(r.x) > 1 ||
-          Math.abs(r.y) > 1 ||
-          Math.abs(r.width - innerWidth) > 1 ||
-          Math.abs(r.height - innerHeight) > 1
+          Math.abs(r.x - stage.x) > 1 ||
+          Math.abs(r.y - stage.y) > 1 ||
+          Math.abs(r.width - stage.width) > 1 ||
+          Math.abs(r.height - stage.height) > 1
         )
-          failures.push(selector + " is not fullscreen");
+          failures.push(selector + " does not fill the canvas");
       }
       for (const selector of [
         ".scenario-message",
@@ -79,15 +86,15 @@ try {
         for (const el of document.querySelectorAll(selector)) {
           const r = el.getBoundingClientRect();
           if (
-            r.x < 0 ||
-            r.y < 0 ||
-            r.right > innerWidth + 1 ||
-            r.bottom > innerHeight + 1
+            r.left < stage.left - 1 ||
+            r.top < stage.top - 1 ||
+            r.right > stage.right + 1 ||
+            r.bottom > stage.bottom + 1
           )
-            failures.push(selector + " outside viewport");
+            failures.push(selector + " outside the canvas");
           if (
             el.tagName === "BUTTON" &&
-            (r.height < 44 ||
+            (r.height / fit < 44 ||
               !el.contains(
                 document.elementFromPoint(
                   r.x + r.width / 2,
@@ -103,7 +110,7 @@ try {
     assert.deepEqual(issues, [], `${width}x${height}`);
     await page.screenshot({ path: resolve(output, `scenario-${width}.png`) });
   }
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 851, height: 337 });
   assert.equal(await button("会話ログ").count(), 0);
   await button("シナリオメニュー").tap();
   await button("セリフを隠す").tap();

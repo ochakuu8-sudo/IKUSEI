@@ -1,12 +1,17 @@
 /* Fullscreen art with compact, unframed subtitles. */
 .dialog.scenario-dialog {
+  /* シーンもキャンバスの内側。ステージ座標で組み、同じ --fit で拡大する。 */
   position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100dvh;
+  left: 50%;
+  top: 50%;
+  width: var(--stage-w);
+  height: var(--stage-h);
   max-width: none;
   max-height: none;
   margin: 0;
+  transform: translate(-50%, -50%)
+    translate(var(--shift-x, 0px), var(--shift-y, 0px)) scale(var(--fit, 1));
+  transform-origin: center center;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -160,42 +165,15 @@
 .scenario-log b {
   display: block;
 }
-@media (max-width: 720px) and (min-height: 501px) {
-  .scenario-portrait {
-    top: 5%;
-    width: 145vw;
-    max-width: none;
-    height: 85%;
-  }
-  .scenario-message {
-    width: calc(100% - 24px);
-  }
-  .scenario-text {
-    font-size: 16px;
-  }
-  .scenario-controls {
-    gap: 2px;
-    flex-wrap: wrap;
-  }
-  .scenario-controls button {
-    padding: 6px;
-  }
-  .scenario-controls .scenario-forward {
-    min-width: 84px;
-  }
-  .scenario-log {
-    inset: max(16px, env(safe-area-inset-top)) 14px 12px;
-  }
+/* 固定キャンバス(1200x500)のシーンはステージ座標で組む。
+   端末のビューポートではなく 500px の縦が基準。 */
+.scenario-message {
+  bottom: 6px;
 }
-@media (max-height: 500px) {
-  .scenario-message {
-    bottom: max(4px, env(safe-area-inset-bottom));
-  }
-  .scenario-text {
-    font-size: 16px;
-    max-height: 20dvh;
-  }
-  .scenario-log {
-    inset: 8px max(24px, env(safe-area-inset-left)) 8px;
-  }
+.scenario-text {
+  font-size: 16px;
+  max-height: 104px;
+}
+.scenario-log {
+  inset: 8px 24px 8px;
 }

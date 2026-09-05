@@ -194,22 +194,47 @@ export function Quantity({
     </div>
   );
 }
-export function AxisPanel({ state }: { state: GameState }) {
+/** 三軸の表示。`<meter>` はブラウザ既定の描画に引きずられる（実機で緑になった）ので、
+    自前のバーで描く。値が下がるほど金が失われ、赤黒く濁る ── 数値ではなく
+    色で「何を失ったか」を出すのがこのジャンルの記号。
+    compact は立ち絵の足元に敷く版で、狭い列でも折り返さないよう軸名を出さない
+    （紋と名前の対応は自室・契約シート・結果画面が教える）。 */
+function axisTier(value: number) {
+  return value >= 76 ? "high" : value >= 51 ? "mid" : value >= 26 ? "low" : "ruin";
+}
+export function AxisPanel({
+  state,
+  compact = false,
+}: {
+  state: GameState;
+  compact?: boolean;
+}) {
   return (
-    <div className="axis-panel">
+    <div className={`axis-panel ${compact ? "axis-compact" : ""}`}>
       {axes.map((a) => (
-        <div key={a}>
+        <div key={a} data-tier={axisTier(state.axes[a])}>
           <span>
             <Mark name={a} />
-            {a}
+            {!compact && a}
           </span>
           <strong>{state.axes[a]}</strong>
-          <meter min={0} max={100} value={state.axes[a]} aria-label={a} />
+          <span
+            className="axis-bar"
+            role="img"
+            aria-label={`${a} ${state.axes[a]} / 100`}
+          >
+            <i style={{ width: `${state.axes[a]}%` }} />
+            {a === "品位" && state.dignityCap < 100 && (
+              <u style={{ left: `${state.dignityCap}%` }} />
+            )}
+          </span>
         </div>
       ))}
-      <small>
-        品位上限 <b>{state.dignityCap}</b> / 100
-      </small>
+      {!compact && (
+        <small>
+          品位上限 <b>{state.dignityCap}</b> / 100
+        </small>
+      )}
     </div>
   );
 }

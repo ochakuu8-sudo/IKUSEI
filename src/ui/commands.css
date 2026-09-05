@@ -119,21 +119,6 @@
 .character-status .axis-panel strong {
   color: #fff4d9;
 }
-.character-status meter {
-  accent-color: #e69bac;
-}
-.character-status meter::-webkit-meter-bar {
-  background: #241c30;
-  border: 0;
-  border-radius: 8px;
-}
-.character-status meter::-webkit-meter-optimum-value {
-  background: linear-gradient(90deg, #b66490, #f3cfa5);
-  border-radius: 8px;
-}
-.character-status meter::-moz-meter-bar {
-  background: #e5adc0;
-}
 /* Action-first game layout. Shared paper, type and illustration styles stay in styles.css. */
 .command-app {
   --nav: 208px;
@@ -161,8 +146,9 @@
 }
 .command-app .content-inner {
   max-width: 1200px;
-  padding: 18px 26px 80px;
-  margin: 12px auto;
+  /* ドックはすべて sticky なので、固定キャンバスでは下の逃げ余白は要らない。 */
+  padding: 16px 22px 16px;
+  margin: 10px auto;
   width: calc(100% - 32px);
   background: #fff9f1f5;
   border: 2px solid #f4dcc0;
@@ -191,23 +177,36 @@
 .action-sidebar {
   grid-column: 1;
   grid-row: 2;
+  min-height: 0;
   background: linear-gradient(160deg, #382737f5, #251e30eb);
   color: #fff5e9;
   padding: 16px 12px;
   margin: 10px 0 12px 10px;
   border: 1px solid #e0bc8970;
   border-radius: 18px;
-  overflow: auto;
+  /* 固定キャンバスなのでスクロールさせない。入り切るまで詰める。 */
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   box-shadow: 0 8px 24px #24122733;
 }
-.action-sidebar > .button {
+.rail-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.rail-top > .button {
+  padding: 8px 6px;
+  gap: 5px;
+  font-size: 13px;
+}
+.action-sidebar > .button,
+.rail-top > .button {
   background: transparent;
   color: inherit;
   border-color: #a2855055;
-  justify-content: flex-start;
+  justify-content: center;
 }
 .action-sidebar > p {
   color: #d6c2a2;
@@ -315,7 +314,7 @@
   gap: 8px;
 }
 .compact-commands .command-button {
-  min-height: 72px;
+  min-height: 54px;
   padding: 10px;
   gap: 10px;
   border-radius: 15px;
@@ -704,454 +703,196 @@
   grid-column: 1 / -1;
   grid-row: 3;
 }
-@media (max-width: 1050px) {
-  .command-app {
-    --nav: 0px;
-    --cmdbar: 64px;
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .action-sidebar {
-    display: none;
-  }
-  .command-bar {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
-    gap: 6px;
-    align-items: stretch;
-    padding: 6px 8px max(6px, env(safe-area-inset-bottom));
-    background: #241a28f2;
-    border-top: 1px solid #e0bc8955;
-  }
-  .command-app > .content {
-    grid-column: 1;
-  }
-  .command-app .home-stage {
-    gap: 22px;
-    grid-template-columns: minmax(0, 0.85fr) minmax(340px, 1.15fr);
-  }
-  .command-app.save-failed > .content,
-  .command-app > .save-error {
-    grid-column: 1;
-  }
-}
-@media (max-width: 720px) and (min-height: 501px) {
-  .command-heading {
-    padding: 14px 15px 10px;
-    margin-top: 4px;
-    border-radius: 16px;
-  }
-  .command-heading::before {
-    display: none;
-  }
-  .command-heading h1 {
-    font-size: 17px !important;
-  }
-  .command-emblem {
-    width: 32px;
-    height: 32px;
-    border-radius: 12px;
-  }
-  .command-emblem img {
-    width: 32px;
-    height: 32px;
-  }
-  .command-emblem > svg {
-    width: 23px;
-    height: 23px;
-  }
-  .command-button {
-    border-radius: 18px;
-    flex-wrap: wrap;
-    align-content: start;
-  }
-  .command-copy {
-    display: contents;
-  }
-  .command-copy b {
-    align-self: center;
-    flex: 1;
-    letter-spacing: 0;
-    white-space: nowrap;
-  }
-  .command-copy small {
-    width: 100%;
-    margin: 0;
-  }
-  .command-status {
-    margin: 0;
-    padding: 0 5px;
-  }
-  .home-character .character-scene {
-    height: clamp(150px, 27dvh, 250px);
-  }
-  .home-character .character-name {
-    bottom: 0;
-    left: 8%;
-    right: 8%;
-  }
-  .home-decisions .commands {
-    gap: 10px;
-  }
-  .command-app .content-inner {
-    width: calc(100% - 16px);
-    margin: 8px auto;
-  }
-  .command-app .screen-home .content-inner {
-    width: 100%;
-    margin: 0;
-  }
 
-  .command-app {
-    grid-template-rows: var(--hud) minmax(0, 1fr) var(--cmdbar);
-  }
-  .command-app.no-sidebar {
-    grid-template-rows: var(--hud) minmax(0, 1fr);
-  }
-  .command-app .content-inner {
-    padding: 14px 16px 82px;
-  }
-  .command-app .screen-home .content-inner {
-    padding: 12px 16px;
-  }
-  .command-app .home-stage {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    min-height: 0;
-  }
-  .home-character {
-    flex: none;
-  }
-  .character-scene {
-    flex: none;
-    height: clamp(130px, 24dvh, 205px);
-    min-height: 0;
-    border-radius: 28px 28px 0 0;
-  }
-  .character-scene .hero-art {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    object-position: center 25%;
-  }
-  .character-name {
-    font-size: 13px;
-    padding: 5px;
-  }
-  .character-status {
-    padding: 8px 12px;
-  }
-  .character-status .axis-panel {
-    gap: 4px 10px;
-  }
-  .character-status .axis-panel > div {
-    gap: 4px;
-  }
-  .character-status .axis-panel strong {
-    font-size: 18px;
-  }
-  .character-status .axis-panel span {
-    font-size: 13px;
-  }
-  .character-status .axis-panel > small {
-    margin-top: 0;
-  }
-  .home-decisions {
-    width: 100%;
-    gap: 10px;
-    padding: 0;
-  }
-  .command-heading .eyebrow {
-    display: none;
-  }
-  .command-heading h1 {
-    font-size: 23px;
-  }
-  .commands {
-    grid-template-columns: 1fr 1fr;
-    gap: 9px;
-  }
-  .command-button {
-    gap: 6px;
-    min-height: 104px;
-    padding: 10px;
-    align-items: flex-start;
-  }
-  .command-button > svg:first-child {
-    width: 19px;
-    height: 19px;
-    margin-top: 4px;
-  }
-  .command-copy b {
-    font-size: 14px;
-  }
-  .command-copy small {
-    font-size: 12px;
-    line-height: 1.5;
-    margin-top: 4px;
-  }
-  .command-status {
-    font-size: 12px;
-    margin-top: 3px;
-  }
-  .command-arrow {
-    display: none;
-  }
-  .home-utilities {
-    gap: 6px;
-  }
-  .home-utilities > button {
-    font-size: 12px;
-    gap: 4px;
-  }
-  .home-notice {
-    font-size: 12px;
-    padding: 6px 8px;
-  }
-  .first-hint {
-    font-size: 12px;
-  }
-  .order-workspace,
-  .brew-workspace.detail-open {
-    display: block;
-  }
-  .order-workspace.detail-open > .order-list,
-  .brew-workspace.detail-open > .recipe-list {
-    display: none;
-  }
-  .brew-sheet {
-    padding: 16px;
-  }
-  .command-app .recipe-option {
-    padding: 12px;
-    gap: 12px;
-  }
-  .command-app .recipe-option b {
-    font-size: 17px;
-  }
-  .source-option {
-    padding: 8px;
-    gap: 7px;
-  }
-  .source-option > span:nth-child(2) {
-    max-width: 85px;
-  }
-  .craft-action {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .command-app .receipt {
-    bottom: 8px;
-    flex-wrap: wrap;
-    gap: 5px;
-  }
-  .command-app .receipt > span {
-    flex-basis: 100%;
-  }
-}
-@media (max-width: 1050px) and (max-height: 500px) {
-  .command-app {
-    --cmdbar: 50px;
-  }
-}
-@media (max-height: 500px) {
-  .command-heading {
+
+
+
+/* 固定キャンバス(1200x500)では常に成立するので展開:(max-height: 500px) */
+.command-heading {
     padding: 5px 14px;
     border-radius: 13px;
   }
-  .command-heading::before,
+.command-heading::before,
   .speaker-name {
     display: none;
   }
-  .command-heading h1 {
+.command-heading h1 {
     font-size: 16px;
   }
-  .command-emblem {
+.command-emblem {
     width: 37px;
     height: 37px;
     border-radius: 12px;
   }
-  .command-emblem img {
+.command-emblem img {
     width: 37px;
     height: 37px;
   }
-  .command-emblem > svg {
+.command-emblem > svg {
     width: 23px;
     height: 23px;
   }
-  .command-button {
+.command-button {
     border-radius: 16px;
     align-items: center;
   }
-  .command-copy b {
+.command-copy b {
     font-size: 15px;
   }
-  .command-app .content-inner {
+.command-app .content-inner {
     margin: 8px auto;
   }
-  .command-app .screen-home .content-inner {
+.command-app .screen-home .content-inner {
     margin: 0;
   }
-
-  .command-app {
+.command-app {
     --hud: 54px;
   }
-  .command-app .screen-home .content-inner {
+.command-app .screen-home .content-inner {
     padding: 10px 18px;
   }
-  .command-app .home-stage {
+.command-app .home-stage {
     grid-template-columns: minmax(0, 0.7fr) minmax(370px, 1.3fr);
     gap: 18px;
     min-height: 0;
     height: 100%;
   }
-  .character-scene {
+.character-scene {
     min-height: 100px;
     border-radius: 24px 24px 0 0;
   }
-  .character-name {
+.character-name {
     font-size: 12px;
     padding: 4px;
   }
-  .character-status {
+.character-status {
     padding: 6px 8px;
   }
-  .character-status .axis-panel {
+.character-status .axis-panel {
     gap: 3px 8px;
   }
-  .character-status .axis-panel > div {
+.character-status .axis-panel > div {
     gap: 3px;
   }
-  .character-status .axis-panel {
+.character-status .axis-panel {
     grid-template-columns: 1fr;
   }
-  .character-status .axis-panel > div {
+.character-status .axis-panel > div {
     grid-template-columns: auto 1fr auto;
     align-items: center;
   }
-  .character-status .axis-panel span {
+.character-status .axis-panel span {
     white-space: nowrap;
   }
-  .character-status .axis-panel meter {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .character-status .axis-panel strong {
+.character-status .axis-panel strong {
     grid-column: 3;
   }
-  .character-status .axis-panel span {
+.character-status .axis-panel span {
     font-size: 12px;
   }
-  .character-status .axis-panel strong {
+.character-status .axis-panel strong {
     font-size: 17px;
   }
-  .character-status .axis-panel > small {
+.character-status .axis-panel > small {
     margin: 0;
   }
-  .home-decisions {
+.home-decisions {
     align-self: start;
     gap: 7px;
     padding: 0;
   }
-  .command-heading .eyebrow {
+.command-heading .eyebrow {
     display: none;
   }
-  .commands {
+.commands {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
-  .command-button {
+.command-button {
     min-height: 80px;
     padding: 8px;
     gap: 8px;
   }
-  .command-copy b {
+.command-copy b {
     font-size: 16px;
   }
-  .command-copy small {
+.command-copy small {
     font-size: 12px;
     line-height: 1.5;
   }
-  .command-status {
+.command-status {
     font-size: 12px;
   }
-  .command-button > svg:first-child {
+.command-button > svg:first-child {
     width: 20px;
     height: 20px;
   }
-  .command-arrow {
+.command-arrow {
     display: none;
   }
-  .first-hint {
+.first-hint {
     font-size: 12px;
   }
-  .home-decisions .first-hint,
+.home-decisions .first-hint,
   .home-notice {
     display: none;
   }
-  .commands .command-status:not(.urgent) {
+.commands .command-status:not(.urgent) {
     display: none;
   }
-  .home-notice span {
+.home-notice span {
     display: none;
   }
-  .home-utilities > button {
+.home-utilities > button {
     font-size: 12px;
   }
-  .command-app .content-inner {
+.command-app .content-inner {
     padding: 12px 20px 72px;
   }
-  .command-app .place-banner {
+.command-app .place-banner {
     height: 90px;
   }
-  .command-app .intro {
+.command-app .intro {
     display: block;
     font-size: 13px;
   }
-  .brew-workspace.detail-open {
+.brew-workspace.detail-open {
     grid-template-columns: minmax(180px, 0.65fr) minmax(0, 1.35fr);
     gap: 14px;
   }
-}
-@media (max-width: 380px) and (min-height: 501px) {
-  .command-button {
-    padding: 8px;
-  }
-  .command-button > svg:first-child {
-    display: none;
-  }
-}
+
+
 
 /* 横持ちは高さが足りない。見出し・説明・余白を削って、一覧を折り返しの上に出す。 */
-@media (max-height: 500px) {
-  .command-app {
+
+/* 固定キャンバス(1200x500)では常に成立するので展開:(max-height: 500px) */
+.command-app {
   }
-  .command-app .content-inner {
+.command-app .content-inner {
     margin: 6px auto;
     padding: 10px 16px 14px;
   }
-  /* 横持ちは見出しを1行に詰める。extra（まとめ納品など）は残す。 */
+/* 横持ちは見出しを1行に詰める。extra（まとめ納品など）は残す。 */
   .command-app .page-heading {
     margin: 0 0 6px;
     padding: 0;
     border: 0;
     min-height: 0;
   }
-  .command-app .page-heading > div {
+.command-app .page-heading > div {
     display: none;
   }
-  .command-app .content-inner {
+.command-app .content-inner {
     width: calc(100% - 16px);
   }
-  .command-app .content .intro {
+.command-app .content .intro {
     display: none;
   }
-  .command-app .tabs {
+.command-app .tabs {
     margin-bottom: 6px;
     padding-bottom: 0;
   }
-  .command-app .work-filters {
+.command-app .work-filters {
     margin-bottom: 6px;
   }
-}
+

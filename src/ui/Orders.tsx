@@ -454,8 +454,19 @@ export function Orders({
                 <div>
                   <h2>{detailTitle}</h2>
                   <small className="detail-date">
+                    {row && `${personOf(row.person).name} ／ `}
+                    {row?.job
+                      ? `${row.job.kind} ／ ${
+                          row.job.cadence === "repeat"
+                            ? "常設"
+                            : row.job.cadence === "once"
+                              ? "一度限り"
+                              : "各章1回"
+                        } ／ `
+                      : row?.offer
+                        ? "特別依頼 ／ "
+                        : ""}
                     {dateLabel(today)}
-                    {row && ` ／ ${personOf(row.person).name}`}
                   </small>
                 </div>
                 <Seal costs={row ? rowTerms(row).costs : []} />
@@ -504,17 +515,9 @@ export function Orders({
                 </>
               ) : row?.job ? (
                 <>
-                  <p>
-                    {personOf(row.person).name} ／ {row.job.kind} ／{" "}
-                    {row.job.cadence === "repeat"
-                      ? "常設"
-                      : row.job.cadence === "once"
-                        ? "一度限り"
-                        : "各章1回"}
-                  </p>
-                  <div className="stats">
+                  <div className="contract-terms">
                     <div>
-                      <small>受取額</small>
+                      <small>受取</small>
                       <b>{money(payWithRelation(row.job, s))}</b>
                     </div>
                     <div>
@@ -523,14 +526,14 @@ export function Orders({
                         {recipeOf(row.job.recipe!).name}×{row.job.count ?? 1}
                       </b>
                     </div>
+                    <Ledger
+                      state={s}
+                      costs={row.job.costs}
+                      stamina={row.job.stamina}
+                      cap={capDropOf(row.job)}
+                      detail
+                    />
                   </div>
-                  <Ledger
-                    state={s}
-                    costs={row.job.costs}
-                    stamina={row.job.stamina}
-                    cap={capDropOf(row.job)}
-                    detail
-                  />
                   {(() => {
                     const fat = fatigueDetail(row.job!.person, s);
                     return fat.count > 0 ? (

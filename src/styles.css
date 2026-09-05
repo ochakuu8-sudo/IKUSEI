@@ -1,5 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Serif+JP:wght@500;600;700&display=swap");
 :root {
+  --stage-w: 1200px;
+  --stage-h: 500px;
   font-family: "Noto Sans JP", sans-serif;
   color: #25212a;
   background: #eee6d8;
@@ -153,11 +155,67 @@ ol {
 meter {
   accent-color: var(--gold);
 }
+/* ==== 固定キャンバス ====
+   端末ごとに崩れるのをやめ、1200x500（2.4:1・横持ち基準）で組んで、
+   画面に合わせて丸ごと拡大縮小する。余った領域は左右または上下の余白になる。
+   これにより端末別のメディアクエリは不要になった（分岐は展開・削除済み）。 */
+.viewport {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 100% at 50% 0%, #1c1420, #120d16 60%, #0b070e);
+}
 .app {
-  height: 100dvh;
+  width: var(--stage-w);
+  height: var(--stage-h);
+  flex: none;
+  /* キャンバスは画面より大きいことがある。グリッドやautoマージンの中央寄せは
+     はみ出すと開始辺に寄せられてしまうので、自前で中央に置く。 */
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%)
+    translate(var(--shift-x, 0px), var(--shift-y, 0px)) scale(var(--fit, 1));
+  transform-origin: center center;
   display: grid;
   grid-template-columns: var(--nav) minmax(0, 1fr);
   grid-template-rows: var(--hud) minmax(0, 1fr);
+  box-shadow: 0 0 0 1px #e0bc8933, 0 24px 80px #00000080;
+}
+/* 縦持ちは中身が極端に小さくなるので、回転を促す。 */
+.rotate-hint {
+  display: none;
+}
+@media (orientation: portrait) {
+  .rotate-hint {
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    display: grid;
+    place-items: center;
+    gap: 14px;
+    text-align: center;
+    padding: 24px;
+    background: #0b070ef2;
+    color: #f3dcc0;
+  }
+  .rotate-hint svg {
+    width: 64px;
+    height: 64px;
+    fill: none;
+    stroke: #d9a05f;
+    stroke-width: 1.5;
+  }
+  .rotate-hint b {
+    font-family: var(--serif);
+    font-size: 20px;
+    display: block;
+    margin-bottom: 6px;
+  }
+  .rotate-hint small {
+    color: #c9b195;
+  }
 }
 .title-app {
   display: block;
@@ -1046,43 +1104,119 @@ meter {
 .home-ledger > .paper {
   padding: 24px;
 }
+/* ==== 三軸 ====
+   バーは自前で描く（<meter> はブラウザ既定に引きずられ、実機で緑になった）。
+   値が下がるほど金が失われ、赤黒く濁る。 */
 .axis-panel {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 12px;
   margin-top: 18px;
+  min-width: 0;
 }
 .axis-panel > div {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
 }
 .axis-panel span {
   font-family: var(--serif);
   font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.axis-panel .mark {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  flex-shrink: 0;
 }
 .axis-panel strong {
   font-family: Georgia, serif;
   font-size: 24px;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
-.axis-panel meter {
+.axis-bar {
   grid-column: 1/-1;
+  position: relative;
+  display: block;
   width: 100%;
-  height: 10px;
+  height: 8px;
+  border-radius: 4px;
+  background: #00000038;
+  overflow: hidden;
 }
-.axis-panel meter::-webkit-meter-bar {
-  background: #e4d9c7;
-  border: 0;
+.axis-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
 }
-.axis-panel meter::-webkit-meter-optimum-value {
-  background: #a28550;
+/* 品位の上限は戻らない。届かなくなった先を目盛りで残す(§1-4)。 */
+.axis-bar u {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: #ffffffcc;
+  transform: translateX(-1px);
+}
+.axis-panel > div[data-tier="high"] .axis-bar i {
+  background: linear-gradient(90deg, #c8a45e, #f0d79a);
+}
+.axis-panel > div[data-tier="mid"] .axis-bar i {
+  background: linear-gradient(90deg, #b08154, #d8ac7c);
+}
+.axis-panel > div[data-tier="low"] .axis-bar i {
+  background: linear-gradient(90deg, #8d4a55, #b76a72);
+}
+.axis-panel > div[data-tier="ruin"] .axis-bar i {
+  background: linear-gradient(90deg, #4d2029, #7d3540);
+}
+.axis-panel > div[data-tier="low"] strong,
+.axis-panel > div[data-tier="ruin"] strong {
+  color: #d8899a;
+}
+.axis-panel > div[data-tier="ruin"] .mark {
+  opacity: 0.55;
 }
 .axis-panel > small {
   grid-column: 1/-1;
   text-align: right;
   color: var(--muted);
   margin-top: 3px;
+}
+[data-motion="reduced"] .axis-bar i {
+  transition: none;
+}
+/* 立ち絵の足元に敷く版。狭い列でも折り返さない。 */
+.axis-compact {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  margin: 0;
+}
+.axis-compact > div {
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 0 8px;
+}
+.axis-compact .mark {
+  width: 13px;
+  height: 13px;
+}
+.axis-compact strong {
+  font-size: 15px;
+  min-width: 2.2em;
+  text-align: right;
+}
+.axis-compact .axis-bar {
+  grid-column: auto;
+  height: 6px;
 }
 .today-card {
   flex: 1;
@@ -1139,7 +1273,7 @@ meter {
   margin-top: 22px;
 }
 .title-screen {
-  height: 100dvh;
+  height: 100%;
   position: relative;
   isolation: isolate;
   overflow: auto;
@@ -1426,808 +1560,302 @@ meter {
 .ending-layout .paper {
   border-top: 4px solid var(--gold);
 }
-@media (min-width: 1600px) {
-  .home-portrait {
-    min-height: 680px;
-  }
-  .content-inner {
-    padding-top: 36px;
-  }
+
+
+/* ダイアログは showModal() で top layer に出るため .app の transform が効かない。
+   キャンバスと同じ --fit を自分にかけ、寸法もステージ座標(1200x500)で決める。
+   これで端末のビューポートではなくレターボックスの内側に収まる。 */
+.dialog {
+  max-height: calc(var(--stage-h) - 24px);
+  width: min(740px, calc(var(--stage-w) - 40px));
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  margin: 0;
+  transform: translate(-50%, -50%)
+    translate(var(--shift-x, 0px), var(--shift-y, 0px)) scale(var(--fit, 1));
+  transform-origin: center center;
 }
-@media (max-width: 1100px) {
-  :root {
-    --nav: 84px;
-  }
-  .hud {
-    gap: 18px;
-    padding: 10px 20px;
-  }
-  .hud-payment {
-    padding-left: 15px;
-  }
-  .hud-resource {
-    min-width: 90px;
-  }
-  .content-inner {
-    padding: 24px 24px 100px;
-  }
-  .home-layout {
-    gap: 20px;
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 1fr);
-  }
-  .home-portrait {
-    min-height: 540px;
-  }
-  .world-layout {
-    grid-template-columns: 1fr;
-  }
-  .world-map {
-    position: relative;
-    aspect-ratio: 1.8;
-  }
-  .destination-list {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-  .destination {
-    margin: 0;
-  }
-  .calendar {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-  .split {
-    gap: 20px;
-    grid-template-columns: minmax(210px, 0.8fr) minmax(260px, 1.2fr);
-  }
-  .paper {
-    padding: 20px;
-  }
-  .recipe-visual {
-    margin: -20px -20px 20px;
-  }
-  .home-ledger > .paper {
-    padding: 20px;
-  }
-  .hud-payment small {
-    display: none;
-  }
+.dialog > header {
+  padding: 6px 18px;
 }
-@media (max-width: 720px) and (min-height: 501px) {
-  :root {
-    --hud: 100px;
-    --nav: 0px;
-  }
-  .app {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: var(--hud) minmax(0, 1fr) 68px;
-  }
-  .hud {
-    grid-column: 1;
-    padding: 8px 14px;
-    gap: 12px;
-    display: grid;
-    grid-template-columns: 1fr 1.2fr 1fr 44px;
-    grid-template-rows: 46px 30px;
-  }
-  .hud-date {
-    padding: 0;
-    gap: 6px;
-  }
-  .hud-date svg {
-    display: none;
-  }
-  .hud-date b {
-    font-size: 21px;
-  }
-  .hud-date span {
-    flex-direction: row;
-    align-items: baseline;
-    gap: 5px;
-  }
-  .hud-date span > small {
-    font-size: 12px;
-  }
-  .hud-resource {
-    min-width: 0;
-    gap: 5px;
-  }
-  .hud-resource > svg {
-    width: 15px;
-  }
-  .hud-resource b {
-    font-size: 16px;
-    white-space: nowrap;
-  }
-  .hud-resource small {
-    font-size: 12px;
-  }
-  .hud-payment {
-    grid-row: 2;
-    grid-column: 1/-1;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    border: 0;
-    border-top: 1px solid var(--line);
-    padding: 6px 0 0;
-    margin: 0;
-    font-size: 12px;
-  }
-  .hud > .button {
-    grid-row: 1;
-    grid-column: 4;
-  }
-  .main-nav {
-    grid-row: 3;
-    grid-column: 1;
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    border: 0;
-    border-top: 1px solid var(--gold);
-    gap: 2px;
-    padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px));
-    min-height: 68px;
-  }
-  .main-nav > button {
-    min-height: 56px;
-    font-size: 12px;
-    gap: 4px;
-    padding: 4px 0;
-  }
-  .main-nav > button:last-child,
-  .nav-rose {
-    display: none;
-  }
-  .main-nav > button[aria-current="page"] {
-    box-shadow: inset 0 3px var(--gold);
-  }
-  .main-nav > button span {
-    white-space: nowrap;
-  }
-  .content {
-    grid-row: 2;
-    grid-column: 1;
-  }
-  .content-inner {
-    padding: 20px 16px 100px;
-  }
-  .page-heading {
-    margin-bottom: 18px;
-    padding-bottom: 14px;
-    gap: 8px;
-  }
-  .page-heading h1 {
-    font-size: 25px;
-  }
-  .page-heading .button {
-    font-size: 12px;
-    padding: 8px;
-  }
-  .eyebrow {
-    font-size: 12px;
-    letter-spacing: 0.12em;
-  }
-  .home-layout {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-  }
-  .home-portrait {
-    min-height: 0;
-    height: 340px;
-    border-radius: 60px 60px 4px 4px;
-    flex-shrink: 0;
-  }
-  .hero-art {
-    object-fit: contain;
-    height: 100%;
-    width: 100%;
-    object-position: center 15%;
-  }
-  .hero-name {
-    padding: 16px;
-  }
-  .hero-name h2 {
-    font-size: 19px;
-  }
-  .home-ledger {
-    gap: 16px;
-  }
-  .axis-panel {
-    margin-top: 14px;
-  }
-  .home-ledger > .paper {
-    padding: 20px;
-  }
-  .home-ledger h2 {
-    font-size: 20px;
-  }
-  .rest-card {
-    padding: 16px 12px;
-    gap: 10px;
-  }
-  .rest-card > svg {
-    display: none;
-  }
-  .rest-card small {
-    font-size: 12px;
-  }
-  .tabs {
-    gap: 3px;
-  }
-  .tabs button {
-    padding: 10px 11px;
-    min-width: 58px;
-    font-size: 13px;
-  }
-  .filters {
-    gap: 12px;
-  }
-  .filters label {
-    gap: 5px;
-    font-size: 12px;
-  }
-  .filters select {
-    font-size: 13px;
-    padding: 7px;
-  }
-  .order-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-  .order-card,
-  .special-card {
-    max-width: none;
-  }
-  .paper {
-    padding: 20px;
-  }
-  .split {
-    grid-template-columns: 1fr;
-  }
-  .action-bar {
-    padding: 12px;
-    gap: 8px;
-    bottom: 8px;
-  }
-  .action-bar strong {
-    font-size: 17px;
-  }
-  .action-bar strong span {
-    display: block;
-    margin-left: 0;
-    font-size: 12px;
-  }
-  .action-bar .button {
-    font-size: 13px;
-    padding: 10px 12px;
-  }
-  .recipe-detail {
-    display: none;
-  }
-  .brew-layout.show-detail > .recipe-list {
-    display: none;
-  }
-  .brew-layout.show-detail > .recipe-detail {
-    display: block;
-  }
-  .mobile-back {
-    display: inline-flex;
-    margin-bottom: 16px;
-  }
-  .recipe-visual {
-    margin: 0 0 18px;
-    height: 150px;
-    border-radius: 4px;
-  }
-  .quantity-line {
-    gap: 10px;
-  }
-  .quantity-line > .button {
-    margin: 0;
-    width: 100%;
-  }
-  .source-links {
-    margin-left: 0;
-  }
-  .material-need {
-    gap: 8px;
-  }
-  .material-need .item-art {
-    width: 42px;
-    height: 42px;
-  }
-  .material-need .quantity input {
-    width: 42px;
-  }
-  .material-need .quantity .button {
-    min-width: 44px;
-    padding: 4px;
-  }
-  .inventory-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-  .inventory-grid > .paper {
-    padding: 16px;
-  }
-  .inventory-grid h2 {
-    font-size: 18px;
-  }
-  .inventory-grid p {
-    font-size: 12px;
-  }
-  .world-map {
-    display: none;
-    aspect-ratio: 1;
-  }
-  .map-mode .world-map {
-    display: block;
-  }
-  .map-mode .destination-list {
-    display: none;
-  }
-  .world-layout {
-    display: block;
-  }
-  .destination-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .destination-art {
-    width: 80px;
-    height: 94px;
-  }
-  .map-pin {
-    font-size: 12px;
-    padding: 4px;
-  }
-  .map-pin svg {
-    display: none;
-  }
-  .place-banner {
-    height: 160px;
-  }
-  .place-banner p {
-    left: 10px;
-    bottom: 10px;
-    right: 10px;
-    padding: 8px 12px;
-    font-size: 12px;
-  }
-  .person-heading {
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  .person-heading > .button {
-    width: 100%;
-    margin: 0;
-  }
-  .person-heading .crest.large {
-    width: 60px;
-    height: 60px;
-  }
-  .person-tabs {
-    gap: 8px;
-  }
-  .person-tabs button {
-    padding: 8px 10px;
-    font-size: 12px;
-    gap: 8px;
-  }
-  .person-tabs .crest {
-    width: 28px;
-    height: 28px;
-  }
-  .calendar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .calendar-day {
-    min-height: 100px;
-  }
-  .dialog {
-    width: calc(100vw - 20px);
-    max-height: calc(100dvh - 20px);
-  }
-  .dialog > header {
-    padding: 10px 14px;
-  }
-  .dialog > header h2 {
-    font-size: 18px;
-  }
-  .dialog-body {
-    padding: 20px;
-  }
-  .dialog > footer {
-    padding: 10px 14px;
-    gap: 8px;
-  }
-  .dialog > footer > .button {
-    font-size: 13px;
-    padding: 10px;
-  }
-  .dialogue-scene {
-    height: 160px;
-    margin: -20px -20px 18px;
-  }
-  .speech {
-    font-size: 16px;
-    min-height: 160px;
-  }
-  .receipt {
-    bottom: 78px;
-    right: 8px;
-    left: 8px;
-    max-width: none;
-    gap: 7px;
-    padding-left: 10px;
-  }
-  .receipt > span {
-    flex: 1;
-    font-size: 12px;
-  }
-  .receipt .button {
-    font-size: 12px;
-  }
-  .title-screen {
-    display: block;
-    padding: 0 20px 26px;
-    height: 100dvh;
-  }
-  .title-background {
-    position: fixed;
-  }
-  .title-screen:before {
-    position: fixed;
-    background: linear-gradient(0deg, #30213bf5 35%, #30213b33 100%);
-  }
-  .title-portrait {
-    position: relative;
-    left: auto;
-    bottom: auto;
-    width: 100%;
-    height: 36dvh;
-    margin: 0 auto;
-    z-index: 0;
-    mask-image: linear-gradient(black 80%, transparent);
-  }
-  .title-portrait img {
-    object-position: center 15%;
-    object-fit: contain;
-  }
-  .title-copy {
-    padding: 0;
-    margin: -10px auto 0;
-    position: relative;
-    z-index: 1;
-  }
-  .title-rose {
-    display: none;
-  }
-  .title-copy .eyebrow {
-    font-size: 12px;
-    letter-spacing: 0.12em;
-  }
-  .title-copy h1 {
-    font-size: 40px;
-    line-height: 1.45;
-    margin: 12px 0;
-  }
-  .title-motto {
-    font-size: 14px;
-    margin: 8px 0;
-  }
-  .title-copy > p:not(.title-motto) {
-    font-size: 12px;
-    line-height: 1.7;
-    margin: 8px 0;
-  }
-  .title-actions {
-    margin: 18px auto;
-    gap: 9px;
-  }
-  .title-actions .button {
-    min-height: 44px;
-  }
-  .settlement-layout,
-  .ending-layout {
-    grid-template-columns: 1fr;
-  }
-  .settlement-art {
-    height: 150px;
-  }
-  .ending-hero {
-    height: 280px;
-  }
-  .settlement-layout .paper {
-    padding: 20px;
-  }
+.dialog > header h2 {
+  font-size: 18px;
 }
-@media (max-height: 500px) {
-  /* 横持ちの章末は、飾りの1枚より数字と確定ボタンを先に出す(GAME_DESIGN §9)。 */
+.dialog-body {
+  padding: 18px;
+}
+.dialog > footer {
+  padding: 6px 18px;
+}
+.dialogue-scene {
+  height: 130px;
+  margin: -18px -18px 16px;
+}
+.dialogue-hero {
+  width: 35%;
+}
+
+/* 固定キャンバス(1200x500)では常に成立するので展開:(max-height: 500px) */
+/* 横持ちの章末は、飾りの1枚より数字と確定ボタンを先に出す(GAME_DESIGN §9)。 */
   .settlement-layout {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
   }
-  .settlement-art {
+.settlement-art {
     display: none;
   }
-  .settlement-layout .paper {
+.settlement-layout .paper {
     padding: 12px 14px;
   }
-  .settlement-layout .stats {
+.settlement-layout .stats {
     gap: 4px 14px;
   }
-  .settlement-debt {
+.settlement-debt {
     margin: 8px 0 6px;
     padding: 6px 12px;
   }
-  .ending-layout {
+.ending-layout {
     grid-template-columns: minmax(0, 0.6fr) minmax(0, 1fr);
     gap: 14px;
   }
-  .ending-hero {
+.ending-hero {
     max-height: 100%;
   }
-  :root {
+:root {
     --hud: 58px;
     --nav: 80px;
   }
-  .hud {
+.hud {
     padding: 6px 14px;
     gap: 16px;
   }
-  .hud-date svg {
+.hud-date svg {
     display: none;
   }
-  .hud-date span {
+.hud-date span {
     flex-direction: row;
     align-items: center;
     gap: 8px;
   }
-  .hud-date b {
+.hud-date b {
     font-size: 20px;
   }
-  .hud-resource {
+.hud-resource {
     gap: 7px;
     min-width: 90px;
   }
-  .hud-resource > svg {
+.hud-resource > svg {
     width: 17px;
   }
-  .hud-resource b {
+.hud-resource b {
     font-size: 17px;
   }
-  .hud-resource span > small {
+.hud-resource span > small {
     font-size: 12px;
   }
-  .hud-payment {
+.hud-payment {
     font-size: 12px;
     padding-left: 12px;
     gap: 0;
   }
-  .hud-payment small {
+.hud-payment small {
     display: none;
   }
-  .main-nav {
+.main-nav {
     padding: 6px;
     gap: 2px;
     border-right-width: 2px;
   }
-  .main-nav > button {
+.main-nav > button {
     min-height: 44px;
     flex: 1;
     gap: 3px;
     padding: 4px 0;
     font-size: 12px;
   }
-  .main-nav > button > svg {
+.main-nav > button > svg {
     width: 18px;
     height: 18px;
   }
-  .main-nav > button:last-child,
+.main-nav > button:last-child,
   .nav-rose {
     display: none;
   }
-  .content-inner {
+.content-inner {
     padding: 18px 20px 92px;
   }
-  .page-heading {
+.page-heading {
     padding-bottom: 12px;
     margin-bottom: 18px;
   }
-  .page-heading h1 {
+.page-heading h1 {
     font-size: 25px;
   }
-  .home-layout {
+.home-layout {
     grid-template-columns: 0.85fr 1.15fr;
     gap: 18px;
   }
-  .home-portrait {
+.home-portrait {
     min-height: 360px;
     max-height: 500px;
     border-radius: 50px 50px 4px 4px;
   }
-  .home-ledger > .paper {
+.home-ledger > .paper {
     padding: 18px;
   }
-  .home-ledger h2 {
+.home-ledger h2 {
     font-size: 19px;
     margin-bottom: 10px;
   }
-  .home-ledger {
+.home-ledger {
     gap: 16px;
   }
-  .axis-panel {
+.axis-panel {
     gap: 8px;
   }
-  .axis-panel strong {
+.axis-panel strong {
     font-size: 21px;
   }
-  .order-grid {
+.order-grid {
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
     gap: 16px;
   }
-  .paper {
+.paper {
     padding: 18px;
   }
-  .stats {
+.stats {
     gap: 10px;
   }
-  .stats b {
+.stats b {
     font-size: 16px;
   }
-  .split {
+.split {
     grid-template-columns: 1fr;
   }
-  .brew-layout {
+.brew-layout {
     grid-template-columns: 0.8fr 1.2fr;
     gap: 16px;
   }
-  .recipe-option {
+.recipe-option {
     padding: 12px;
     gap: 10px;
     flex-wrap: wrap;
   }
-  .recipe-option .item-art {
+.recipe-option .item-art {
     width: 42px;
     height: 42px;
   }
-  .recipe-option .badge {
+.recipe-option .badge {
     display: none;
   }
-  .recipe-detail {
+.recipe-detail {
     padding: 18px;
   }
-  .recipe-visual {
+.recipe-visual {
     height: 110px;
     margin: -18px -18px 18px;
   }
-  .recipe-visual .item-art {
+.recipe-visual .item-art {
     width: 80px;
     height: 80px;
   }
-  .quantity-line {
+.quantity-line {
     gap: 8px;
   }
-  .quantity-line > .button {
+.quantity-line > .button {
     width: 100%;
     margin: 0;
   }
-  .source-links {
+.source-links {
     margin-left: 0;
   }
-  .action-bar {
+.action-bar {
     bottom: 8px;
     padding: 10px 14px;
   }
-  .action-bar strong {
+.action-bar strong {
     font-size: 17px;
   }
-  .action-bar .button {
+.action-bar .button {
     padding: 9px 14px;
   }
-  .dialog {
-    max-height: calc(100dvh - 16px);
-    width: min(740px, calc(100vw - 24px));
-  }
-  .dialog > header {
-    padding: 6px 18px;
-  }
-  .dialog > header h2 {
-    font-size: 18px;
-  }
-  .dialog-body {
-    padding: 18px;
-  }
-  .dialog > footer {
-    padding: 6px 18px;
-  }
-  .dialogue-scene {
-    height: 130px;
-    margin: -18px -18px 16px;
-  }
-  .dialogue-hero {
-    width: 35%;
-  }
-  .speech {
+.speech {
     min-height: 110px;
     font-size: 16px;
   }
-  .title-screen {
+.title-screen {
     padding: 15px 5vw;
   }
-  .title-copy {
+.title-copy {
     padding: 0 10px;
   }
-  .title-rose {
+.title-rose {
     display: none;
   }
-  .title-copy h1 {
+.title-copy h1 {
     font-size: 38px;
     margin: 8px 0;
     line-height: 1.3;
   }
-  .title-motto {
+.title-motto {
     font-size: 14px;
     margin: 8px 0;
   }
-  .title-copy > p:not(.title-motto) {
+.title-copy > p:not(.title-motto) {
     display: none;
   }
-  .title-actions {
+.title-actions {
     margin: 16px auto 10px;
     gap: 8px;
   }
-  .title-actions .button {
+.title-actions .button {
     min-height: 44px;
   }
-  .title-copy > small {
+.title-copy > small {
     font-size: 12px;
   }
-  .title-copy .eyebrow {
+.title-copy .eyebrow {
     font-size: 12px;
   }
-  .receipt {
+.receipt {
     bottom: 8px;
     right: 12px;
   }
-  .settlement-layout {
+.settlement-layout {
     grid-template-columns: 1fr;
   }
-  .settlement-art {
+.settlement-art {
     height: 120px;
   }
-  .ending-layout {
+.ending-layout {
     grid-template-columns: 0.8fr 1.2fr;
   }
-  .ending-hero {
+.ending-hero {
     max-height: 400px;
   }
-  .world-map {
+.world-map {
     aspect-ratio: 1.9;
   }
-  .destination-list {
+.destination-list {
     grid-template-columns: 1fr 1fr;
   }
-  .destination-art {
+.destination-art {
     width: 66px;
     height: 100px;
   }
-  .destination {
+.destination {
     gap: 10px;
     padding: 10px;
   }
-  .destination .card-top {
+.destination .card-top {
     flex-wrap: wrap;
     gap: 5px;
   }
-  .calendar {
+.calendar {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;
@@ -2240,50 +1868,35 @@ html[data-motion="reduced"] * {
   transition: none !important;
   scroll-behavior: auto !important;
 }
-@media (max-height: 500px) {
-  .page-heading .eyebrow {
+
+/* 固定キャンバス(1200x500)では常に成立するので展開:(max-height: 500px) */
+.page-heading .eyebrow {
     display: none;
   }
-  .page-heading {
+.page-heading {
     margin-bottom: 12px;
     padding-bottom: 8px;
   }
-  .tabs {
+.tabs {
     margin-bottom: 12px;
     padding-bottom: 4px;
   }
-  .intro {
+.intro {
     display: none;
   }
-  .screen-home .page-heading {
+.screen-home .page-heading {
     margin-bottom: 14px;
   }
-}
+
 .map-pin {
   min-width: 44px;
 }
-@media (max-width: 720px) and (min-height: 501px) {
-  .material-need .quantity input {
-    width: 44px;
-  }
-}
+
 
 .mobile-agenda {
   display: none;
 }
-@media (max-width: 720px) and (min-height: 501px) {
-  .mobile-agenda {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 16px;
-  }
-  .mobile-agenda .button {
-    font-size: 12px;
-    padding: 8px;
-  }
-}
+
 
 .axis-panel > div {
   column-gap: 6px;
@@ -2299,24 +1912,7 @@ html[data-motion="reduced"] * {
   fill: var(--gold);
   flex-shrink: 0;
 }
-.app {
-  padding-left: env(safe-area-inset-left, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
-  padding-top: env(safe-area-inset-top, 0px);
-}
-.title-app {
-  padding-top: 0;
-}
-@media (max-width: 720px) and (min-height: 501px) {
-  .app {
-    grid-template-rows: var(--hud) minmax(0, 1fr) calc(
-        68px + env(safe-area-inset-bottom, 0px)
-      );
-  }
-  .receipt {
-    bottom: calc(78px + env(safe-area-inset-bottom, 0px));
-  }
-}
+
 
 .app.save-failed {
   grid-template-rows: var(--hud) auto minmax(0, 1fr);
@@ -2345,25 +1941,4 @@ html[data-motion="reduced"] * {
   left: 0;
   right: 0;
 }
-@media (max-width: 720px) and (min-height: 501px) {
-  .app.save-failed {
-    grid-template-rows: var(--hud) auto minmax(0, 1fr) calc(
-        68px + env(safe-area-inset-bottom, 0px)
-      );
-  }
-  .app.save-failed > .content {
-    grid-row: 3;
-    grid-column: 1;
-  }
-  .app.save-failed > .main-nav {
-    grid-row: 4;
-    grid-column: 1;
-  }
-  .app > .save-error {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  .save-error .button {
-    margin: 6px 0 0;
-  }
-}
+
