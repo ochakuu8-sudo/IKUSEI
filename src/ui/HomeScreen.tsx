@@ -51,21 +51,27 @@ export function HomeScreen({
               : "今日は、何をしようかしら。"}
           </h1>
         </div>
-        {due.length > 0 && (
+        {(due.length > 0 ||
+          s.obligations.some(
+            (o) => o.outstanding > 0 && o.status !== "active",
+          )) && (
           <button className="home-notice" onClick={journal}>
-            本日の納品・支払 {due.length}件 <span>約束帳で確認 →</span>
+            {due.length
+              ? `本日の納品・支払 ${due.length}件`
+              : "前金の返還待ちがあります"}{" "}
+            <span>確認 →</span>
           </button>
         )}
+        <p className="browse-note">選ぶだけなら日数は進みません</p>
         <Actions s={s} ui={ui} choose={choose} />
         <Utilities
-          journal={journal}
+          brew={() => choose("brew")}
           inventory={inventory}
           settings={settings}
-          due={due.length}
         />
         {!ui.helpSeen && (
           <div className="first-hint">
-            <p>まずは「薬の依頼を見る」から、日々の稼ぎ口を探しましょう。</p>
+            <p>仕事を選び、必要ならその場で薬を準備できます。</p>
             <button
               aria-label="初回のヒントを閉じる"
               onClick={() => patch({ helpSeen: true })}

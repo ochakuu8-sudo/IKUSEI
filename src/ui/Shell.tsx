@@ -39,6 +39,11 @@ export function Shell({
   settings: () => void;
   place: string;
 }) {
+  const dueCount = s.obligations.filter(
+    (o) =>
+      (o.status === "active" && o.due <= absoluteDay(s)) ||
+      (o.status !== "active" && o.outstanding > 0),
+  ).length;
   const navigating = route !== "home" && !s.awaitingSettlement && !s.ended;
   return (
     <>
@@ -61,6 +66,11 @@ export function Shell({
           aria-label="日付から予定表を開く"
         >
           <CalendarDays />
+          {dueCount > 0 && (
+            <b className="date-alert" aria-label={`期限・精算 ${dueCount}件`}>
+              {dueCount}
+            </b>
+          )}
           <span>
             <small>第{s.chapter}章</small>
             <b>
@@ -121,7 +131,7 @@ export function Shell({
               }
             />
             <Utilities
-              journal={() => journal()}
+              brew={() => choose("brew")}
               inventory={inventory}
               settings={settings}
             />

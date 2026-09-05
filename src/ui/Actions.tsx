@@ -1,6 +1,5 @@
 import {
   ArrowRight,
-  BookOpen,
   FlaskConical,
   Map,
   Moon,
@@ -12,14 +11,21 @@ import { specialOffers } from "../content/support";
 import { itemSrc } from "../art";
 import { Art } from "./components";
 import { absoluteDay, offerReason } from "../contracts";
-import { recipes, type GameState } from "../game";
-import { brewCapacity, preparationNeeds, previewAction } from "../presentation";
+import {
+  isOpen,
+  jobs,
+  people,
+  personOpen,
+  personOf,
+  recipeOf,
+  type GameState,
+} from "../game";
+import { previewAction } from "../presentation";
 import type { UIState } from "../uiState";
-
 export type HomeAction = "orders" | "brew" | "map" | "rest";
 export const actionLabels = {
-  orders: "薬の依頼を見る",
-  brew: "調合する",
+  orders: "仕事をする",
+  brew: "調合",
   map: "出かける",
   rest: "休む",
 };
@@ -32,57 +38,69 @@ export function Actions({
 }: {
   s: GameState;
   ui: UIState;
-  choose: (action: HomeAction) => void;
+  choose: (a: HomeAction) => void;
   active?: HomeAction;
   compact?: boolean;
 }) {
-  const due = s.obligations.filter(
+  const due = s.obligations.find(
     (o) =>
       o.status === "active" &&
       o.terms.kind === "advance" &&
       o.due === absoluteDay(s),
-  ).length;
-  const offers = specialOffers.filter((o) => !offerReason(s, o)).length;
-  const possible = recipes.filter((r) => brewCapacity(s, r.id) > 0).length;
-  const preparing =
-    Object.keys(preparationNeeds(s, ui.selection, ui.memo)).length > 0;
-  const fresh = s.newPeople.length + s.newPlaces.length + s.newEvents.length;
+  );
+  const offer = specialOffers.find((o) => !offerReason(s, o));
+  const sale = jobs.find(
+    (j) =>
+      j.category === "ordinary" &&
+      isOpen(j, s) &&
+      !previewAction(s, { type: "deliver", ordinary: [j.id], promises: [] })
+        .error,
+  );
+  const prepare = jobs.find((j) => j.category === "ordinary" && isOpen(j, s));
+  const person =
+    people.find((p) => s.newPeople.includes(p.id) && personOpen(p, s)) ??
+    people.find(
+      (p) =>
+        personOpen(p, s) &&
+        jobs.some(
+          (j) => j.person === p.id && j.category === "personal" && isOpen(j, s),
+        ),
+    );
   const rest = previewAction(s, { type: "rest" });
+  const invitation = due
+    ? `${personOf(due.terms.person).name}へ本日納品`
+    : sale
+      ? `${recipeOf(sale.recipe!).name}${sale.count ?? 1}個で${previewAction(s, { type: "deliver", ordinary: [sale.id], promises: [] }).money}G`
+      : offer
+        ? `${personOf(offer.person).name}から特別依頼`
+        : prepare
+          ? `${recipeOf(prepare.recipe!).name}をあと${Math.max(0, (prepare.count ?? 1) - (s.stock[prepare.recipe!] ?? 0))}個準備`
+          : "人物からの依頼を探す";
   const items = [
     {
       id: "orders" as const,
       icon: ScrollText,
-      note: "薬の納品・特別な注文",
-      status: due ? `本日納品 ${due}件` : offers ? `受付中 ${offers}件` : "",
-      urgent: due > 0,
-    },
-    {
-      id: "brew" as const,
-      icon: FlaskConical,
-      note: "素材から薬をつくる",
-      status: possible
-        ? `調合可能 ${possible}種`
-        : preparing
-          ? "準備中の薬あり"
-          : "日数消費なし",
+      note: "薬の納品・人物の依頼",
+      status: invitation,
+      urgent: !!due,
     },
     {
       id: "map" as const,
       icon: Map,
-      note: "採集・買い物・交流",
-      status: fresh ? `新着 ${fresh}件` : "場所を見るだけなら0日",
+      note: "交流・採集・買い物",
+      status: person ? `${person.name}の依頼を見る` : "街で素材を探す",
     },
     {
       id: "rest" as const,
       icon: Moon,
-      note: `体力 ＋${rest.stamina}・品位 ＋${rest.axes.find((a) => a.axis === "品位")?.delta ?? 0}`,
-      status: "1日使って休養",
+      note: "1日休養",
+      status: `体力＋${rest.stamina}・品位＋${rest.axes.find((a) => a.axis === "品位")?.delta ?? 0}`,
     },
   ];
   return (
     <nav
       aria-label={compact ? "行動の切替" : "今日の行動"}
-      className={`commands ${compact ? "compact-commands" : ""}`}
+      className={`commands day-commands ${compact ? "compact-commands" : ""}`}
     >
       {items.map(({ id, icon: Icon, note, status, urgent }) => (
         <button
@@ -95,14 +113,16 @@ export function Actions({
           onClick={() => choose(id)}
         >
           <span className="command-emblem" aria-hidden="true">
-            {!compact && (id === "orders" || id === "brew") ? (
-              <Art src={itemSrc(id === "orders" ? "perfume" : "tisane")} />
+            {!compact && id === "orders" ? (
+              <Art src={itemSrc("perfume")} />
             ) : (
               <Icon />
             )}
           </span>
           <span className="command-copy">
-            <b>{actionLabels[id]}</b>
+            <b>
+              {actionLabels[id]} <em>{id === "rest" ? "1日" : "実行1日"}</em>
+            </b>
             {!compact && <small>{note}</small>}
             <span className={`command-status ${urgent ? "urgent" : ""}`}>
               {status}
@@ -115,30 +135,32 @@ export function Actions({
   );
 }
 export function Utilities({
-  journal,
+  brew,
   inventory,
   settings,
-  due = 0,
 }: {
-  journal: () => void;
+  brew: () => void;
   inventory: () => void;
   settings: () => void;
-  due?: number;
 }) {
   return (
-    <div className="home-utilities">
-      <button type="button" aria-label="約束帳" onClick={journal}>
-        <BookOpen size={17} />
-        約束帳{due > 0 && <b className="due-dot">{due}</b>}
+    <nav className="home-utilities" aria-label="準備と管理">
+      <button type="button" aria-label="調合" onClick={brew}>
+        <FlaskConical size={17} />
+        <span>
+          調合 <small>0日</small>
+        </span>
       </button>
       <button type="button" onClick={inventory}>
         <Package size={17} />
-        持ち物
+        <span>
+          持ち物 <small>0日</small>
+        </span>
       </button>
       <button type="button" onClick={settings}>
         <Settings size={17} />
-        記録・設定
+        設定
       </button>
-    </div>
+    </nav>
   );
 }

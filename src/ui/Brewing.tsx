@@ -1,5 +1,4 @@
 import { ArrowRight } from "lucide-react";
-import { useRef } from "react";
 import type { Action } from "../engine";
 import {
   materialOf,
@@ -17,6 +16,7 @@ import {
 import { brewCapacity, preparationNeeds, previewAction } from "../presentation";
 import type { UIState } from "../uiState";
 import { Badge, Button, Heading, Item, Quantity, Tabs } from "./components";
+import { ActionDock } from "./ActionDock";
 
 export function Brewing({
   s,
@@ -53,7 +53,6 @@ export function Brewing({
         ] as const,
     )
     .filter(([, n]) => n > 0);
-  const lock = useRef(false);
   const preview = previewAction(s, {
     type: "brew",
     recipe: r.id,
@@ -247,42 +246,19 @@ export function Brewing({
                     })}
                 </section>
               )}
-              {!shortages.length && (
-                <div className="craft-action">
-                  <div>
-                    <b>体力 −{r.stamina * ui.quantity}</b>
-                    <small>日数消費なし ／ 完成 {ui.quantity}個</small>
-                  </div>
-                  <Button
-                    primary
-                    disabled={!!preview.error}
-                    onClick={() => {
-                      if (lock.current) return;
-                      lock.current = true;
-                      confirm(
-                        { type: "brew", recipe: r.id, quantity: ui.quantity },
-                        `${r.name}を${ui.quantity}個調合しました`,
-                      );
-                      window.setTimeout(() => {
-                        lock.current = false;
-                      }, 350);
-                    }}
-                  >
-                    {r.name}を{ui.quantity}個調合する
-                  </Button>
-                </div>
-              )}
-              {!shortages.length && preview.error && (
-                <p className="error">
-                  体力が足りません。自室の「休む」で回復できます。
-                </p>
-              )}
               <details>
                 <summary>処方について</summary>
                 <p>{r.note}</p>
                 <p>{RECIPE_SOURCE[r.id]}</p>
               </details>
-              {ui.preparing && <Button onClick={back}>依頼の準備に戻る</Button>}
+              <ActionDock
+                state={s}
+                action={{ type: "brew", recipe: r.id, quantity: ui.quantity }}
+                back={back}
+                confirm={confirm}
+                title={r.name + "を" + ui.quantity + "個調合する"}
+                label={r.name + "を" + ui.quantity + "個調合する・0日"}
+              />
             </section>
           )}
         </div>

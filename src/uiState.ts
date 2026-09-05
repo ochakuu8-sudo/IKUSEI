@@ -18,6 +18,9 @@ export type UIState = {
   brewDetail: boolean;
   orderId: string | null;
   orderMulti: boolean;
+  personFilter: string | null;
+  workKind: string;
+  seenJobs: string[];
   placeMode: "menu" | "supply" | "people" | "person";
   person: string | null;
   preparing: boolean;
@@ -31,7 +34,7 @@ export type UIState = {
 export const freshUI = (): UIState => ({
   memo: [],
   selection: { ordinary: [], promises: [] },
-  orderTab: "normal",
+  orderTab: "all",
   filter: "all",
   sort: "name",
   recipe: "tisane",
@@ -39,6 +42,9 @@ export const freshUI = (): UIState => ({
   brewDetail: false,
   orderId: null,
   orderMulti: false,
+  personFilter: null,
+  workKind: "all",
+  seenJobs: [],
   placeMode: "menu",
   person: null,
   preparing: false,
@@ -77,7 +83,7 @@ export function parseUI(raw: string | null): UIState {
           .map((p: any) => ({ id: p.id, option: p.option }))
       : [];
     const tabs = {
-      orderTab: ["normal", "special", "batch"],
+      orderTab: ["all", "normal", "personal", "special", "batch"],
       filter: ["all", "ready", "need"],
       sort: ["name", "pay"],
       brewTab: ["recipes", "potions", "materials"],
@@ -95,11 +101,19 @@ export function parseUI(raw: string | null): UIState {
       )
         d.basket[id] = v.basket[id];
     d.brewDetail = v.brewDetail === true;
-    d.orderId = jobs.some(
-      (j) => j.id === v.orderId && j.category === "ordinary",
-    )
-      ? v.orderId
-      : null;
+    d.orderId =
+      typeof v.orderId === "string" && v.orderId.length <= 200
+        ? v.orderId
+        : null;
+    d.personFilter = typeof v.personFilter === "string" ? v.personFilter : null;
+    d.workKind = typeof v.workKind === "string" ? v.workKind : "all";
+    d.seenJobs = Array.isArray(v.seenJobs)
+      ? ([
+          ...new Set(
+            v.seenJobs.filter((id: unknown) => jobs.some((j) => j.id === id)),
+          ),
+        ] as string[])
+      : [];
     d.orderMulti = v.orderMulti === true;
     if (["menu", "supply", "people", "person"].includes(v.placeMode))
       d.placeMode = v.placeMode;

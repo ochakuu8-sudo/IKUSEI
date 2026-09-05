@@ -16,6 +16,7 @@ import {
   type GameState,
   type MaterialId,
   type PlaceId,
+  type PersonId,
   type RecipeId,
 } from "./game";
 import {
@@ -29,6 +30,8 @@ import {
   PREVIOUS_SAVE_KEY,
   SAVE_KEY,
 } from "./save";
+import { actionDays, actionLabel } from "./workflow";
+import { DeadlineWarning } from "./ui/ActionDock";
 import { Brewing } from "./ui/Brewing";
 import { Button, Modal, money, Preview, AxisPanel } from "./ui/components";
 import type { HomeAction } from "./ui/Actions";
@@ -44,7 +47,12 @@ import { TitleScreen } from "./ui/TitleScreen";
 import { Place, World } from "./ui/World";
 import { freshUI, parseUI, UI_KEY, type UIState } from "./uiState";
 
-type Receipt = { before: GameState; outcome: ActionOutcome; title: string };
+type Receipt = {
+  before: GameState;
+  outcome: ActionOutcome;
+  title: string;
+  returnTo: TrailEntry;
+};
 type TrailEntry = { route: Route; place: PlaceId; ui: Partial<UIState> };
 function loadGame() {
   try {
@@ -80,6 +88,7 @@ export default function App() {
   const [pending, setPending] = useState<{
       action: Action;
       title: string;
+      returnTo?: TrailEntry;
     } | null>(null),
     [receipt, setReceipt] = useState<Receipt | null>(null),
     [resultOpen, setResultOpen] = useState(false),
@@ -139,6 +148,10 @@ export default function App() {
       route,
       place,
       ui: {
+        filter: ui.filter,
+        sort: ui.sort,
+        personFilter: ui.personFilter,
+        workKind: ui.workKind,
         orderTab: ui.orderTab,
         orderId: ui.orderId,
         brewTab: ui.brewTab,
@@ -166,6 +179,21 @@ export default function App() {
     setRoute(next);
   }
   function back() {
+    if (route === "orders" && (ui.orderId || ui.orderTab === "batch")) {
+      patch({
+        orderId: null,
+        ...(ui.orderTab === "batch" ? { orderTab: "all" } : {}),
+      });
+      return;
+    }
+    if (route === "map" && ui.person) {
+      patch({ person: null });
+      return;
+    }
+    if (route === "brew" && ui.brewDetail) {
+      patch({ brewDetail: false });
+      return;
+    }
     const previous = trail.at(-1);
     if (!previous) {
       go("home");
@@ -190,10 +218,16 @@ export default function App() {
     go(action, {
       preparing: false,
       ...(action === "orders"
-        ? { orderTab: "normal", orderId: null }
+        ? {
+            orderTab: "all",
+            orderId: null,
+            personFilter: null,
+            workKind: "all",
+            filter: "all",
+          }
         : action === "brew"
           ? { brewTab: "recipes", brewDetail: false }
-          : {}),
+          : { person: null }),
     });
     setTrail([{ route: "home", place: "estate", ui: {} }]);
   }
@@ -236,9 +270,57 @@ export default function App() {
     setPlace(id);
     go(id === "estate" ? "home" : "place", { placeMode: mode, person: null });
   }
-  function ask(action: Action, title: string) {
+  function ask(action: Action, title: string, returnTo?: TrailEntry) {
     setError("");
-    setPending({ action, title });
+    setPending({ action, title, returnTo });
+  }
+  function arrive(target: TrailEntry, state: GameState) {
+    const destination = state.ended
+      ? "ending"
+      : state.awaitingSettlement && target.route !== "journal"
+        ? "settlement"
+        : target.route;
+    setRoute(destination);
+    if (
+      destination === "home" ||
+      destination === "ending" ||
+      destination === "settlement"
+    )
+      setTrail([]);
+    else {
+      setPlace(target.place);
+      patch(target.ui);
+    }
+  }
+  function finishResult() {
+    setResultOpen(false);
+    if (receipt && gameRef.current) arrive(receipt.returnTo, gameRef.current);
+    setReceipt(null);
+  }
+  function viewPerson(id: PersonId | null) {
+    if (id && gameRef.current) {
+      const out = performAction(gameRef.current, {
+        type: "visit",
+        place: personOf(id).place,
+      });
+      if (out.error) {
+        setError(out.error);
+        return;
+      }
+      gameRef.current = out.state;
+      setGame(out.state);
+      writeSave(out.state);
+    }
+    patch({ person: id });
+  }
+  function personJobs(id: PersonId) {
+    go("orders", {
+      orderTab: "all",
+      orderId: null,
+      personFilter: id,
+      workKind: "all",
+      filter: "all",
+    });
   }
   function execute(request = pending) {
     if (!request || lock.current === request || !gameRef.current) return;
@@ -261,9 +343,29 @@ export default function App() {
         memo: ui.memo.filter((id) => !a.ordinary.includes(id)),
       });
     if (a.type === "buy") patch({ basket: {} });
-    const record = { before, outcome, title: request.title };
+    const days = outcome.result?.days ?? 0;
+    const returnTo =
+      request.returnTo ??
+      (days > 0 || a.type === "settle"
+        ? { route: "home" as const, place: "estate" as const, ui: {} }
+        : snapshot());
+    const record = { before, outcome, title: request.title, returnTo };
+    if (a.type === "accept" && route === "orders") {
+      const accepted = outcome.state.obligations.find(
+        (o) =>
+          o.offerId === a.offer &&
+          !before.obligations.some((old) => old.id === o.id),
+      );
+      if (accepted?.terms.kind === "advance")
+        returnTo.ui = {
+          ...returnTo.ui,
+          orderTab: "special",
+          orderId: `promise:${accepted.id}`,
+        };
+    }
     setReceipt(record);
     const important =
+      days > 0 ||
       a.type === "accept" ||
       a.type === "fulfill" ||
       (a.type === "deliver" && a.promises.length > 0) ||
@@ -288,46 +390,30 @@ export default function App() {
       });
       setResultOpen(true);
     } else setResultOpen(important);
-    if (outcome.state.ended) setRoute("ending");
-    else if (outcome.state.awaitingSettlement && route !== "journal")
-      setRoute("settlement");
-    else if (a.type === "settle" || a.type === "rest") {
-      setRoute("home");
-      setTrail([]);
-    }
+    if (!important && !outcome.scene) arrive(returnTo, outcome.state);
     // The committed confirmation object cannot execute twice, without delaying a new action.
   }
-  function prepare(id: RecipeId, n: number) {
-    go("brew", {
-      recipe: id,
-      quantity: Math.max(1, Math.min(99, n - (game?.stock[id] ?? 0))),
-      brewTab: "recipes",
-      brewDetail: true,
-      preparing: true,
-    });
-  }
   function source(id: PlaceId, material: MaterialId, n: number) {
-    const p = placeOf(id);
-    const shortages = game
-      ? preparationMaterials(game, ui.selection, ui.memo)
-      : {};
-    const recipe = recipeOf(ui.recipe);
-    const basket = { ...ui.basket };
-    for (const item of p.sells ?? [])
-      basket[item] = Math.max(
-        basket[item] ?? 0,
-        shortages[item] ?? 0,
+    const current = gameRef.current;
+    if (!current) return;
+    const p = placeOf(id),
+      r = recipeOf(ui.recipe);
+    const basket = Object.fromEntries(
+      (p.sells ?? []).map((item) => [
+        item,
         Math.max(
           0,
-          (recipe.needs[item] ?? 0) * ui.quantity -
-            (game?.materials[item] ?? 0),
+          (r.needs[item] ?? 0) * ui.quantity - current.materials[item],
         ),
-      );
-    patch({
-      basket: { ...basket, [material]: Math.max(basket[material] ?? 0, n) },
-      preparing: true,
-    });
-    visit(id, p.sells ? "supply" : "menu");
+      ]),
+    );
+    ask(
+      p.sells
+        ? { type: "buy", place: id, basket }
+        : { type: "gather", place: id },
+      `${p.short}で素材を入手する`,
+      snapshot(),
+    );
   }
   function start(mode: "new" | "demo") {
     const next = structuredClone(mode === "demo" ? midGameState : initialState);
@@ -346,34 +432,13 @@ export default function App() {
     event =
       route !== "title" && !scene && !resultOpen ? s?.eventQueue[0] : undefined;
   const pendingPreview = pending && s ? previewAction(s, pending.action) : null;
-  const willAdvance = !!(
-    s &&
-    pendingPreview &&
-    (pendingPreview.day > absoluteDay(s) || pendingPreview.settlement)
-  );
-  const missed =
-    s && willAdvance
-      ? s.obligations.filter(
-          (o) =>
-            o.status === "active" &&
-            o.due <= absoluteDay(s) &&
-            pendingPreview?.state.obligations.find((n) => n.id === o.id)
-              ?.status !== "fulfilled",
-        )
-      : [];
-  const closing =
-    s && willAdvance
-      ? specialOffers.filter(
-          (o) => o.schedule!.closes === absoluteDay(s) && !offerReason(s, o),
-        )
-      : [];
   const routeLabel =
     route === "place"
       ? `出かける › ${placeOf(place).short}${ui.placeMode === "supply" ? " › 素材を買う" : ui.placeMode === "people" ? " › 人物に会う" : ui.placeMode === "person" && ui.person ? ` › ${personOf(ui.person as Parameters<typeof personOf>[0]).name}` : ""}`
       : route === "brew"
         ? `調合する${ui.brewDetail ? ` › ${recipeOf(ui.recipe).name}` : ""}`
         : route === "orders"
-          ? "薬の依頼を見る"
+          ? "仕事をする"
           : route === "map"
             ? "出かける"
             : route === "inventory"
@@ -436,9 +501,20 @@ export default function App() {
                     ui={ui}
                     patch={patch}
                     confirm={ask}
-                    prepare={prepare}
+                    prepareAction={(action, title) => {
+                      if (
+                        jobs.some(
+                          (j) =>
+                            j.id === ui.orderId && j.category === "ordinary",
+                        )
+                      )
+                        patch({
+                          memo: [...new Set([...ui.memo, ui.orderId!])],
+                        });
+                      ask(action, title, snapshot());
+                    }}
+                    back={back}
                     journal={() => go("journal")}
-                    open={(changes) => go("orders", changes)}
                   />
                 )}
                 {(route === "brew" || route === "inventory") && (
@@ -446,10 +522,12 @@ export default function App() {
                     s={s}
                     ui={ui}
                     patch={patch}
-                    confirm={(action, title) => execute({ action, title })}
+                    confirm={ask}
                     source={source}
-                    back={() => resume("orders")}
-                    open={(changes) => go("brew", changes)}
+                    back={back}
+                    open={(changes) =>
+                      route === "brew" ? patch(changes) : go("brew", changes)
+                    }
                     inventory={route === "inventory"}
                     deliver={() =>
                       go("orders", {
@@ -462,7 +540,17 @@ export default function App() {
                     }
                   />
                 )}
-                {route === "map" && <World s={s} visit={visit} />}
+                {route === "map" && (
+                  <World
+                    s={s}
+                    ui={ui}
+                    confirm={ask}
+                    shop={(id) => visit(id, "supply")}
+                    viewPerson={viewPerson}
+                    personJobs={personJobs}
+                    back={back}
+                  />
+                )}
                 {route === "place" && (
                   <Place
                     key={place}
@@ -470,10 +558,8 @@ export default function App() {
                     id={place}
                     ui={ui}
                     patch={patch}
-                    open={(changes) => go("place", changes)}
                     confirm={ask}
                     back={back}
-                    returnBrew={() => resume("brew", { brewDetail: true })}
                   />
                 )}
                 {route === "journal" && (
@@ -488,12 +574,12 @@ export default function App() {
                       initialTab={calendar ? "calendar" : "promises"}
                       s={s}
                       confirm={ask}
-                      prepare={(id, n, today) => {
-                        if (today) {
-                          patch({ orderTab: "batch" });
-                          go("orders");
-                        } else prepare(id, n);
-                      }}
+                      prepare={(id, n, today, promiseId) =>
+                        go("orders", {
+                          orderTab: "special",
+                          orderId: promiseId ? `promise:${promiseId}` : null,
+                        })
+                      }
                     />
                   </>
                 )}
@@ -508,7 +594,6 @@ export default function App() {
             {receipt && !resultOpen && !scene && (
               <div className="receipt" role="status">
                 <span>✓ {receipt.title}</span>
-                <Button onClick={() => go("home")}>自室へ</Button>
                 <Button onClick={() => setResultOpen(true)}>結果の詳細</Button>
                 <Button
                   aria-label="結果通知を閉じる"
@@ -660,19 +745,19 @@ export default function App() {
             <li>
               <b>足りない薬は調合で</b>
               <p>
-                準備メモや納品の選択を残したまま、処方を確認。調合は体力を使い、日数は進みません。
+                仕事の詳細で不足する薬・素材を確認し、その場で調合できます。調合は体力を使いますが0日です。
               </p>
             </li>
             <li>
               <b>素材の入手先を調べる</b>
               <p>
-                不足素材から地図や商会へ。見るだけは0日、採集・仕入れは1日です。
+                依頼の詳細から「買う」「採る」を選ぶと、そのまま内容を確認できます。実行は1日、終わったら同じ依頼へ戻ります。
               </p>
             </li>
             <li>
               <b>指定日の約束を守る</b>
               <p>
-                特別依頼は期間内に前金で受諾し、指定日当日に納品。予定表で返済と一緒に管理できます。
+                特別依頼は期間内に前金で受諾し、指定日当日に納品。画面上の日付から約束と返済予定を確認できます。
               </p>
             </li>
           </ol>
@@ -686,52 +771,33 @@ export default function App() {
             setError("");
           }}
           footer={
-            <>
-              <Button
-                onClick={() => {
-                  setPending(null);
-                  setError("");
-                }}
-              >
-                戻る
-              </Button>
-              <Button
-                primary
-                disabled={!!pendingPreview?.error}
-                onClick={() => execute()}
-              >
-                {pending.action.type === "rest"
-                  ? "1日休む"
-                  : pending.action.type === "buy"
-                    ? "購入する・1日"
-                    : pending.action.type === "gather"
-                      ? "採集する・1日"
-                      : pending.action.type === "deliver"
-                        ? "納品する・1日"
-                        : "この内容で実行"}
-              </Button>
-            </>
+            <div className="confirmation-dock">
+              <DeadlineWarning state={s} action={pending.action} />
+              <div className="dock-buttons">
+                <Button
+                  onClick={() => {
+                    setPending(null);
+                    setError("");
+                  }}
+                >
+                  戻る
+                </Button>
+                <Button
+                  primary
+                  disabled={!!pendingPreview?.error}
+                  onClick={() => execute()}
+                >
+                  {actionLabel(s, pending.action)}
+                </Button>
+              </div>
+            </div>
           }
         >
           <Preview state={s} action={pending.action} />
-          {(missed.length > 0 || closing.length > 0) && (
-            <div className="deadline-warning" role="alert">
-              <b>この行動で本日の用事を残したまま日が進みます</b>
-              {missed.map((o) => (
-                <p key={o.id}>{o.terms.title}：本日が納品・支払期限です。</p>
-              ))}
-              {closing.map((o) => (
-                <p key={o.id}>{o.title}：本日で受付が終了します。</p>
-              ))}
-              <Button
-                onClick={() => {
-                  setPending(null);
-                  journal();
-                }}
-              >
-                約束・予定を確認する
-              </Button>
-            </div>
+          {pending.returnTo && (
+            <p className="muted">
+              完了後はこの準備の続きを開きます。章末・結末がある場合は先に進みます。
+            </p>
           )}
           {pending.action.type === "accept" && (
             <OfferDetails
@@ -765,21 +831,11 @@ export default function App() {
       {resultOpen && receipt && !scene && (
         <Modal
           title={receipt.title}
-          onClose={() => setResultOpen(false)}
+          onClose={finishResult}
           footer={
-            <>
-              <Button
-                onClick={() => {
-                  setResultOpen(false);
-                  go("home");
-                }}
-              >
-                自室へ
-              </Button>
-              <Button primary onClick={() => setResultOpen(false)}>
-                続ける
-              </Button>
-            </>
+            <Button primary onClick={finishResult}>
+              確認
+            </Button>
           }
         >
           <ResultDetails before={receipt.before} outcome={receipt.outcome} />

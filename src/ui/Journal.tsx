@@ -16,7 +16,12 @@ export function Journal({
   s: GameState;
   initialTab?: string;
   confirm: (a: Action, title: string) => void;
-  prepare: (id: RecipeId, n: number, today: boolean) => void;
+  prepare: (
+    id: RecipeId,
+    n: number,
+    today: boolean,
+    promiseId?: string,
+  ) => void;
 }) {
   const [filter, setFilter] = useState("active"),
     [selected, setSelected] = useState(""),
@@ -204,7 +209,12 @@ export function Journal({
                       onClick={() => {
                         const option = o.terms.options[0];
                         if (option)
-                          prepare(option.recipe, option.count, o.due === today);
+                          prepare(
+                            option.recipe,
+                            option.count,
+                            o.due === today,
+                            o.id,
+                          );
                       }}
                     >
                       {o.due === today ? "まとめ納品へ" : "薬を準備する"}

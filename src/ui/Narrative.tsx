@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { heroSrc, placeSrc } from "../art";
 import type { ActionOutcome } from "../engine";
 import {
@@ -105,6 +105,15 @@ export function Dialogue({
   const [chars, setChars] = useState(0);
   const [log, setLog] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const gesture = useRef<{
+    x: number;
+    y: number;
+    moved: boolean;
+    opened: boolean;
+  } | null>(null);
+  const hold = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(hold.current), []);
   const current = lines[line];
   const full = chars >= current.text.length;
   useEffect(() => {
@@ -123,18 +132,77 @@ export function Dialogue({
       setLine(line + 1);
     } else onDone();
   };
-  const nextLabel = !full
-    ? "全文を表示"
-    : line + 1 < lines.length
-      ? "次へ"
-      : "読み終える";
+  const tap = () => {
+    if (hidden) {
+      setHidden(false);
+      return;
+    }
+    if (log || menu) {
+      setLog(false);
+      setMenu(false);
+      return;
+    }
+    next();
+  };
+  const press = (e: React.PointerEvent<HTMLButtonElement>) => {
+    clearTimeout(hold.current);
+    gesture.current = {
+      x: e.clientX,
+      y: e.clientY,
+      moved: false,
+      opened: false,
+    };
+    hold.current = setTimeout(() => {
+      if (gesture.current && !gesture.current.moved) {
+        gesture.current.opened = true;
+        setHidden(false);
+        setMenu(true);
+      }
+    }, 450);
+  };
+  const move = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const g = gesture.current;
+    if (!g) return;
+    if (Math.hypot(e.clientX - g.x, e.clientY - g.y) > 12) {
+      g.moved = true;
+      clearTimeout(hold.current);
+    }
+  };
+  const release = (e: React.PointerEvent<HTMLButtonElement>) => {
+    clearTimeout(hold.current);
+    const g = gesture.current;
+    gesture.current = null;
+    if (!g) return;
+    if (g.opened) return;
+    if (e.clientY - g.y < -40) {
+      setHidden(false);
+      setMenu(true);
+      return;
+    }
+    if (!g.moved && Math.hypot(e.clientX - g.x, e.clientY - g.y) < 12) tap();
+  };
+  const pointer = {
+    onPointerDown: press,
+    onPointerMove: move,
+    onPointerUp: release,
+    onPointerCancel: () => {
+      clearTimeout(hold.current);
+      gesture.current = null;
+    },
+    onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
+      if (e.detail === 0) tap();
+    },
+  };
   return (
     <Modal
       title={title}
       variant="scenario"
       onClose={() => {
         if (log) setLog(false);
-        else setHidden((value) => !value);
+        else {
+          setHidden(false);
+          setMenu((v) => !v);
+        }
       }}
     >
       <div className="scenario-art" aria-label="シナリオ画像">
@@ -147,12 +215,30 @@ export function Dialogue({
           <Art src={heroSrc} className="scenario-portrait" alt="エレオノール" />
         )}
       </div>
-      {hidden ? (
-        <button className="scenario-restore" onClick={() => setHidden(false)}>
-          セリフを表示
-        </button>
-      ) : (
+      <button
+        className="scenario-tap-target"
+        aria-label={
+          hidden
+            ? "セリフを表示"
+            : menu || log
+              ? "本文に戻る"
+              : "画面をタップして次へ"
+        }
+        {...pointer}
+      />
+      {!hidden && (
         <>
+          <button
+            className="scenario-menu-toggle"
+            aria-label="シナリオメニュー"
+            aria-expanded={menu}
+            onClick={() => {
+              setLog(false);
+              setMenu((v) => !v);
+            }}
+          >
+            ⋯
+          </button>
           {log ? (
             <section className="scenario-log" aria-label="会話ログ">
               <header>
@@ -168,6 +254,29 @@ export function Dialogue({
                 ))}
               </div>
             </section>
+          ) : menu ? (
+            <nav
+              className="scenario-controls scenario-menu"
+              aria-label="シナリオ操作"
+            >
+              <button
+                onClick={() => {
+                  setMenu(false);
+                  setLog(true);
+                }}
+              >
+                会話ログ
+              </button>
+              <button
+                onClick={() => {
+                  setMenu(false);
+                  setHidden(true);
+                }}
+              >
+                セリフを隠す
+              </button>
+              <button onClick={() => setMenu(false)}>本文に戻る</button>
+            </nav>
           ) : (
             <section className="scenario-message" aria-label="セリフ">
               {current.speaker && (
@@ -175,8 +284,8 @@ export function Dialogue({
               )}
               <button
                 className="scenario-text"
-                onClick={next}
                 aria-label={current.text}
+                {...pointer}
               >
                 <span>{current.text.slice(0, chars)}</span>
                 {full && (
@@ -185,16 +294,6 @@ export function Dialogue({
                   </span>
                 )}
               </button>
-              <nav className="scenario-controls" aria-label="シナリオ操作">
-                <button onClick={() => setLog(true)}>会話ログ</button>
-                <button onClick={() => setHidden(true)}>セリフを隠す</button>
-                <span className="scenario-position">
-                  {line + 1} / {lines.length}
-                </span>
-                <button className="scenario-forward" onClick={next}>
-                  {nextLabel} <span aria-hidden="true">▸</span>
-                </button>
-              </nav>
             </section>
           )}
         </>

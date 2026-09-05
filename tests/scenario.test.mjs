@@ -23,14 +23,15 @@ try {
   await button("出かける").click();
   assert.equal(
     await page
-      .locator(".destination")
+      .locator(".outing-target")
       .filter({ hasText: "ラティエ邸" })
       .count(),
     0,
   );
-  await button("地図表示").click();
+  assert.equal(await button("地図表示").count(), 0);
+  assert((await page.locator(".outing-target").count()) > 0);
   assert.equal(
-    await page.locator(".map-pin").filter({ hasText: "屋敷" }).count(),
+    await page.locator(".outing-target").filter({ hasText: "屋敷" }).count(),
     0,
   );
   await page.evaluate((key) => {
@@ -49,7 +50,7 @@ try {
     ];
     localStorage.setItem(key, JSON.stringify(state));
     const ui = JSON.parse(localStorage.getItem("ikusei-ui-v1"));
-    ui.speed = 80;
+    ui.speed = 50;
     localStorage.setItem("ikusei-ui-v1", JSON.stringify(ui));
   }, saveKey);
   await page.reload();
@@ -83,7 +84,7 @@ try {
       for (const selector of [
         ".scenario-message",
         ".scenario-text",
-        ".scenario-controls button",
+        ".scenario-menu-toggle",
       ]) {
         for (const el of document.querySelectorAll(selector)) {
           const r = el.getBoundingClientRect();
@@ -113,10 +114,15 @@ try {
     await page.screenshot({ path: resolve(output, `scenario-${width}.png`) });
   }
   await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await button("会話ログ").count(), 0);
+  await button("シナリオメニュー").tap();
   await button("セリフを隠す").tap();
   assert.equal(await page.locator(".scenario-message").count(), 0);
-  await page.keyboard.press("Escape");
+  const advance = () =>
+    page.locator(".scenario-tap-target").tap({ position: { x: 40, y: 120 } });
+  await advance();
   assert(await page.locator(".scenario-message").isVisible());
+  await button("シナリオメニュー").tap();
   await button("会話ログ").tap();
   assert(await page.locator(".scenario-log").isVisible());
   await page.keyboard.press("Escape");
@@ -128,12 +134,30 @@ try {
     ),
     before,
   );
-  await page.locator(".scenario-text").tap();
-  if (await button("次へ").count()) await button("次へ").tap();
-  await page.locator(".scenario-text").tap();
+  // Long press and upward swipe open controls without advancing the line.
+  const original = await page
+    .locator(".scenario-text")
+    .getAttribute("aria-label");
+  await page.mouse.move(80, 220);
+  await page.mouse.down();
+  await page.waitForTimeout(500);
+  await page.mouse.up();
+  assert(await page.locator(".scenario-menu").isVisible());
+  await advance();
+  assert.equal(
+    await page.locator(".scenario-text").getAttribute("aria-label"),
+    original,
+  );
+  await page.mouse.move(80, 280);
+  await page.mouse.down();
+  await page.mouse.move(80, 180, { steps: 5 });
+  await page.mouse.up();
+  assert(await page.locator(".scenario-menu").isVisible());
+  await advance();
+  await advance();
+  await advance();
   await page.screenshot({ path: resolve(output, "scenario-long-text.png") });
-  const forward = page.locator(".scenario-forward");
-  assert(await forward.isVisible());
+  assert(await page.locator(".scenario-text").isVisible());
   await page.reload();
   await button("続きから").click();
   await page.locator(".scenario-dialog").waitFor();
@@ -144,7 +168,12 @@ try {
     ),
     before,
   );
-  for (let i = 0; i < 8 && (await forward.count()); i++) await forward.tap();
+  for (
+    let i = 0;
+    i < 8 && (await page.locator(".scenario-dialog").count());
+    i++
+  )
+    await advance();
   assert.equal(await page.locator(".scenario-dialog").count(), 0);
   const done = await page.evaluate(
     (key) => JSON.parse(localStorage.getItem(key)),

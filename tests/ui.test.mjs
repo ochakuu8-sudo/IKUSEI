@@ -4,274 +4,326 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import * as G from "@game/game";
 import { performAction } from "@game/engine";
-const pw = createRequire(resolve("package.json"))("playwright");
+import { legacyOffers } from "@game/content/support";
+const { chromium } = createRequire(resolve("package.json"))("playwright");
 const url = process.env.IKUSEI_TEST_URL ?? "http://127.0.0.1:5173/IKUSEI/";
-const out = resolve("../command-validation");
+const out = resolve("../workday-validation");
 mkdirSync(out, { recursive: true });
-const errors = [],
+const key = "ikusei-prototype-save-v9",
+  errors = [],
   checks = [];
-const saveKey = "ikusei-prototype-save-v9";
-const engines = process.env.IKUSEI_BROWSERS?.split(",") ?? ["chromium"];
-const actionNames = ["薬の依頼を見る", "調合する", "出かける", "休む"];
-const read = (page) =>
-  page.evaluate((key) => JSON.parse(localStorage.getItem(key)), saveKey);
-const button = (page, name) => page.getByRole("button", { name, exact: true });
-const main = (page) => page.locator("#main-content");
-async function home(page) {
-  if (
-    await page
-      .getByRole("navigation", { name: "今日の行動", exact: true })
-      .count()
-  )
-    return;
-  await button(page, "自室へ").filter({ visible: true }).first().click();
-}
-async function action(page, name) {
-  await home(page);
-  await page
-    .getByRole("navigation", { name: "今日の行動", exact: true })
-    .getByRole("button", { name, exact: true })
-    .click();
-}
-async function seed(page, s) {
-  await page.evaluate(
-    ({ s, key }) => {
-      localStorage.clear();
-      localStorage.setItem(key, JSON.stringify(s));
-    },
-    { s, key: saveKey },
-  );
-  await page.reload();
-  await button(page, "続きから").click();
-}
-async function close(page) {
-  while (await page.locator("dialog[open]").count())
-    await page
-      .locator("dialog[open]")
-      .last()
-      .getByRole("button", { name: "閉じる", exact: true })
-      .click();
-}
-async function inspect(page, label, homeButtons = false) {
-  await page.evaluate(() => document.fonts.ready);
-  const issues = await page.evaluate(
-    ({ homeButtons }) => {
-      const problems = [];
-      if (document.documentElement.scrollWidth > innerWidth + 1)
-        problems.push("horizontal overflow");
-      const selectors = homeButtons
-        ? ".commands:not(.compact-commands) button"
-        : ".route-bar button";
-      for (const el of document.querySelectorAll(selectors)) {
-        const r = el.getBoundingClientRect();
-        if (!r.width || !r.height) continue;
-        if (
-          r.top < 0 ||
-          r.bottom > innerHeight + 1 ||
-          r.left < 0 ||
-          r.right > innerWidth + 1
-        )
-          problems.push("outside initial viewport: " + el.textContent);
-        const hit = document.elementFromPoint(
-          r.x + r.width / 2,
-          r.y + r.height / 2,
+const b = (p, name) => p.getByRole("button", { name, exact: true });
+const read = (p) => p.evaluate((k) => JSON.parse(localStorage.getItem(k)), key);
+const row = (p, title) => p.locator(".work-choice").filter({ hasText: title });
+async function finish(p) {
+  for (let i = 0; i < 80 && (await p.locator("dialog[open]").count()); i++) {
+    if (await p.locator(".scenario-dialog").count())
+      await p
+        .locator(".scenario-tap-target")
+        .tap({ position: { x: 30, y: 110 } });
+    else {
+      const dialog = p.locator("dialog[open]").last();
+      const ok = dialog.getByRole("button", { name: "確認", exact: true });
+      if (await ok.count()) await ok.click();
+      else
+        throw new Error(
+          "unexpected dialog " + (await dialog.getAttribute("aria-label")),
         );
-        if (!el.contains(hit))
-          problems.push("covered control: " + el.textContent);
-        if (r.height < 43 || r.width < 43)
-          problems.push("small control: " + el.textContent);
-      }
-      return problems;
-    },
-    { homeButtons },
-  );
-  assert.deepEqual(issues, [], label);
-  await page.screenshot({ path: resolve(out, label + ".png") });
-  checks.push(label);
-}
-for (const engine of engines) {
-  const browser = await pw[engine].launch();
-  try {
-    for (const [w, h] of [
-      [1280, 720],
-      [390, 844],
-    ]) {
-      const tag = engine + "-" + w;
-      const page = await browser.newPage({
-        viewport: { width: w, height: h },
-        hasTouch: w < 500,
-        reducedMotion: "reduce",
-      });
-      page.on("pageerror", (e) => errors.push(e.message));
-      await page.goto(url);
-      await button(page, "はじめから").click();
-      assert.equal(
-        await page.locator("dialog[open]").count(),
-        0,
-        "home is immediately available",
-      );
-      assert.deepEqual(
-        await page
-          .getByRole("navigation", { name: "今日の行動" })
-          .getByRole("button")
-          .evaluateAll((es) => es.map((e) => e.getAttribute("aria-label"))),
-        actionNames,
-      );
-      await inspect(page, tag + "-home", true);
-      const initial = await read(page);
-      await action(page, "調合する");
-      assert.equal(
-        await main(page).locator(".brew-sheet").count(),
-        0,
-        "choose a medicine first",
-      );
-      await main(page)
-        .getByRole("button", { name: /薬湯 所持/ })
-        .click();
-      await inspect(page, tag + "-recipe");
-      await button(page, "ひとつ戻る").click();
-      assert.equal(
-        await main(page).locator(".brew-sheet").count(),
-        0,
-        "back returns to recipe list",
-      );
-      await home(page);
-      await action(page, "出かける");
-      await main(page)
-        .getByRole("button", { name: /アルノー商会/ })
-        .click();
-      await inspect(page, tag + "-place");
-      await button(page, "人物に会う").click();
-      await main(page)
-        .getByRole("button", { name: /ヴェルネ/ })
-        .click();
-      assert(await button(page, "親交を深める").isVisible());
-      await button(page, "ひとつ戻る").click();
-      assert(await main(page).locator(".person-list").isVisible());
-      await button(page, "ひとつ戻る").click();
-      await button(page, "素材を買う").click();
-      assert.equal(
-        await main(page).locator(".person-heading").count(),
-        0,
-        "shop contains no unrelated people UI",
-      );
-      await home(page);
-      await action(page, "休む");
-      await button(page, "閉じる").click();
-      assert.deepEqual(
-        await read(page),
-        initial,
-        "browsing and cancelling consume no resources",
-      );
-      await action(page, "薬の依頼を見る");
-      await inspect(page, tag + "-orders");
-      await button(page, "この薬を準備する").click();
-      await main(page)
-        .getByRole("button", { name: /商会で仕入れ/ })
-        .click();
-      assert.equal(
-        await page
-          .getByRole("spinbutton", { name: "野薔薇の購入数", exact: true })
-          .inputValue(),
-        "4",
-      );
-      assert.equal(
-        await page
-          .getByRole("spinbutton", { name: "苦艾の購入数", exact: true })
-          .inputValue(),
-        "2",
-      );
-      await inspect(page, tag + "-buy");
-      await button(page, "購入内容を確認").click();
-      await button(page, "購入する・1日").click();
-      await close(page);
-      await button(page, "調合の準備に戻る").click();
-      await button(page, "薬湯を2個調合する").click();
-      assert.equal((await read(page)).stock.tisane, 2);
-      await button(page, "納品を確認する").click();
-      await button(page, "納品へ").click();
-      await button(page, "納品内容を確認").click();
-      await button(page, "納品する・1日").click();
-      await close(page);
-      const delivered = await read(page);
-      assert.equal(delivered.day, 3);
-      assert.equal(delivered.money, 374);
-      assert.equal(delivered.stamina, 38);
-      assert.equal(delivered.stock.tisane, 0);
-      const ui = await page.evaluate(() =>
-        JSON.parse(localStorage.getItem("ikusei-ui-v1")),
-      );
-      assert.equal(ui.selection.ordinary.length, 0);
-      await home(page);
-      await page.reload();
-      await button(page, "続きから").click();
-      assert.deepEqual(await read(page), delivered);
-      checks.push(tag + "-purchase-brew-delivery-reload");
-      // All four commands remain accessible on the existing short landscape sizes.
-      for (const [lw, lh] of [
-        [667, 375],
-        [800, 360],
-        [844, 390],
-        [932, 430],
-      ]) {
-        await page.setViewportSize({ width: lw, height: lh });
-        await inspect(page, tag + "-landscape-" + lw, true);
-      }
-      await page.setViewportSize({ width: w, height: h });
-      const rich = structuredClone(G.initialState);
-      rich.money = 3000;
-      rich.materials = Object.fromEntries(G.materialIds.map((id) => [id, 20]));
-      await seed(page, rich);
-      await action(page, "調合する");
-      await main(page)
-        .getByRole("button", { name: /薬湯 所持/ })
-        .click();
-      await button(page, "薬湯を1個調合する").dblclick();
-      assert.equal(
-        (await read(page)).stock.tisane,
-        1,
-        "double click crafts only once",
-      );
-      let due = structuredClone(G.initialState);
-      due.day = 2;
-      due = performAction(due, { type: "accept", offer: "special-a" }).state;
-      due.day = 8;
-      due.stock.tisane = 2;
-      await seed(page, due);
-      await page.setViewportSize({ width: 800, height: 360 });
-      await inspect(page, tag + "-due-home", true);
-      await page.setViewportSize({ width: w, height: h });
-      await action(page, "休む");
-      assert(
-        await page
-          .getByRole("alert")
-          .getByText(/本日の用事を残したまま/)
-          .isVisible(),
-      );
-      await button(page, "閉じる").click();
-      assert.equal((await read(page)).day, 8);
-      await action(page, "薬の依頼を見る");
-      await button(page, "指定日の依頼").click();
-      await button(page, "まとめ納品へ").click();
-      await button(page, "納品に選ぶ").click();
-      await button(page, "納品内容を確認").click();
-      await button(page, "納品する・1日").click();
-      await close(page);
-      assert.equal((await read(page)).obligations[0].status, "fulfilled");
-      checks.push(tag + "-double-click-and-fixed-day");
-      await page.close();
     }
-  } finally {
-    await browser.close();
   }
+  assert.equal(await p.locator("dialog[open]").count(), 0);
+}
+async function seed(p, s, keepUI = false) {
+  await p.evaluate(
+    ({ s, key, keepUI }) => {
+      localStorage.setItem(key, JSON.stringify(s));
+      if (!keepUI) localStorage.removeItem("ikusei-ui-v1");
+    },
+    { s, key, keepUI },
+  );
+  await p.reload();
+  await b(p, "続きから").click();
+}
+async function home(p) {
+  if (await p.locator(".commands:not(.compact-commands)").count()) return;
+  await b(p, "自室へ").filter({ visible: true }).first().click();
+}
+async function inspect(p, name, selector) {
+  const issues = await p.locator(selector).evaluateAll((es) =>
+    es
+      .filter(
+        (e) =>
+          e.getClientRects().length &&
+          getComputedStyle(e).visibility !== "hidden",
+      )
+      .flatMap((e) => {
+        const r = e.getBoundingClientRect(),
+          hit = document.elementFromPoint(
+            r.x + r.width / 2,
+            r.y + r.height / 2,
+          );
+        return r.x < 0 ||
+          r.y < 0 ||
+          r.right > innerWidth + 1 ||
+          r.bottom > innerHeight + 1 ||
+          r.height < 43 ||
+          !e.contains(hit)
+          ? [
+              e.textContent +
+                ": " +
+                JSON.stringify({
+                  x: r.x,
+                  y: r.y,
+                  width: r.width,
+                  height: r.height,
+                }),
+            ]
+          : [];
+      }),
+  );
+  assert.deepEqual(issues, [], name);
+  await p.screenshot({ path: resolve(out, name + ".png") });
+  checks.push(name);
+}
+const browser = await chromium.launch();
+try {
+  for (const [w, h] of [
+    [1280, 720],
+    [390, 844],
+  ]) {
+    const p = await browser.newPage({
+      viewport: { width: w, height: h },
+      hasTouch: true,
+      reducedMotion: "reduce",
+    });
+    p.on("pageerror", (e) => errors.push(e.message));
+    await p.goto(url);
+    await b(p, "はじめから").click();
+    assert.deepEqual(
+      await p
+        .locator(".commands:not(.compact-commands) button")
+        .evaluateAll((es) => es.map((e) => e.ariaLabel)),
+      ["仕事をする", "出かける", "休む"],
+    );
+    assert.equal(await b(p, "約束帳").count(), 0);
+    assert(await b(p, "調合").filter({ visible: true }).first().isVisible());
+    for (const [vw, vh] of [
+      [w, h],
+      [667, 375],
+      [800, 360],
+      [844, 390],
+      [932, 430],
+    ]) {
+      await p.setViewportSize({ width: vw, height: vh });
+      await inspect(
+        p,
+        `home-${w}-${vw}`,
+        ".commands:not(.compact-commands) button, .home-decisions .home-utilities button",
+      );
+    }
+    await p.setViewportSize({ width: w, height: h });
+    await b(p, "仕事をする").click();
+    assert((await p.locator(".work-choice").count()) > 3);
+    assert(await row(p, "学院文書の筆耕").isVisible());
+    await row(p, "学院へ薬湯を届ける").click();
+    assert.equal(await p.locator(".brew-workspace").count(), 0);
+    await inspect(p, `detail-${w}`, ".work-detail .action-dock button");
+    await p
+      .locator(".prep-source button")
+      .filter({ hasText: "商会で不足分を買う" })
+      .click();
+    assert((await p.locator("dialog[open]").innerText()).includes("-76"));
+    await b(p, "戻る").filter({ visible: true }).last().click();
+    assert.equal((await read(p)).day, 1);
+    await p
+      .locator(".prep-source button")
+      .filter({ hasText: "商会で不足分を買う" })
+      .click();
+    await b(p, "購入する・1日").click();
+    await finish(p);
+    assert(await p.locator(".work-detail").isVisible());
+    assert.equal((await read(p)).day, 2);
+    assert.equal((await read(p)).money, 44);
+    await p
+      .locator(".inline-preparation > button")
+      .filter({ hasText: "薬湯を2個調合する・0日" })
+      .click();
+    await b(p, "調合する・0日").click();
+    assert.equal((await read(p)).day, 2);
+    assert.equal((await read(p)).stock.tisane, 2);
+    await p.locator(".work-detail .action-dock .primary").click();
+    await b(p, "納品する・1日").click();
+    await finish(p);
+    assert(await p.locator(".commands:not(.compact-commands)").isVisible());
+    let done = await read(p);
+    assert.equal(done.day, 3);
+    assert.equal(done.money, 374);
+    assert.equal(done.stamina, 38);
+    assert.equal(done.stock.tisane, 0);
+    checks.push(`inline-prepare-buy-brew-deliver-${w}`);
+    await b(p, "出かける").click();
+    assert.equal(await p.getByText("行き先一覧", { exact: true }).count(), 0);
+    assert.equal(
+      await p.locator(".outing-target").filter({ hasText: "屋敷" }).count(),
+      0,
+    );
+    await p.screenshot({ path: resolve(out, `outing-${w}.png`) });
+    await p.locator(".outing-target").filter({ hasText: "ヴェルネ" }).click();
+    await b(p, "この人の依頼を見る・0日").click();
+    assert(
+      (await p.locator(".work-choice").allTextContents()).every((t) =>
+        t.includes("ヴェルネ"),
+      ),
+    );
+    await b(p, "ひとつ戻る").click();
+    assert(await p.locator(".person-detail").isVisible());
+    await b(p, "詳細から戻る").click();
+    await p.locator(".outing-target").filter({ hasText: "丘" }).click();
+    assert.equal(await p.locator(".shop-screen").count(), 0);
+    await b(p, "採集する・1日").click();
+    await finish(p);
+    assert(await p.locator(".commands:not(.compact-commands)").isVisible());
+    assert.equal((await read(p)).day, 4);
+    checks.push(`direct-person-and-gather-${w}`);
+    await b(p, "休む").click();
+    await b(p, "休む・1日").click();
+    await finish(p);
+    await b(p, "仕事をする").click();
+    await row(p, "学院文書の筆耕").click();
+    await p.locator(".work-detail .action-dock .primary").click();
+    await p
+      .locator("dialog[open]")
+      .getByRole("button", { name: "仕事をする・1日", exact: true })
+      .click();
+    await finish(p);
+    assert(await p.locator(".commands:not(.compact-commands)").isVisible());
+    assert.equal((await read(p)).day, 6);
+    checks.push(`personal-job-scene-return-${w}`);
+    // Same collection lists a previously seen job as closed, without revealing locked people.
+    await b(p, "仕事をする").click();
+    const lower = await read(p);
+    lower.axes.品位 = 0;
+    await seed(p, lower, true);
+    await b(p, "仕事をする").click();
+    assert((await p.locator(".work-row.unavailable").count()) > 0);
+    assert.equal(
+      await p.locator(".work-row").filter({ hasText: "薬草師" }).count(),
+      0,
+    );
+    checks.push(`closed-known-jobs-${w}`);
+    await seed(p, structuredClone(G.initialState));
+    let special = structuredClone(G.initialState);
+    special.day = 2;
+    await seed(p, special);
+    await b(p, "仕事をする").click();
+    await row(p, "特別依頼A：紹介の薬湯").click();
+    await p.locator(".work-detail .action-dock .primary").click();
+    await p
+      .locator("dialog[open]")
+      .getByRole("button", { name: "引き受ける・0日", exact: true })
+      .click();
+    await finish(p);
+    let accepted = await read(p);
+    assert.equal(accepted.day, 2);
+    assert.equal(accepted.money, 280);
+    assert.equal(accepted.obligations.length, 1);
+    assert(await p.locator(".work-detail .action-dock .primary").isDisabled());
+    accepted.day = 8;
+    accepted.stock.tisane = 4;
+    await seed(p, accepted);
+    await p.setViewportSize({ width: 800, height: 360 });
+    await inspect(
+      p,
+      "due-home-" + w,
+      ".commands:not(.compact-commands) button, .home-decisions .home-utilities button, .home-notice",
+    );
+    await p.setViewportSize({ width: w, height: h });
+    await b(p, "休む").click();
+    await inspect(p, `deadline-${w}`, "dialog[open] footer button");
+    assert(await p.locator("dialog[open] footer .deadline-strip").isVisible());
+    await b(p, "閉じる").click();
+    await b(p, "仕事をする").click();
+    await p
+      .getByRole("checkbox", {
+        name: "学院へ薬湯を届けるを納品に選ぶ",
+        exact: true,
+      })
+      .check();
+    await p
+      .getByRole("checkbox", {
+        name: "特別依頼A：紹介の薬湯を納品に選ぶ",
+        exact: true,
+      })
+      .check();
+    const expected = performAction(accepted, {
+      type: "deliver",
+      ordinary: [G.jobs.find((j) => j.title === "学院へ薬湯を届ける").id],
+      promises: [{ id: accepted.obligations[0].id, option: "standard" }],
+    }).state;
+    await p.locator(".work-screen > .action-dock .primary").click();
+    assert.equal(
+      await p.locator("dialog[open] footer .deadline-strip").count(),
+      0,
+    );
+    await b(p, "納品する・1日").click();
+    await finish(p);
+    assert.deepEqual(await read(p), expected);
+    assert(await p.locator(".commands:not(.compact-commands)").isVisible());
+    checks.push(`special-and-ordinary-batch-${w}`);
+    const last = structuredClone(G.initialState);
+    last.day = 14;
+    last.money = 3000;
+    await seed(p, last);
+    await b(p, "仕事をする").click();
+    await row(p, "学院へ薬湯を届ける").click();
+    await p
+      .locator(".prep-source button")
+      .filter({ hasText: "商会で不足分を買う" })
+      .click();
+    await b(p, "購入する・1日").click();
+    await finish(p);
+    assert((await read(p)).awaitingSettlement);
+    assert(await p.locator(".screen-settlement").isVisible());
+    checks.push(`preparation-chapter-boundary-${w}`);
+    await p.close();
+  }
+  // Legacy two-day fulfillment still goes through its own confirmed action.
+  const p = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+  });
+  await p.goto(url);
+  let old = structuredClone(G.initialState);
+  old.capabilities = ["flexible-orders"];
+  old = performAction(
+    old,
+    { type: "accept", offer: "flexible-reservation" },
+    legacyOffers,
+  ).state;
+  old.stock.sleeper = 1;
+  await seed(p, old);
+  await b(p, "日付から予定表を開く").click();
+  await b(p, "約束一覧").click();
+  await b(p, "代替品を説明して納める・2日で納品").click();
+  assert(await b(p, "納品する・2日").isVisible());
+  await b(p, "納品する・2日").click();
+  await finish(p);
+  assert.equal((await read(p)).day, 3);
+  checks.push("legacy-two-day");
+  await p.close();
+} catch (e) {
+  for (const c of browser.contexts())
+    for (const p of c.pages()) {
+      await p.screenshot({ path: resolve(out, "failure.png") });
+      console.log(await p.locator("body").innerText());
+    }
+  throw e;
+} finally {
+  await browser.close();
 }
 assert.deepEqual(errors, []);
 writeFileSync(
   resolve(out, "report.json"),
   JSON.stringify({ checks, errors }, null, 2),
 );
-console.log(
-  "PASS " +
-    checks.length +
-    " focused screens/flows: four home commands, back, people, purchasing, crafting, delivery, reload, landscape, double click, fixed-day warning/delivery",
-);
+console.log(`PASS ${checks.length} workday flows and layouts`);

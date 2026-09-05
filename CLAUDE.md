@@ -7,7 +7,7 @@
 - 人物・素材・処方は仮データ。支援の割当は src/content/support.ts、型は supportTypes.ts。
 - 状態更新は engine.ts の performAction、約束の判定は contracts.ts。App.tsxで資源更新を複製しない。
 - 現行仕様と仮数値は GAME_DESIGN.md §15、SYSTEM_PLAN.md §10。
-- 通常依頼は事前受注なし。特別依頼は受付期間・前金・指定日当日限定。薬以外の頼まれごとは人物画面へ。
+- 通常依頼は事前受注なし。特別依頼は受付期間・前金・指定日当日限定。薬以外の頼まれごとも「仕事をする」の統合一覧へ。人物画面は相手別フィルターの入口。
 - まとめ納品はdelivery.tsで全件を事前検証し、engine.tsで資源・履行・報酬を一括適用、日末処理を1回だけ行う。
 - 特別依頼の報酬と0日イベントはrewards.ts/content/events.ts。未再生本文も保存し、再読込で消さない。
 - 保存は ikusei-prototype-save-v9。save.tsでv7/v8を移行し、受諾済み旧契約の条件を保持する。新しい解禁は推測しない。

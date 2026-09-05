@@ -983,7 +983,7 @@
     display: none;
   }
   .command-heading h1 {
-    font-size: 16px !important;
+    font-size: 16px;
   }
   .command-emblem {
     width: 37px;
@@ -1071,9 +1071,6 @@
     align-self: start;
     gap: 7px;
     padding: 0;
-  }
-  .command-heading h1 {
-    font-size: 23px;
   }
   .command-heading .eyebrow {
     display: none;

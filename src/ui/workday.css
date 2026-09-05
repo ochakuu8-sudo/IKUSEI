@@ -1,0 +1,723 @@
+/* Workday navigation: the scene skin remains in commands.css. */
+.command-app .commands.day-commands {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.day-commands .command-copy b em {
+  font:
+    12px "Noto Sans JP",
+    sans-serif;
+  font-style: normal;
+  margin-left: 6px;
+  color: #73546a;
+  white-space: nowrap;
+}
+.compact-commands .command-copy b em {
+  color: inherit;
+  display: block;
+  margin: 0;
+}
+.command-app .day-commands .command-status {
+  display: block;
+  width: fit-content;
+}
+.command-app .home-utilities small {
+  font-size: 12px;
+  opacity: 0.85;
+}
+.command-app .browse-note {
+  margin: 0;
+  font-size: 12px;
+  color: #fff8ee;
+  text-shadow: 0 1px 3px #20172c;
+}
+.hud-date {
+  position: relative;
+}
+.date-alert {
+  position: absolute;
+  right: -5px;
+  top: -5px;
+  background: #a13e60;
+  border: 1px solid #f1d6bd;
+  padding: 1px 5px;
+  border-radius: 12px;
+  font-size: 12px !important;
+}
+.command-app .screen-orders .content-inner {
+  height: calc(100% - 24px);
+  padding: 14px 20px;
+}
+.work-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.work-screen > .intro {
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+.work-screen > .page-heading {
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+}
+.work-screen > .tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.work-screen > .tabs button {
+  white-space: nowrap;
+}
+.work-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-bottom: 12px;
+}
+.work-filters label {
+  gap: 6px;
+  font-size: 12px;
+}
+.work-filters select {
+  padding: 5px 8px;
+  font-size: 12px;
+  min-height: 36px;
+}
+.work-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.2fr);
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+.work-screen:not(.has-detail) .work-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+.work-list {
+  overflow: auto;
+  min-height: 0;
+  padding: 2px 4px 8px;
+}
+.work-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  border: 1px solid #d8c1ad;
+  border-radius: 14px;
+  background: #fffaf4;
+  margin-bottom: 8px;
+}
+.work-row.unavailable {
+  background: #e8e4e1;
+  color: #6c646b;
+}
+.work-choice {
+  border: 0;
+  background: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  padding: 12px;
+  flex: 1;
+  min-width: 0;
+  min-height: 82px;
+}
+.work-choice span {
+  min-width: 0;
+}
+.work-choice b {
+  font-size: 15px;
+}
+.work-choice small {
+  display: block;
+  font-size: 12px;
+}
+.work-choice .item-art,
+.work-choice .crest {
+  width: 44px;
+  height: 44px;
+}
+.work-check {
+  padding-left: 10px;
+  min-width: 44px;
+  justify-content: center;
+}
+.work-check input {
+  margin: 0;
+}
+.work-choice[aria-pressed="true"] {
+  box-shadow: inset 3px 0 #a14b6a;
+  border-radius: 12px;
+}
+.work-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid #d8c1ad;
+  border-radius: 16px;
+  background: #fffaf3;
+  overflow: hidden;
+}
+.work-detail-body {
+  padding: 18px;
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+.work-detail h2 {
+  font-size: 21px;
+  margin-bottom: 5px;
+}
+.work-detail p {
+  font-size: 13px;
+}
+.work-detail .stats {
+  margin: 10px 0;
+  padding: 10px 0;
+  gap: 10px;
+}
+.work-detail .stats b {
+  font-size: 18px;
+}
+.work-detail .cost-line {
+  margin: 8px 0;
+}
+.work-detail .quantity-line {
+  flex-wrap: wrap;
+  margin: 10px 0;
+  gap: 8px;
+}
+.work-detail .quantity-line label {
+  font-size: 13px;
+}
+.work-detail .item-row small,
+.prep-materials small {
+  display: block;
+}
+.inline-preparation {
+  margin: 16px 0;
+  padding: 12px 0;
+  border-top: 1px solid #dfcaba;
+}
+.inline-preparation .material-need {
+  margin: 0;
+  padding: 7px 0;
+  gap: 8px;
+}
+.inline-preparation .item-art {
+  width: 34px;
+  height: 34px;
+}
+.inline-preparation .material-need > span:not(.badge) {
+  flex: 1;
+}
+.inline-preparation > .button {
+  width: 100%;
+  margin: 8px 0 0;
+  flex-wrap: wrap;
+}
+.prep-source {
+  margin: 8px 0;
+}
+.prep-source .button {
+  width: 100%;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.prep-source > small {
+  display: block;
+  margin: 4px 2px;
+  color: var(--muted);
+}
+.preparation-ready {
+  color: #406850;
+}
+.action-dock {
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  padding: 8px 12px;
+  background: #f4e9df;
+  border-top: 1px solid #d6bba4;
+  z-index: 5;
+}
+.dock-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+}
+.dock-buttons > .button {
+  margin: 0;
+  flex-shrink: 0;
+}
+.dock-summary {
+  flex: 1;
+  min-width: 0;
+}
+.dock-summary small {
+  display: block;
+  font-size: 12px;
+}
+.dock-summary .button {
+  font-size: 12px;
+}
+.deadline-strip {
+  border-left: 3px solid #ac4160;
+  padding: 5px 8px;
+  background: #fff1e8;
+  color: #913d56;
+  margin: 4px 0 8px;
+  font-size: 12px;
+  max-height: 100px;
+  overflow: auto;
+}
+.deadline-strip b,
+.deadline-strip span {
+  display: block;
+}
+.confirmation-dock {
+  width: 100%;
+}
+.confirmation-dock .dock-buttons {
+  justify-content: flex-end;
+}
+.command-app .shop-screen {
+  padding-bottom: 12px;
+}
+.command-app .shop-screen > .action-dock {
+  margin-top: 12px;
+}
+.outing-layout {
+  position: relative;
+}
+.outing-map {
+  position: relative;
+  height: min(65dvh, 620px);
+  min-height: 400px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid #c7ad8b;
+}
+.outing-map-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.outing-targets {
+  position: absolute;
+  inset: 0;
+}
+.outing-target {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-height: 58px;
+  max-width: 175px;
+  padding: 7px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff9efed;
+  border: 1px solid #ac8968;
+  border-radius: 13px;
+  box-shadow: 0 3px 0 #71545660;
+  text-align: left;
+}
+.outing-target .crest,
+.outing-target .item-art {
+  width: 34px;
+  height: 34px;
+}
+.outing-target b {
+  font-size: 13px;
+}
+.outing-target small {
+  display: block;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.outing-target .badge {
+  padding: 1px 4px;
+}
+.outing-layout > .person-detail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: min(480px, 65%);
+  box-shadow: -8px 0 30px #271b3540;
+  z-index: 6;
+}
+.person-detail .person-heading {
+  flex-wrap: wrap;
+}
+.person-detail h3 {
+  margin-top: 20px;
+}
+@media (max-width: 1050px) {
+  .outing-map {
+    height: auto;
+    min-height: 0;
+    border: 0;
+    overflow: visible;
+  }
+  .outing-map-art {
+    display: none;
+  }
+  .outing-targets {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .outing-target {
+    position: static;
+    transform: none;
+    max-width: none;
+    min-height: 86px;
+    padding: 12px;
+  }
+  .outing-target b {
+    font-size: 15px;
+  }
+  .outing-layout > .person-detail {
+    position: fixed;
+    top: calc(var(--hud) + 8px);
+    left: max(12px, calc((100vw - 600px) / 2));
+    right: max(12px, calc((100vw - 600px) / 2));
+    bottom: 12px;
+    width: auto;
+    z-index: 30;
+  }
+  .has-person .outing-targets {
+    visibility: hidden;
+  }
+}
+@media (max-width: 720px) and (min-height: 501px) {
+  .command-app {
+    grid-template-rows: var(--hud) minmax(0, 1fr);
+  }
+  .command-app > .content {
+    grid-row: 2;
+  }
+  .command-app .route-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: auto;
+    min-height: 60px;
+    padding: 7px 12px max(7px, env(safe-area-inset-bottom));
+    z-index: 20;
+    border-top: 1px solid #c3a087;
+  }
+  .command-app .route-bar > span {
+    text-align: center;
+  }
+  .command-app:has(.action-dock) > .route-bar {
+    display: none;
+  }
+  .command-app .screen-home .content-inner {
+    padding: 10px 14px;
+  }
+  .command-app .home-stage {
+    height: auto;
+    gap: 8px;
+  }
+  .command-app .home-character .character-scene {
+    height: clamp(130px, 21dvh, 185px);
+  }
+  .command-app .home-decisions {
+    gap: 8px;
+  }
+  .command-app .home-decisions .commands.day-commands {
+    gap: 9px;
+  }
+  .command-app .day-commands .command-button {
+    min-height: 70px;
+    padding: 7px 10px;
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+  .command-app .day-commands .command-copy {
+    display: block;
+  }
+  .command-app .day-commands .command-copy b {
+    font-size: 17px;
+    white-space: normal;
+  }
+  .command-app .day-commands .command-copy > small {
+    display: none;
+  }
+  .command-app .day-commands .command-status {
+    margin-top: 3px;
+    font-size: 12px;
+  }
+  .command-app .day-commands .command-emblem {
+    width: 38px;
+    height: 38px;
+  }
+  .command-app .day-commands .command-emblem img {
+    width: 36px;
+    height: 36px;
+  }
+  .command-app .home-decisions .first-hint {
+    display: none;
+  }
+  .command-app .home-notice {
+    display: block;
+  }
+  .command-app .home-utilities button {
+    font-size: 12px;
+  }
+  .command-app .screen-orders .content-inner {
+    height: calc(100% - 80px);
+    padding: 12px;
+  }
+  .work-screen > .page-heading h1 {
+    font-size: 22px;
+  }
+  .work-screen > .intro {
+    font-size: 12px;
+  }
+  .work-filters {
+    gap: 7px;
+  }
+  .work-filters select {
+    max-width: 115px;
+  }
+  .work-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .work-screen.has-detail > :not(.work-layout),
+  .work-screen.has-detail .work-list {
+    display: none;
+  }
+  .work-detail {
+    position: fixed;
+    top: calc(var(--hud) + 8px);
+    left: 8px;
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    z-index: 30;
+    border-radius: 18px 18px 8px 8px;
+  }
+  .work-detail-body {
+    padding: 16px;
+  }
+  .action-dock {
+    padding: 8px;
+  }
+  .dock-buttons {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .dock-summary {
+    flex-basis: 100%;
+    order: -1;
+  }
+  .dock-buttons > .button.primary {
+    margin-left: auto;
+  }
+  .work-screen:not(.has-detail) > .action-dock,
+  .shop-screen > .action-dock {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    z-index: 25;
+  }
+  .work-screen:not(.has-detail):has(> .action-dock) .work-list {
+    padding-bottom: 74px;
+  }
+  .shop-screen {
+    padding-bottom: 100px !important;
+  }
+  .outing-targets {
+    grid-template-columns: 1fr;
+  }
+  .outing-target {
+    min-height: 78px;
+  }
+  .dialog:not(.scenario-dialog) {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    margin: 0;
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 16px);
+    border-radius: 20px 20px 0 0;
+  }
+  .dialog:not(.scenario-dialog) > footer {
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+}
+@media (max-height: 500px) {
+  .command-app .screen-home .content-inner {
+    padding: 6px 18px;
+  }
+  .command-app .day-commands .command-button {
+    min-height: 62px;
+    padding: 5px 9px;
+  }
+  .command-app .day-commands .command-copy b {
+    font-size: 16px;
+  }
+  .command-app .day-commands .command-copy > small {
+    display: none;
+  }
+  .command-app .day-commands .command-status {
+    font-size: 12px;
+    padding: 0 4px;
+    margin-top: 2px;
+  }
+  .command-app .browse-note {
+    display: none;
+  }
+  .command-app .commands.day-commands {
+    gap: 8px;
+  }
+  .command-app .home-decisions {
+    gap: 7px;
+  }
+  .command-app .screen-orders .content-inner {
+    height: auto;
+    min-height: calc(100% - 24px);
+  }
+  .work-layout {
+    min-height: 260px;
+  }
+  .work-screen.has-detail .work-detail {
+    position: fixed;
+    top: calc(var(--hud) + 4px);
+    bottom: 4px;
+    right: 8px;
+    left: 30%;
+    z-index: 30;
+  }
+  .work-detail-body {
+    padding: 12px;
+  }
+  .dock-buttons {
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  .dock-summary {
+    flex-basis: 100%;
+    order: -1;
+  }
+  .dock-buttons > .button.primary {
+    margin-left: auto;
+  }
+  .deadline-strip {
+    max-height: 56px;
+  }
+}
+/* Scenario controls stay text-only; the whole image is the advance target. */
+.scenario-tap-target {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  touch-action: none;
+}
+.scenario-menu-toggle {
+  position: absolute;
+  right: max(8px, env(safe-area-inset-right));
+  bottom: max(4px, env(safe-area-inset-bottom));
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: white;
+  font-size: 26px;
+  text-shadow:
+    0 1px 3px #000,
+    1px 0 #000;
+  z-index: 2;
+}
+.scenario-dialog .scenario-message {
+  pointer-events: none;
+  bottom: max(44px, env(safe-area-inset-bottom));
+}
+.scenario-dialog .scenario-text {
+  pointer-events: auto;
+  touch-action: pan-y;
+}
+.scenario-dialog .scenario-menu {
+  position: absolute;
+  bottom: 52px;
+  right: 12px;
+  display: flex;
+  gap: 10px;
+  text-shadow:
+    -1px -1px #191320,
+    1px 1px #191320,
+    0 2px 4px #000;
+}
+.scenario-log {
+  z-index: 1;
+}
+
+.command-app .receipt {
+  top: calc(var(--hud) + 6px);
+  bottom: auto;
+  right: 12px;
+  max-width: min(400px, calc(100vw - 24px));
+}
+/* Keep targets stationary while a pointer enters or leaves them. */
+.command-app .command-button:hover {
+  transform: none;
+}
+.brew-sheet > .action-dock {
+  position: sticky;
+  bottom: 0;
+  margin-top: 16px;
+}
+@media (max-width: 700px) {
+  .brew-sheet {
+    padding-bottom: 110px !important;
+  }
+  .brew-sheet > .action-dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 25;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}
+.work-kind-counts {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.work-kind-counts span {
+  white-space: nowrap;
+}
+@media (max-height: 500px) {
+  .home-decisions:has(.home-notice) .command-heading {
+    display: none;
+  }
+  .home-decisions:has(.home-notice) .home-notice {
+    min-height: 40px;
+    padding: 5px 12px;
+    font-size: 13px;
+  }
+  .home-decisions:has(.home-notice) .command-button {
+    min-height: 60px;
+  }
+}
