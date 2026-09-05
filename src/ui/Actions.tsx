@@ -128,15 +128,20 @@ export function Utilities({
 }) {
   return (
     <nav className="home-utilities" aria-label="準備と管理">
-      <button type="button" aria-label="一日を終える" onClick={endDay}>
+      <button
+        type="button"
+        className="util-endday"
+        aria-label="一日を終える"
+        onClick={endDay}
+      >
         <Moon size={17} />
         <span>一日を終える</span>
       </button>
-      <button type="button" onClick={inventory}>
+      <button type="button" className="util-inventory" onClick={inventory}>
         <Package size={17} />
         <span>持ち物</span>
       </button>
-      <button type="button" onClick={settings}>
+      <button type="button" className="util-settings" onClick={settings}>
         <Settings size={17} />
         設定
       </button>

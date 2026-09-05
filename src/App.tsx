@@ -38,6 +38,7 @@ import { Shell } from "./ui/Shell";
 import { TitleScreen } from "./ui/TitleScreen";
 import { World } from "./ui/World";
 import { freshUI, parseUI, UI_KEY, type UIState } from "./uiState";
+import { fullscreenSupported, useFullscreen } from "./ui/fullscreen";
 
 type Receipt = {
   before: GameState;
@@ -91,6 +92,7 @@ export default function App() {
       title: string;
       place: PlaceId;
     } | null>(null);
+  const fullscreen = useFullscreen();
   const gameRef = useRef(game),
     lock = useRef<object | null>(null),
     content = useRef<HTMLElement>(null);
@@ -593,6 +595,16 @@ export default function App() {
               <option value={0}>一括表示</option>
             </select>
           </label>
+          {fullscreenSupported() && (
+            <label className="setting-row">
+              全画面で遊ぶ
+              <input
+                type="checkbox"
+                checked={fullscreen.active}
+                onChange={fullscreen.toggle}
+              />
+            </label>
+          )}
           <label className="setting-row">
             動きを減らす
             <input
@@ -611,6 +623,10 @@ export default function App() {
           </Button>
           <p>
             ゲーム進行は自動保存されます。準備メモと表示設定は別に保存します。
+          </p>
+          <p className="muted">
+            横持ちではブラウザのバーが画面の2割ほどを占めます。全画面にするか、
+            ホーム画面に追加して起動すると、そのぶんが盤面に返ります。
           </p>
           <details>
             <summary>試作メニュー</summary>

@@ -70,6 +70,9 @@
 .work-screen > .tabs button {
   white-space: nowrap;
 }
+.work-filters[hidden] {
+  display: none;
+}
 .work-filters {
   display: flex;
   flex-wrap: wrap;

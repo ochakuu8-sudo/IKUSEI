@@ -115,6 +115,11 @@ export function Shell({
       {navigating && (
         <>
           <aside className="action-sidebar">
+            {/* 横持ちは route-bar を畳んでレールに寄せるので、戻るもここに置く。 */}
+            <Button className="rail-only" onClick={back} aria-label="ひとつ戻る">
+              <ArrowLeft size={17} />
+              戻る
+            </Button>
             <Button onClick={home}>
               <Home size={17} />
               自室へ

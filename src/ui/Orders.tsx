@@ -189,6 +189,19 @@ export function Orders({
   const personRows = rows.filter(
     (r) => !ui.personFilter || r.person === ui.personFilter,
   );
+  const tabRows = personRows.filter(
+    (r) =>
+      ui.orderTab === "all" ||
+      ui.orderTab === "batch" ||
+      r.category === ui.orderTab,
+  );
+  // 依頼が数件しかない序盤に、絞り込みで縦を46px使うのは高すぎる。
+  // 絞り込みが効いている間は、解除できるように必ず出す。
+  const showFilters =
+    tabRows.length > 4 ||
+    ui.filter !== "all" ||
+    ui.sort !== "name" ||
+    !!ui.personFilter;
   const filtered = personRows
     .filter(
       (r) =>
@@ -292,7 +305,7 @@ export function Orders({
           ],
         ]}
       />
-      <div className="work-filters">
+      <div className="work-filters" hidden={!showFilters}>
         <label>
           相手
           <select

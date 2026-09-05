@@ -106,7 +106,7 @@ export function World({
                     {p.name}
                     {s.newPlaces.includes(p.id) && <Badge tone="warn">新着</Badge>}
                   </h2>
-                  <div>
+                  <div className="gather-yield">
                     {Object.entries(p.gathers!).map(([id, n]) => (
                       <div className="item-row" key={id}>
                         <Item id={id as MaterialId} />
@@ -117,7 +117,7 @@ export function World({
                       </div>
                     ))}
                   </div>
-                  <p>スタミナ −{p.gatherStamina}</p>
+                  <p className="gather-cost">スタミナ −{p.gatherStamina}</p>
                   <Button
                     primary={!ui.preparing || missing.length > 0}
                     disabled={!!preview.error}

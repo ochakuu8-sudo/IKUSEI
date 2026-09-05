@@ -465,3 +465,311 @@
     display: none;
   }
 }
+
+/* ==== 横持ちのアイコンレール ====
+   横持ちは幅が800〜915pxあるのに高さが300〜356pxしかない。
+   route-bar(42px)と下段バー(50px)で縦を92px使うのをやめ、
+   幅60pxの左レールに寄せる ── 縦の消費がゼロになる。 */
+.rail-only {
+  display: none;
+}
+@media (max-width: 1050px) and (max-height: 500px) and (orientation: landscape) {
+  .command-app {
+    --nav: 64px;
+    --hud: 46px;
+    --routebar: 0px;
+    --cmdbar: 0px;
+    grid-template-columns: var(--nav) minmax(0, 1fr);
+    grid-template-rows: var(--hud) minmax(0, 1fr);
+  }
+  .command-app > .content {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .command-app > .route-bar,
+  .command-app > .command-bar {
+    display: none;
+  }
+  .command-app > .action-sidebar {
+    display: flex;
+    grid-column: 1;
+    grid-row: 2;
+    gap: 3px;
+    padding: 4px 3px;
+    margin: 4px 0 4px 4px;
+    border-radius: 12px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .command-app > .action-sidebar > p {
+    display: none;
+  }
+  .action-sidebar .rail-only {
+    display: flex;
+  }
+  /* レールの中身は全部アイコン＋極小ラベルの縦積みにする。 */
+  .command-app .action-sidebar .button,
+  .command-app .action-sidebar .command-button,
+  .command-app .action-sidebar .home-utilities button {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 0;
+    padding: 2px;
+    border-radius: 9px;
+    font-size: 9px;
+    line-height: 1.1;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  /* 設定はHUDの歯車にもあるので、レールでは省いて1項目ぶんの高さを返す。 */
+  .command-app .action-sidebar .util-settings {
+    display: none;
+  }
+  .command-app .action-sidebar .commands {
+    display: contents;
+  }
+  .command-app .action-sidebar .home-utilities {
+    display: contents;
+  }
+  .command-app .action-sidebar .command-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .command-app .action-sidebar .command-copy b {
+    flex: none;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .command-app .action-sidebar .command-status,
+  .command-app .action-sidebar .command-copy small,
+  .command-app .action-sidebar .command-arrow {
+    display: none;
+  }
+  .command-app .action-sidebar .command-emblem {
+    width: 17px;
+    height: 17px;
+    min-width: 0;
+    margin: 0;
+    border-radius: 5px;
+  }
+  .command-app .action-sidebar .command-emblem > svg,
+  .command-app .action-sidebar .command-button > svg:first-child,
+  .command-app .action-sidebar .button > svg,
+  .command-app .action-sidebar .home-utilities button svg {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+  }
+  /* 横持ちでは content が2列目に来るので、左の余白を詰める。 */
+  .command-app .content-inner {
+    width: calc(100% - 10px);
+    margin: 4px auto;
+  }
+}
+
+/* ==== 横持ちの採集地 ====
+   縦長のカードだと「採集する」が画面外に出る（実測 bottom 474 > vh 337）。
+   主要動作を画面外に出さないため、1行に畳む。 */
+@media (max-height: 500px) {
+  .gather-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .gather-card {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 14px;
+    padding: 7px 12px;
+  }
+  .gather-card h2 {
+    font-size: 15px;
+    flex: 0 0 auto;
+    min-width: 6.5em;
+  }
+  .gather-yield {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .gather-card .item-row {
+    margin: 0;
+    gap: 5px;
+  }
+  .gather-card .item-row .item-art {
+    width: 26px;
+    height: 26px;
+  }
+  .gather-card .item-row small {
+    display: none;
+  }
+  .gather-card .gather-cost {
+    margin: 0;
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: #8d6f8c;
+  }
+  .gather-card .button {
+    margin: 0 0 0 auto;
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 6px 18px;
+  }
+}
+
+/* ==== 横持ちの仕入れ・ドック ====
+   実測でドックが283pxの表示領域のうち約215pxを占め、素材が1行しか見えなかった。
+   要約を1行に戻し、行の刻みも詰める。 */
+@media (max-height: 500px) {
+  .command-app .action-dock {
+    padding: 5px 10px;
+  }
+  .command-app .dock-buttons {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .command-app .dock-summary {
+    flex-basis: auto;
+    order: 0;
+    min-width: 0;
+  }
+  .command-app .dock-summary small {
+    font-size: 11px;
+  }
+  .command-app .action-dock .button {
+    min-height: 38px;
+    padding: 6px 14px;
+  }
+  .shop-screen .material-need {
+    padding: 5px 0;
+    gap: 8px;
+  }
+  .shop-screen .material-need .item-art {
+    width: 30px;
+    height: 30px;
+  }
+  .shop-screen .quantity .button {
+    min-height: 34px;
+    min-width: 34px;
+    padding: 2px 8px;
+  }
+  .shop-screen .quantity input {
+    width: 44px;
+    padding: 2px;
+    font-size: 15px;
+  }
+  .shop-screen .credit-options {
+    margin: 6px 0;
+  }
+}
+
+/* 横持ちはHUDも薄くする。幅は余っているので1行に詰められる。 */
+@media (max-width: 1050px) and (max-height: 500px) and (orientation: landscape) {
+  .command-app .hud {
+    gap: 12px;
+    padding: 3px 10px;
+  }
+  .command-app .hud-resource b,
+  .command-app .hud-date b {
+    font-size: 15px;
+    line-height: 1.15;
+  }
+  .command-app .hud-resource small,
+  .command-app .hud-date small {
+    font-size: 10px;
+  }
+  .command-app .hud > svg,
+  .command-app .hud-resource > svg,
+  .command-app .hud-date > svg {
+    width: 15px;
+    height: 15px;
+  }
+  .command-app .hud-debt > b {
+    font-size: 17px;
+  }
+  .command-app .hud-debt > small {
+    font-size: 9px;
+  }
+  .command-app .hud-debt > span {
+    font-size: 10px;
+  }
+  .command-app .hud > .button {
+    min-height: 34px;
+    padding: 4px 8px;
+  }
+}
+
+/* ==== 横持ちの自室 ====
+   実測で「一日を終える／持ち物／設定」が画面外に出ていた（bottom 352 > vh 337）。
+   自室にはレールが出ないぶん縦が余ると思いきや、コマンドの高さで溢れる。 */
+@media (max-height: 500px) and (orientation: landscape) {
+  .command-app .home-stage {
+    gap: 10px;
+  }
+  .command-app .home-decisions {
+    gap: 6px;
+  }
+  .command-app .command-heading {
+    padding: 3px 12px;
+    margin-top: 0;
+  }
+  .command-app .command-heading h1 {
+    font-size: 15px;
+  }
+  .command-app .day-commands {
+    gap: 6px;
+  }
+  .command-app .day-commands .command-button {
+    min-height: 52px;
+    padding: 4px 10px;
+  }
+  .command-app .day-commands .command-copy b {
+    font-size: 15px;
+  }
+  .command-app .browse-note,
+  .command-app .first-hint {
+    display: none;
+  }
+  .command-app .home-utilities {
+    margin-top: 2px;
+  }
+  .command-app .home-utilities button {
+    min-height: 38px;
+  }
+  .command-app .character-status .axis-panel {
+    gap: 2px 8px;
+    font-size: 12px;
+  }
+}
+
+/* 300px台前半の横持ち。台詞は残したいので、消さずに1行ぶんまで詰める。 */
+@media (max-height: 345px) and (orientation: landscape) {
+  .command-app .command-heading {
+    padding: 2px 10px;
+  }
+  .command-app .command-heading h1 {
+    font-size: 13px;
+  }
+  .command-app .day-commands .command-button {
+    min-height: 44px;
+  }
+  .command-app .day-commands .command-copy b {
+    font-size: 14px;
+  }
+  .command-app .home-utilities button {
+    min-height: 34px;
+    font-size: 11px;
+  }
+}
