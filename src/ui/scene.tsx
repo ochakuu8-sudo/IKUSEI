@@ -1,90 +1,13 @@
+/**
+ * 本番のADVパート。全画面の絵＋テキスト＋タップ送り。選択肢は出さない。
+ * 依頼を受けるたびに必ず入る場所なので、送りきる以外の出口（とばす・ログ・隠す）を用意する。
+ */
 import { useEffect, useRef, useState } from "react";
 import { heroSrc, placeSrc } from "../art";
-import type { ActionOutcome } from "../engine";
-import {
-  materialOf,
-  people,
-  recipeOf,
-  relationStage,
-  type GameState,
-  type PlaceId,
-  type SceneLine,
-} from "../game";
+import type { PlaceId, SceneLine } from "../game";
 import "./narrative.css";
-import { Art, Button, Modal, money, sign } from "./components";
-export function ResultDetails({
-  before,
-  outcome,
-}: {
-  before: GameState;
-  outcome: ActionOutcome;
-}) {
-  const r = outcome.result,
-    s = outcome.state;
-  return (
-    <>
-      <div className="stats">
-        <div>
-          <small>所持金</small>
-          <b>{sign(s.money - before.money)} G</b>
-        </div>
-        <div>
-          <small>スタミナ</small>
-          <b>{sign(s.stamina - before.stamina)}</b>
-        </div>
-        <div>
-          <small>日付</small>
-          <b>{r?.days ? "翌日へ" : "そのまま"}</b>
-        </div>
-      </div>
-      {people
-        .filter((p) => s.relations[p.id] > before.relations[p.id])
-        .map((p) => (
-          <div className="unlock" key={p.id}>
-            ✧ {p.name}との関係が進みました{" "}
-            <b>{relationStage(s.relations[p.id])}</b>
-          </div>
-        ))}
-      {s.known
-        .filter((id) => !before.known.includes(id))
-        .map((id) => (
-          <div className="unlock" key={id}>
-            ✧ 新しい処方：{recipeOf(id).name}
-          </div>
-        ))}
-      {r?.notices?.map((n, i) => (
-        <p className="unlock" key={i}>
-          {n}
-        </p>
-      ))}
-      <details>
-        <summary>行動の内訳を見る</summary>
-        <p>{r?.narrative}</p>
-        {r?.deliveries?.map((d, i) => (
-          <p key={i}>
-            {d.title}：{recipeOf(d.recipe).name} ×{d.count} ／ {money(d.pay)}
-          </p>
-        ))}
-        {r?.axisDrops.map((a) => (
-          <p key={a.axis}>
-            {a.axis} −{a.amount}
-          </p>
-        ))}
-        {r?.axisGains.map((a) => (
-          <p key={a.axis}>
-            {a.axis} ＋{a.amount}
-          </p>
-        ))}
-        {r?.dignityCapDrop ? <p>品位上限 −{r.dignityCapDrop}</p> : null}
-        {r?.materialDeltas?.map((m) => (
-          <p key={m.id}>
-            {materialOf(m.id).name} {sign(m.amount)}
-          </p>
-        ))}
-      </details>
-    </>
-  );
-}
+import { Art, Button, Modal } from "./shell";
+
 export function Dialogue({
   title,
   lines,

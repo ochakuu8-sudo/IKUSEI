@@ -177,3 +177,53 @@
 .scenario-log {
   inset: 8px 24px 8px;
 }
+
+/* 画面のどこを触っても次へ送れる当たり判定。旧 workday.css から移設。
+   ここが無いと、立ち絵が触りを吸ってしまい場面が進まなくなる。 */
+.scenario-tap-target {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  touch-action: none;
+}
+.scenario-menu-toggle {
+  position: absolute;
+  right: max(8px, env(safe-area-inset-right));
+  bottom: max(4px, env(safe-area-inset-bottom));
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: white;
+  font-size: 26px;
+  text-shadow:
+    0 1px 3px #000,
+    1px 0 #000;
+  z-index: 2;
+}
+.scenario-dialog .scenario-message {
+  pointer-events: none;
+  bottom: max(44px, env(safe-area-inset-bottom));
+}
+.scenario-dialog .scenario-text {
+  pointer-events: auto;
+  touch-action: pan-y;
+}
+.scenario-dialog .scenario-menu {
+  position: absolute;
+  bottom: 52px;
+  right: 12px;
+  display: flex;
+  gap: 10px;
+  text-shadow:
+    -1px -1px #191320,
+    1px 1px #191320,
+    0 2px 4px #000;
+}
+.scenario-log {
+  z-index: 1;
+}

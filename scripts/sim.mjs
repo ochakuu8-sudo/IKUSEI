@@ -1,215 +1,98 @@
-// 方針の比較。最適収入の証明ではない。UIと同じperformActionで購入・期限・精算も処理する。
-import * as G from "@game/game";
-import { performAction } from "@game/engine";
-import { supportOffers } from "@game/content/support";
-import { offerReason, outstandingTotal, absoluteDay } from "@game/contracts";
-import assert from "node:assert/strict";
-import { planDelivery } from "@game/delivery";
-import { parseSave } from "@game/save";
+/**
+ * 章ごとの稼ぎを実測する。**依頼・報酬・体力・軸の数値を触ったら必ず走らせる。**
+ *
+ * 見るのは「ノルマに対して、どの遊び方がどれだけ届くか」。
+ * 企画書 §4 は「章末の返済額は、代償ゼロの依頼だけを順調に重ねれば達成できる水準」
+ * と決めている。清廉プレイの比率が 100% を大きく超えているうちは、
+ * 何も差し出さずに完済できてしまい、選択が成立しない。
+ */
+import {
+  dailyAction,
+  freshDaily,
+  offersOf,
+  payOf,
+  quotaOf,
+  staminaOf,
+  takeReason,
+} from "@game/daily";
+import { QUOTAS } from "@game/game";
 
-function step(s, a) {
-  const out = performAction(s, a);
-  assert.equal(out.error, undefined, JSON.stringify(a));
-  return out.state;
-}
-function prepare(s, recipe, count, stamina) {
-  const r = G.recipeOf(recipe),
-    held = s.stock[recipe] ?? 0;
-  if (held >= count && s.stamina >= stamina) return { ready: true };
-  if (held >= count || s.stamina < r.stamina + stamina)
-    return { action: { type: "end-day" } };
-  if (G.canBrew(r, s)) return { action: { type: "brew", recipe } };
-  const basket = {};
-  for (const id of G.materialIds) {
-    const n = Math.max(
-      0,
-      (r.needs[id] ?? 0) * (count - held) - s.materials[id],
-    );
-    if (n) basket[id] = n;
-  }
-  const spend = Object.entries(basket).reduce(
-    (sum, [id, n]) => sum + (G.materialOf(id).buy ?? Infinity) * n,
-    0,
-  );
-  if (spend > 0 && spend <= s.money)
-    return { action: { type: "buy", place: "arnaud", basket } };
-  const gather = G.gatherPlaces(s)
-    .filter((p) => s.stamina >= (p.gatherStamina ?? 20))
-    .sort(
-      (a, b) =>
-        Object.keys(b.gathers).filter((id) => basket[id]).length -
-        Object.keys(a.gathers).filter((id) => basket[id]).length,
-    )[0];
-  if (gather && Object.keys(gather.gathers).some((id) => basket[id]))
-    return { action: { type: "gather", place: gather.id } };
-  return null;
-}
-function choose(s, policy) {
-  if (s.eventQueue.length)
-    return { type: "read-event", id: s.eventQueue[0].id };
-  if (s.awaitingSettlement) return { type: "settle" };
-  const withSpecial = policy === "special",
-    withPeople = policy === "relations";
-  if (withSpecial) {
-    const offer = supportOffers.find((o) => o.schedule && !offerReason(s, o));
-    if (offer) return { type: "accept", offer: offer.id };
-  }
-  const active = s.obligations
-    .filter((o) => o.status === "active" && o.terms.schedule)
-    .sort((a, b) => a.due - b.due);
-  const due = active.filter((o) => o.due === absoluteDay(s));
-  if (due.length) {
-    const selection = {
-      ordinary: [],
-      promises: due.map((o) => ({ id: o.id, option: o.terms.options[0].id })),
-    };
-    const required = planDelivery(s, selection);
-    if (!required.error) {
-      // 本日分を予約してから、同じ出発に通常販売を追加する。
-      for (const j of G.jobs.filter(
-        (j) => j.category === "ordinary" && G.isOpen(j, s),
-      )) {
-        const next = { ...selection, ordinary: [...selection.ordinary, j.id] };
-        if (!planDelivery(s, next).error) selection.ordinary.push(j.id);
-      }
-      return { type: "deliver", ...selection };
+const SEEDS = 24;
+
+/** ひとつの方針で1周まわし、章ごとの稼ぎを返す。 */
+function run(pick, seed) {
+  let s = freshDaily(`sim-${seed}`);
+  const chapters = [];
+  let earned = 0,
+    rests = 0,
+    paidDays = 0,
+    idle = 0;
+  for (let guard = 0; guard < 200 && !s.ended; guard++) {
+    if (s.awaitingSettlement) {
+      chapters.push({ chapter: s.chapter, quota: quotaOf(s), earned });
+      earned = 0;
+      s = dailyAction(s, { type: "settle" }).state;
+      continue;
     }
-    const o = due[0],
-      c = o.terms.options[0],
-      p = prepare(s, c.recipe, c.count, c.stamina);
-    if (p?.action) return p.action;
-    return { type: "end-day" }; // 不履行も実際の日末処理で計上する。
-  }
-  if (active.length) {
-    const o = active[0],
-      c = o.terms.options[0],
-      p = prepare(s, c.recipe, c.count, c.stamina);
-    if (p?.action) return p.action;
-    if (p?.ready && o.due - absoluteDay(s) <= 2) return { type: "end-day" };
-  }
-  const available = structuredClone(s);
-  // 指定日用の完成品を通常販売に使わない。
-  for (const o of active) {
-    const c = o.terms.options[0];
-    available.stock[c.recipe] = Math.max(
-      0,
-      (available.stock[c.recipe] ?? 0) - c.count,
-    );
-  }
-  const orders = G.jobs
-    .filter(
-      (j) => j.category === "ordinary" && G.isOpen(j, s) && !j.costs.length,
-    )
-    .sort(
-      (a, b) =>
-        (withPeople ? s.relations[a.person] - s.relations[b.person] : 0) ||
-        net(b, s) - net(a, s) ||
-        a.id.localeCompare(b.id),
-    );
-  const group =
-    policy === "ordinary"
-      ? orders.slice(0, 1)
-      : orders
-          .filter(
-            (j, i, all) => all.findIndex((x) => x.recipe === j.recipe) === i,
-          )
-          .slice(0, 2);
-  if (group.length) {
-    const selection = { ordinary: group.map((j) => j.id), promises: [] },
-      plan = planDelivery(available, selection);
-    if (!plan.error) return { type: "deliver", ...selection };
-    const missing = group.find(
-      (j) => (available.stock[j.recipe] ?? 0) < (j.count ?? 1),
-    );
-    if (missing) {
-      const prep = prepare(
-        available,
-        missing.recipe,
-        missing.count ?? 1,
-        plan.stamina,
-      );
-      if (prep?.action) return prep.action;
+    const open = offersOf(s).filter((j) => !takeReason(j, s));
+    if (!open.length) idle++;
+    const job = pick(open, s);
+    if (!job) {
+      rests++;
+      s = dailyAction(s, { type: "rest" }).state;
+      continue;
     }
+    if (job.costs.length) paidDays++;
+    earned += payOf(job, s);
+    s = dailyAction(s, { type: "take", job: job.id }).state;
   }
-  return { type: "end-day" };
+  return { chapters, rests, paidDays, idle, final: s };
 }
-function net(j, s) {
-  const r = G.recipeOf(j.recipe);
-  return (
-    G.payWithRelation(j, s) -
-    Object.entries(r.needs).reduce(
-      (sum, [id, n]) => sum + (G.materialOf(id).buy ?? 100) * n,
-      0,
-    ) *
-      (j.count ?? 1)
-  );
-}
-function simulate(policy, chapters) {
-  let s = structuredClone(G.initialState),
-    iterations = 0;
-  const rows = [],
-    counts = {};
-  let start = s.money,
-    batches = 0,
-    deliveries = 0;
-  while (!s.ended && s.chapter <= chapters) {
-    assert.ok(++iterations < 5000, "policy loop");
-    const a = choose(s, policy),
-      previous = s;
-    s = step(s, a);
-    counts[a.type] = (counts[a.type] ?? 0) + 1;
-    if (a.type === "deliver") {
-      deliveries += a.ordinary.length + a.promises.length;
-      if (a.ordinary.length + a.promises.length > 1) batches++;
-    }
-    assert.deepEqual(
-      parseSave(JSON.stringify(s)),
-      s,
-      "every simulated action survives reload",
+
+const strategies = {
+  "清廉（代償ゼロだけ）": (open) =>
+    open
+      .filter((j) => !j.costs.length)
+      .sort((a, b) => b.pay / staminaOf(b) - a.pay / staminaOf(a))[0] ?? null,
+  "効率（体力あたり最大）": (open, s) =>
+    open.sort(
+      (a, b) => payOf(b, s) / staminaOf(b) - payOf(a, s) / staminaOf(a),
+    )[0] ?? null,
+  "高額（額の大きい順）": (open, s) =>
+    open.sort((a, b) => payOf(b, s) - payOf(a, s))[0] ?? null,
+};
+
+console.log(`${SEEDS}周ぶんの平均。ノルマに対する比率が読みどころ。\n`);
+for (const [name, pick] of Object.entries(strategies)) {
+  const runs = Array.from({ length: SEEDS }, (_, i) => run(pick, i));
+  console.log(`── ${name} ──`);
+  for (let c = 0; c < QUOTAS.length; c++) {
+    const rows = runs.map((r) => r.chapters[c]).filter(Boolean);
+    if (!rows.length) continue;
+    const earned = rows.reduce((a, r) => a + r.earned, 0) / rows.length;
+    const quota = rows[0].quota;
+    console.log(
+      `  第${c + 1}章  稼ぎ ${Math.round(earned).toLocaleString().padStart(6)}G` +
+        ` ／ ノルマ ${quota.toLocaleString().padStart(5)}G` +
+        ` ＝ ${Math.round((earned / quota) * 100)
+          .toString()
+          .padStart(4)}%`,
     );
-    if (a.type === "settle") {
-      const sheet = G.settlementOf(previous);
-      rows.push({
-        chapter: previous.chapter,
-        netBeforeSettlement: previous.money - start,
-        paid: sheet.paid,
-        shortfall: sheet.shortfall,
-      });
-      start = s.money;
-      if (previous.chapter === chapters) break;
-    }
   }
-  if (policy === "special") {
-    assert.equal(
-      s.obligations.filter((o) => o.status === "fulfilled").length,
-      2,
-    );
-    assert.ok(s.unlockedPeople.includes("herbalist"));
-    assert.ok(s.unlockedPlaces.includes("garden"));
-    assert.ok(s.playedEvents.includes("garden-introduction"));
-  }
-  if (policy === "batch")
-    assert.ok(batches > 0, "batch policy actually combines deliveries");
-  return {
-    policy,
-    batches,
-    deliveries,
-    days: chapters * 14,
-    money: s.money,
-    debt: s.debt,
-    unsettled: outstandingTotal(s),
-    fulfilled: s.obligations.filter((o) => o.status === "fulfilled").length,
-    defaults: s.obligations.filter((o) => o.status === "defaulted").length,
-    capabilities: s.capabilities,
-    axes: s.axes,
-    counts,
-    rows,
-  };
-}
-for (const chapters of [2, 6]) {
+  const avg = (f) =>
+    (runs.reduce((a, r) => a + f(r), 0) / runs.length).toFixed(1);
+  const axesOf = (a) =>
+    ["貞操", "品位", "威厳"].map((k) => `${k}${a[k]}`).join(" ");
   console.log(
-    `\n${chapters * 14}日間：仮データと行動方針の比較（前金は純利益ではありません）`,
+    `  休んだ日 ${avg((r) => r.rests)}日 ／ 代償を払った日 ${avg((r) => r.paidDays)}日` +
+      ` ／ 受けられる依頼が0件だった日 ${avg((r) => r.idle)}日`,
   );
-  for (const policy of ["ordinary", "batch", "special", "relations"])
-    console.log(JSON.stringify(simulate(policy, chapters)));
+  console.log(
+    `  最終 残債 ${Math.round(runs.reduce((a, r) => a + r.final.debt, 0) / runs.length)}G` +
+      ` ／ ${axesOf(runs[0].final.axes)}（品位上限 ${runs[0].final.dignityCap}）\n`,
+  );
 }
+console.log(
+  "企画書§4：ノルマは『代償ゼロの依頼だけを順調に重ねれば達成できる水準』。\n" +
+    "清廉の比率が 100% を大きく超えるなら、何も差し出さずに完済でき、選択が成立しない。",
+);

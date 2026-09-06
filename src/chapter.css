@@ -1031,3 +1031,246 @@ body {
 .c-journal-tabs .c-who {
   margin: 0 0 0 auto;
 }
+
+/* ══ 1日1行動（v14）════════════════════════════════════════════
+   今日の3件と「今日は受けない」を1画面に並べる。開かずに比べられることが要件。 */
+.c-today {
+  padding: 18px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  height: 100%;
+  min-height: 0;
+}
+.c-today h2 {
+  background: #fcf2e5ef;
+  color: #503a4d;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 18px;
+  margin: 0;
+}
+.c-offers {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.c-offer {
+  margin: 0;
+  padding: 0;
+  border-left-width: 5px;
+}
+.c-offer.c-clean {
+  border-left-color: #5f7a54;
+}
+.c-offer.c-paid {
+  border-left-color: #9e5470;
+}
+.c-offer.c-rest {
+  border-left-color: #8d8296;
+  background: #f3ecdfee;
+}
+.c-offer .c-card-link {
+  padding: 10px 14px;
+  gap: 12px;
+  width: 100%;
+}
+.c-offer .c-card-link:disabled {
+  opacity: 0.55;
+}
+.c-kind {
+  flex: none;
+  width: 34px;
+  font-family: var(--serif);
+  font-size: 12px;
+  color: #7c6a76;
+  writing-mode: horizontal-tb;
+  text-align: center;
+}
+.c-offer .c-card-pay small {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  color: #8b7366;
+}
+.c-offer .c-card-pay .mark {
+  width: 11px;
+  height: 11px;
+  fill: currentColor;
+}
+.c-offer > .sym-tag {
+  margin-right: 12px;
+}
+/* 差し出すもの。紋と、払ったあとの値。 */
+.c-costs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+.c-cost {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--serif);
+  font-size: 15px;
+}
+.c-cost .mark {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+.c-cost small {
+  font-family: "Noto Sans JP", sans-serif;
+  font-size: 10px;
+  color: #8b7366;
+  margin-left: 2px;
+}
+.c-cost-貞操 {
+  color: #9c4f6d;
+}
+.c-cost-品位 {
+  color: #8a6a2f;
+}
+.c-cost-威厳 {
+  color: #4d6480;
+}
+.c-costs.c-free {
+  font-size: 12px;
+  color: #6f8262;
+  gap: 5px;
+}
+.c-costs.c-free .mark {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+.c-trace-link {
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  color: #6d5f66;
+  font-size: 12px;
+  padding: 4px 0;
+}
+/* 依頼状。本文は内側でスクロールし、操作列は最終行に置く。 */
+.c-sheet {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.c-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px 28px 0;
+}
+.c-sheet-body h2 {
+  font-size: 25px;
+  margin: 0 0 5px;
+}
+.c-lead {
+  color: #5d4f58;
+  margin: 0 0 14px;
+}
+.c-terms {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 11px;
+}
+.c-terms > div {
+  background: #fff8ec;
+  border: 1px solid #e0d2c2;
+  border-radius: 11px;
+  padding: 11px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.c-terms small {
+  font-size: 11px;
+  color: #8b7366;
+}
+.c-terms > div > b {
+  font-family: var(--serif);
+  font-size: 23px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.c-terms > div > b .mark {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+}
+.c-terms em {
+  font-style: normal;
+  font-size: 11px;
+  color: #8b7366;
+}
+.c-terms em.c-warning {
+  background: none;
+  padding: 0;
+}
+.c-terms .c-costs {
+  flex-wrap: wrap;
+}
+/* 結果。何を受け取り、何を失ったかを1枚に並べる（§10）。 */
+.c-result {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.c-move {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+}
+.c-move .mark {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+.c-move small {
+  margin-left: auto;
+  font-size: 12px;
+  color: #8b7366;
+}
+.c-drop {
+  color: #a13b50;
+}
+.c-gain {
+  color: #4f6b45;
+}
+.c-capdrop {
+  color: #8a3f2f;
+  font-weight: 600;
+  border-top: 1px solid #e0cfc0;
+  border-bottom: 1px solid #e0cfc0;
+  padding: 6px 0;
+}
+.c-closed {
+  color: #6d5f66;
+  font-size: 13px;
+}
+.c-trace small {
+  color: #a13b50;
+}
+.c-closing {
+  margin-top: 14px;
+  background: #fff0e8;
+  border-left: 4px solid #a13b50;
+  border-radius: 6px;
+  padding: 9px 13px;
+  font-size: 13px;
+  color: #7a4148;
+}
+.c-closing b {
+  display: block;
+  font-family: var(--serif);
+  font-size: 15px;
+  margin-top: 3px;
+}

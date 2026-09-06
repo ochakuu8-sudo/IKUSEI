@@ -8,14 +8,9 @@
     "build": "tsc --noEmit -p tsconfig.app.json && vite build",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy.sh",
-    "sim": "node scripts/run.mjs sim",
-    "test": "node scripts/run.mjs test && node scripts/run.mjs chapter",
-    "test:ui": "node tests/chapter-ui.test.mjs",
-    "test:touch": "node tests/chapter-ui.test.mjs",
-    "test:scenario": "node tests/chapter-ui.test.mjs",
-    "test:chapter": "node scripts/run.mjs chapter",
-    "test:legacy-ui": "node scripts/run.mjs ui",
-    "sim:chapter": "node scripts/run.mjs chapter"
+    "test": "node scripts/run.mjs daily",
+    "test:ui": "node tests/daily-ui.test.mjs",
+    "sim": "node scripts/run.mjs sim"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

@@ -1,8 +1,6 @@
 // ゲームのルールとデータ。画面(App.tsx)からは、ここが返す値を表示するだけにする。
 // 数値の根拠は GAME_DESIGN.md。変更するときは企画書側と必ず揃える。
 
-import type { SupportState } from "./supportTypes";
-import { emptySupportState } from "./supportTypes";
 export type Axis = "貞操" | "品位" | "威厳";
 export type PlaceId =
   | "estate"
@@ -293,17 +291,6 @@ export const places: Place[] = [
   },
 ];
 
-/** その場所へ行けるか。採集地は堕ちて開くものがある。 */
-export function placeOpen(place: Place, state: GameState): boolean {
-  if (place.requiresUnlock && !state.unlockedPlaces.includes(place.id))
-    return false;
-  if (!place.opensBelow) return true;
-  return axes.some((axis) => {
-    const line = place.opensBelow?.[axis];
-    return line !== undefined && state.axes[axis] <= line;
-  });
-}
-
 /** 依頼人。関係は組織ではなく、この人と結ぶ。 */
 export type PersonId =
   | "vernet"
@@ -434,16 +421,6 @@ export function personOf(id: PersonId): Person {
   return people.find((p) => p.id === id) ?? people[0];
 }
 
-export function personOpen(person: Person, state: GameState): boolean {
-  return (
-    (!person.requiresUnlock || state.unlockedPeople.includes(person.id)) &&
-    placeOpen(placeOf(person.place), state)
-  );
-}
-export function peopleAt(place: PlaceId, state: GameState): Person[] {
-  return people.filter((p) => p.place === place && personOpen(p, state));
-}
-
 /** 関係の段階。数値ではなく言葉で出す。 */
 export function relationStage(value: number): string {
   return ["依頼人", "顔を覚えられた", "名前で呼ばれる", "私的な用も頼まれる"][
@@ -489,11 +466,6 @@ export function baseQuota(chapter: number): number {
   return QUOTAS[chapter - 1] ?? QUOTAS[QUOTAS.length - 1];
 }
 
-/** 今章に納める額。前章の未達分は利息ごと乗る。 */
-export function quotaOf(state: GameState): number {
-  return baseQuota(state.chapter) + state.carryOver;
-}
-
 /** その依頼を受けると必ず削られるもの。選ばせない。 */
 export type JobCost = { axis: Axis; amount: number };
 
@@ -531,63 +503,6 @@ export type Job = {
   count?: number;
   /** 納めると処方を教わる依頼。レシピは金では買えない(§2-1)。 */
   teaches?: RecipeId;
-};
-
-export type GameState = SupportState & {
-  chapter: number;
-  day: number;
-  /** 前章の未達分（利息込み）。今章のノルマに上乗せされる。 */
-  carryOver: number;
-  /** 14日目の行動を終えて、章末精算を待っている状態。 */
-  awaitingSettlement: boolean;
-  money: number;
-  debt: number;
-  stamina: number;
-  /** 品位の上限。§1-4「現在値は戻る。ただし上限は下がったまま戻らない」。 */
-  dignityCap: number;
-  axes: Record<Axis, number>;
-  relations: Record<PersonId, number>;
-  /** 手持ちの素材。 */
-  materials: Record<MaterialId, number>;
-  /** 調合済みの品の在庫。納品するとここから減る。 */
-  stock: Partial<Record<RecipeId, number>>;
-  /** 覚えた処方。レシピ帳。 */
-  known: RecipeId[];
-  /** 直近に仕事を受けた相手（新しい順）。同じ人に通い詰めると買い叩かれる。 */
-  recent: (PersonId | "none" | PersonId[])[];
-  log: string[];
-  ended: boolean;
-};
-
-/** 1日の行動結果。結果画面(§10)がそのまま読める形で持つ。 */
-export type DayResult = {
-  kind: "end-day" | "job" | "rest" | "network" | "gather" | "buy" | "support";
-  days?: number;
-  notices?: string[];
-  title: string;
-  narrative: string;
-  basePay: number;
-  relationBonus: number;
-  paidTerms: { axis: Axis; title: string; bonus: number; cost: number }[];
-  moneyDelta: number;
-  staminaDelta: number;
-  axisDrops: { axis: Axis; amount: number }[];
-  axisGains: { axis: Axis; amount: number }[];
-  dignityCapDrop: number;
-  /** 関係が新しい段階に入ったとき。 */
-  relationUp?: { name: string; stage: string };
-  /** 素材の増減。採集・購入・納品で動く。 */
-  materialDeltas?: { id: MaterialId; amount: number }[];
-  /** 納めた品。 */
-  delivered?: { recipe: RecipeId; count: number };
-  deliveries?: {
-    title: string;
-    recipe: RecipeId;
-    count: number;
-    pay: number;
-  }[];
-  /** その日に覚えた処方。 */
-  learned?: RecipeId[];
 };
 
 function makeJob(
@@ -941,291 +856,14 @@ export const jobs: Job[] = [
   ),
 ];
 
-export const initialState: GameState = {
-  ...emptySupportState(),
-  chapter: 1,
-  day: 1,
-  carryOver: 0,
-  awaitingSettlement: false,
-  money: 120,
-  debt: TOTAL_DEBT,
-  stamina: 100,
-  dignityCap: 100,
-  axes: { 貞操: 100, 品位: 100, 威厳: 100 },
-  relations: {
-    herbalist: 0,
-    vernet: 0,
-    jean: 0,
-    claire: 0,
-    guillaume: 0,
-    count: 0,
-    marc: 0,
-  },
-  materials: {
-    rose: 0,
-    wax: 0,
-    poppy: 0,
-    wormwood: 0,
-    ambergris: 0,
-    silversand: 0,
-  },
-  stock: {},
-  known: [...INITIAL_RECIPES],
-  recent: [],
-  log: ["返済期限まで、あと14日。まだ、どこへでも行ける。"],
-  ended: false,
-};
-
-/** 中盤の疑似再現（§13 MVP の初期状態B）。冒頭は何も失っていないため、企画の売りが出ない。 */
-export const midGameState: GameState = {
-  ...initialState,
-  chapter: 3,
-  day: 6,
-  money: 540,
-  stamina: 44,
-  dignityCap: 74,
-  axes: { 貞操: 62, 品位: 51, 威厳: 47 },
-  relations: {
-    herbalist: 0,
-    vernet: 1,
-    jean: 0,
-    claire: 1,
-    guillaume: 2,
-    count: 1,
-    marc: 1,
-  },
-  materials: {
-    rose: 3,
-    wax: 1,
-    poppy: 2,
-    wormwood: 2,
-    ambergris: 0,
-    silversand: 0,
-  },
-  stock: { tisane: 1 },
-  known: ["tisane", "balm", "sleeper", "tonic"],
-  recent: ["guillaume", "vernet"],
-  log: ["五日が過ぎた。差し出したものは、もう帳簿には戻らない。"],
-};
-
-/** その場所にある依頼。常設なので、開いているものはいつでも受けられる。 */
-export function jobsAt(place: PlaceId): Job[] {
-  return jobs.filter((job) => personOf(job.person).place === place);
-}
-
-/** その人物が抱えている依頼。 */
-export function jobsBy(person: PersonId): Job[] {
-  return jobs.filter((job) => job.person === person);
-}
-
-/** 尊厳が足りていて紹介してもらえるか。 */
-function meetsNeeds(job: Job, state: GameState): boolean {
-  return axes.every((axis) => state.axes[axis] >= (job.needs[axis] ?? 0));
-}
-
-/** まだ落ちきっておらず、回ってこない依頼か。 */
-export function notYetFallen(job: Job, state: GameState): boolean {
-  if (!job.opensBelow) return false;
-  return axes.some((axis) => {
-    const line = job.opensBelow?.[axis];
-    return line !== undefined && state.axes[axis] > line;
-  });
-}
-
-/** 処方を知らない注文は、そもそも回ってこない（尊厳で閉じたのとは別）。 */
-export function unknownRecipe(job: Job, state: GameState): boolean {
-  return job.recipe !== undefined && !state.known.includes(job.recipe);
-}
-
-/** いま受けられるか。上の仕事は尊厳で閉じ、裏の仕事は落ちて初めて開く。 */
-export function isOpen(job: Job, state: GameState): boolean {
-  return (
-    personOpen(personOf(job.person), state) &&
-    !personalLimitReason(job, state) &&
-    (!job.requiresCapability ||
-      state.capabilities.includes(job.requiresCapability)) &&
-    meetsNeeds(job, state) &&
-    !notYetFallen(job, state) &&
-    !unknownRecipe(job, state)
-  );
-}
-
-export const personalRunKey = (job: Job, s: GameState) =>
-  job.cadence === "chapter"
-    ? `chapter:${s.chapter}:${job.id}`
-    : `once:${job.id}`;
-export function personalLimitReason(job: Job, s: GameState): string | null {
-  if (
-    job.category !== "personal" ||
-    job.cadence === "repeat" ||
-    !s.personalRuns[personalRunKey(job, s)]
-  )
-    return null;
-  return job.cadence === "once" ? "実行済み（1プレイに1回）" : "今章は実行済み";
-}
-export const personalJobsAt = (place: PlaceId, s: GameState) =>
-  jobsAt(place).filter((j) => j.category === "personal" && isOpen(j, s));
-
-/** 尊厳が足りずに閉じた軸。跡の表示に使う（まだ現れていない依頼は跡ではない）。 */
-export function closedBy(job: Job, state: GameState): Axis[] {
-  return axes.filter((axis) => state.axes[axis] < (job.needs[axis] ?? 0));
-}
-
-/* ================= 調剤のルール =================
-   SYSTEM_PLAN.md §2。素材は買う／採る／貰う、調合は体力と素材、納品が1日。 */
-
-/** その処方をいま調合できるか。素材と体力の両方が要る。 */
-export function canBrew(recipe: Recipe, state: GameState): boolean {
-  if (!state.known.includes(recipe.id)) return false;
-  if (state.stamina < recipe.stamina) return false;
-  return materialIds.every(
-    (id) => state.materials[id] >= (recipe.needs[id] ?? 0),
-  );
-}
-
-/** 1回調合する。日は消費しない ── 減るのは体力と素材。 */
-export function brewOnce(state: GameState, id: RecipeId): GameState {
-  const recipe = recipeOf(id);
-  const nextMaterials = { ...state.materials };
-  materialIds.forEach((m) => {
-    nextMaterials[m] -= recipe.needs[m] ?? 0;
-  });
-  return {
-    ...state,
-    stamina: state.stamina - recipe.stamina,
-    materials: nextMaterials,
-    stock: { ...state.stock, [id]: (state.stock[id] ?? 0) + 1 },
-  };
-}
-
-/** 納品に足りる在庫があるか。 */
-export function hasStockFor(job: Job, state: GameState): boolean {
-  if (!job.recipe) return true;
-  return (state.stock[job.recipe] ?? 0) >= (job.count ?? 1);
-}
-
-/** 行ける採集地。堕ちて開く場所がある(§6-B)。 */
-export function gatherPlaces(state: GameState): Place[] {
-  return places.filter((p) => p.kind === "gather" && placeOpen(p, state));
-}
-
-/** 関係が新しい段階に入って教わる処方。まだ知らないものだけ返す。 */
-export function recipesTaughtBy(
-  person: PersonId,
-  before: number,
-  after: number,
-  known: RecipeId[],
-): RecipeId[] {
-  const p = personOf(person);
-  return (p.teaches ?? [])
-    .filter(
-      (t) => t.stage > before && t.stage <= after && !known.includes(t.recipe),
-    )
-    .map((t) => t.recipe);
-}
-
-/* --- 常設リストの単調さを防ぐ：同じ場所に通い詰めると買い叩かれる --- */
-
+/* --- 常設リストの単調さを防ぐ：同じ相手に通い詰めると買い叩かれる。
+       率は daily.ts が持つ。 --- */
 export const RECENT_WINDOW = 3;
-const FATIGUE_RATE = [1, 0.82, 0.68, 0.58];
 
 /** 直近 RECENT_WINDOW 日と本日ぶんを合わせた、その人への納品回数。
     同日の反復を許した以上、日単位で数えると買い叩きが一度も効かない。 */
-export function personFatigue(person: PersonId, state: GameState): number {
-  const past = state.recent.slice(0, RECENT_WINDOW).reduce(
-    (n, entry) =>
-      n +
-      (Array.isArray(entry)
-        ? entry.filter((id) => id === person).length
-        : entry === person
-          ? 1
-          : 0),
-    0,
-  );
-  return past + state.today.deliveries.filter((id) => id === person).length;
-}
-
-/** 通い詰めによる相場の下落率（1 = 定価）。 */
-export function fatigueRate(person: PersonId, state: GameState): number {
-  return FATIGUE_RATE[
-    Math.min(personFatigue(person, state), FATIGUE_RATE.length - 1)
-  ];
-}
 
 /* ---------------- 章末精算 ---------------- */
-
-export type Settlement = {
-  chapter: number;
-  quota: number;
-  paid: number;
-  shortfall: number;
-  interest: number;
-  penalties: { axis: Axis; amount: number }[];
-  debtBefore: number;
-  debtAfter: number;
-  nextQuota: number;
-  finished: boolean;
-  cleared: boolean;
-};
-
-/** 精算の内訳を計算する。状態は変えない（画面に見せてから適用する）。 */
-export function settlementOf(state: GameState): Settlement {
-  const quota = quotaOf(state);
-  const paid = Math.min(state.money, quota);
-  const shortfall = quota - paid;
-  const interest = shortfall > 0 ? Math.ceil(shortfall * LATE_INTEREST) : 0;
-  const debtAfter = Math.max(0, state.debt - paid + interest);
-  const finished = state.chapter >= CHAPTERS;
-  return {
-    chapter: state.chapter,
-    quota,
-    paid,
-    shortfall,
-    interest,
-    penalties: shortfall > 0 ? LATE_PENALTY : [],
-    debtBefore: state.debt,
-    debtAfter,
-    nextQuota: finished
-      ? 0
-      : baseQuota(state.chapter + 1) + shortfall + interest,
-    finished,
-    cleared: finished && debtAfter <= 0,
-  };
-}
-
-/** 精算を適用して次章へ。最終章なら ended を立てる。 */
-export function applySettlement(state: GameState, s: Settlement): GameState {
-  const axes2 = { ...state.axes };
-  s.penalties.forEach((p) => {
-    axes2[p.axis] = Math.max(0, axes2[p.axis] - p.amount);
-  });
-  axes2.品位 = Math.min(axes2.品位, state.dignityCap);
-  return {
-    ...state,
-    money: state.money - s.paid,
-    debt: s.debtAfter,
-    axes: axes2,
-    carryOver: s.shortfall + s.interest,
-    awaitingSettlement: false,
-    today: {
-      worked: [],
-      relationGranted: [],
-      publicWork: false,
-      deliveries: [],
-      earned: 0,
-    },
-    chapter: s.finished ? state.chapter : state.chapter + 1,
-    day: s.finished ? state.day : 1,
-    stamina: s.finished ? state.stamina : MAX_STAMINA,
-    ended: s.finished,
-    log: [
-      s.shortfall > 0
-        ? `第${s.chapter}章 章末。${s.paid.toLocaleString()}Gを納めたが、${s.shortfall.toLocaleString()}G足りなかった。`
-        : `第${s.chapter}章 章末。${s.paid.toLocaleString()}Gを納めた。`,
-      ...state.log,
-    ].slice(0, 8),
-  };
-}
 
 export function axisStage(axis: Axis, value: number): string {
   const stages: Record<Axis, [string, string, string, string]> = {
@@ -1261,39 +899,8 @@ export function capDropOf(job: Job): number {
   return dignity ? Math.ceil(dignity.amount / 2) : 0;
 }
 
-/** 定価＋人脈。相場の下落はまだ掛けない。 */
-export function listPrice(job: Job, state: GameState): number {
-  return job.pay + state.relations[job.person] * 25;
-}
-
-/** 実際に提示される額。通い詰めていると下がる。 */
-export function payWithRelation(job: Job, state: GameState): number {
-  return Math.round(listPrice(job, state) * fatigueRate(job.person, state));
-}
-
 /** 買い叩きの内訳。「なぜ安くなったか」を画面で言うために使う ──
     理由を出さないと、プレイヤーには値が勝手に下がったようにしか見えない。 */
-export function fatigueDetail(person: PersonId, state: GameState) {
-  const today = state.today.deliveries.filter((id) => id === person).length;
-  return {
-    today,
-    count: personFatigue(person, state),
-    rate: fatigueRate(person, state),
-  };
-}
-
-/** 絵と透かしを決める主軸。依頼にも特別依頼の納品方法にも同じ形で使う。 */
-export function primaryAxis(costs: JobCost[]): Axis | null {
-  return (
-    axes.find((axis) => costs.some((c) => c.axis === axis && c.amount > 0)) ??
-    null
-  );
-}
-
-/** スタミナが足りない依頼は選べない(§1-5)。 */
-export function hasStaminaFor(job: Job, state: GameState): boolean {
-  return state.stamina >= job.stamina;
-}
 
 /* ---------------- イベントシーン ----------------
    依頼を受けたあとに流れる「本番」。遊ぶ場所ではなく観る場所なので、

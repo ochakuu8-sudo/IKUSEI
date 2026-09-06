@@ -1,1 +1,1 @@
-export { default } from './ChapterApp';
+export { default } from './DailyApp';
