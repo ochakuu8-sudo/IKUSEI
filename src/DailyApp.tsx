@@ -393,6 +393,17 @@ export default function DailyApp() {
     ),
     [gallery, setGallery] = useState(false),
     [replay, setReplay] = useState<SceneEntry | null>(null);
+  /* 場面を閉じた指が、そのまま下の札を押して次の場面を開いてしまわないようにする。
+     最終行のタップは「閉じる」であって「次を選ぶ」ではない。 */
+  const sceneClosedAt = useRef(0);
+  const openReplay = (entry: SceneEntry) => {
+    if (Date.now() - sceneClosedAt.current < 350) return;
+    setReplay(entry);
+  };
+  const closeReplay = () => {
+    sceneClosedAt.current = Date.now();
+    setReplay(null);
+  };
   const lock = useRef(false),
     stateRef = useRef(s);
   stateRef.current = s;
@@ -502,7 +513,17 @@ export default function DailyApp() {
   return (
     <>
       <div
-        className={`chapter-app ${!started ? "c-title" : ui.tab === "today" && !sheetJob ? "c-home" : ""}`}
+        /* c-title は `display:block` ＋ 全面の覆い（:before）なので、回想を出すあいだは外す。
+           付けたままだと回想が縦に伸びて器からはみ出し、覆いが触りを全部吸ってしまう。 */
+        className={`chapter-app ${
+          !started
+            ? gallery
+              ? ""
+              : "c-title"
+            : ui.tab === "today" && !sheetJob
+              ? "c-home"
+              : ""
+        }`}
         style={{
           backgroundImage: `url(${backgroundSrc(!started ? "title" : "home")})`,
         }}
@@ -510,7 +531,7 @@ export default function DailyApp() {
         {!started && gallery ? (
           <Gallery
             seen={seenScenes}
-            onPlay={setReplay}
+            onPlay={openReplay}
             onClose={() => setGallery(false)}
           />
         ) : !started ? (
@@ -613,7 +634,7 @@ export default function DailyApp() {
                 {gallery ? (
                   <Gallery
                     seen={seenScenes}
-                    onPlay={setReplay}
+                    onPlay={openReplay}
                     onClose={() => setGallery(false)}
                   />
                 ) : s.awaitingSettlement ? (
@@ -872,7 +893,7 @@ export default function DailyApp() {
           lines={replay.lines}
           place={replay.place}
           speed={ui.speed}
-          onDone={() => setReplay(null)}
+          onDone={closeReplay}
         />
       )}
 

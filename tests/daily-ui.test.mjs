@@ -26,10 +26,23 @@ async function tap(locator) {
   await locator.tap();
   await page.waitForTimeout(220);
 }
-/** 場面を最後まで送る。どこを触っても進むこと自体が要件。 */
+/**
+ * 場面を最後まで送る。どこを触っても進むこと自体が要件。
+ * 送っても本文が変わらなくなったら、そこで詰まっている（無限に叩き続けない）。
+ */
 async function playScene() {
-  for (let i = 0; i < 40; i++) {
+  let last = "";
+  let stuck = 0;
+  for (let i = 0; i < 60; i++) {
     if (!(await page.locator(".scenario-dialog").count())) return;
+    const text = await page
+      .locator(".scenario-text span")
+      .first()
+      .innerText()
+      .catch(() => "");
+    stuck = text === last ? stuck + 1 : 0;
+    if (stuck > 3) throw new Error(`場面が進まない: ${text.slice(0, 20)}`);
+    last = text;
     await page.locator(".scenario-tap-target").tap({ force: true });
     await page.waitForTimeout(90);
   }
@@ -61,6 +74,27 @@ try {
     localStorage.removeItem("ikusei-prototype-save-v14"),
   );
   await page.reload();
+  /* 回想はタイトルからも開ける。器（1200×500）に収まり、閉じるが画面内にあること。
+     `c-title` を付けたままだと縦に伸びて覆いが触りを吸う、という壊れ方をした。 */
+  await tap(button("回想"));
+  const frame = await page.evaluate(() => {
+    const r = (sel) => {
+      const b = document.querySelector(sel).getBoundingClientRect();
+      return { top: Math.round(b.top), bottom: Math.round(b.bottom) };
+    };
+    const grid = document.querySelector(".c-gallery-grid");
+    return {
+      app: r(".chapter-app"),
+      footer: r(".c-gallery .c-footer"),
+      scrollable: grid.scrollHeight > grid.clientHeight,
+    };
+  });
+  assert(frame.footer.bottom <= frame.app.bottom, "閉じるが器の外に出ている");
+  assert(frame.scrollable, "目録が内側でスクロールしない");
+  assert.equal(await page.locator(".c-recall").count(), 53);
+  await tap(button("閉じる"));
+  assert(await button("はじめから").count(), "タイトルへ戻れない");
+
   await tap(button("はじめから"));
   const start = await read();
   assert.equal(start.saveVersion, 14);
@@ -138,6 +172,11 @@ try {
     "回想から場面を読み返せる",
   );
   await playScene();
+  assert.equal(
+    await page.locator(".scenario-dialog").count(),
+    0,
+    "場面を閉じた指で次の場面が開いている",
+  );
   const kept = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("ikusei-prototype-gallery-v1") ?? "[]"),
   );

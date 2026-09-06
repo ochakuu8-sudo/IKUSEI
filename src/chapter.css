@@ -1612,3 +1612,10 @@ body {
   font-size: 10px;
   color: #a08a7a;
 }
+/* タイトルから開いた回想は、器（1200×500）をそのまま埋める。
+   タイトル絵が透けて札が沈むので、ここだけ地を厚くする。 */
+.chapter-app > .c-gallery {
+  flex: 1;
+  min-height: 0;
+  background: #f6ecdd;
+}
