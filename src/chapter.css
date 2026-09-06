@@ -181,11 +181,59 @@ body {
   background: none;
   color: inherit;
   text-align: left;
+  line-height: 1.25;
+}
+/* 記号の共通ゲージ。数値と説明文を減らしたぶん、量は棒で読ませる。 */
+.c-gauge {
+  position: relative;
+  display: block;
+  height: 8px;
+  border-radius: 8px;
+  background: #ffffff2e;
+  overflow: hidden;
+}
+.c-gauge > i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #d9bc76, #efd79b);
+}
+.c-gauge > u {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: #fff;
+  opacity: 0.8;
+  overflow: visible;
+}
+.c-stamina {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.c-stamina .c-gauge {
+  width: 118px;
+  overflow: visible;
+}
+.c-stamina .mark {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+}
+.c-stamina b,
+.c-purse b {
+  font-size: 18px;
 }
 .c-hud .c-debt {
   margin-left: auto;
-  min-width: 155px;
+  min-width: 190px;
   text-align: right;
+  line-height: 1.2;
+}
+.c-hud .c-debt b {
+  display: block;
+  font-size: 25px;
+  color: #ffe6c4;
 }
 .c-hud > .c-button {
   min-height: 40px;
@@ -224,27 +272,39 @@ body {
   background: linear-gradient(0deg, #322337e8, #32233700);
   padding-top: 24px;
 }
-.c-axes > div {
-  margin-bottom: 7px;
-}
-.c-axes span {
+.c-ax {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 11px;
 }
-.c-axes span small {
-  font-size: 10px;
+.c-ax .mark {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: currentColor;
+  opacity: 0.9;
 }
-.c-axes b {
-  margin-left: auto;
+.c-ax .c-gauge {
+  flex: 1;
+  min-width: 0;
+  height: 7px;
+  overflow: visible;
 }
-.c-axes > small {
-  display: block;
+.c-ax .c-gauge > i {
+  border-radius: 7px;
+}
+.c-ax em {
+  font-style: normal;
+  font-size: 11px;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+.c-ax b {
+  font-size: 12px;
+  width: 24px;
   text-align: right;
-}
-.c-axes progress {
-  height: 6px;
-  margin-top: 3px;
 }
 .c-nav {
   width: 67px;
@@ -312,49 +372,58 @@ body {
   flex: 1;
   overflow: hidden;
 }
+/* 一覧と依頼状は同時に出さない（企画書「1画面につき仕事は1つ」）。 */
 .c-order-list {
-  width: 267px;
-  flex: none;
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid #dac8b5;
   background: #e8dccdc2;
+}
+.c-orders.has-detail .c-order-list,
+.c-orders:not(.has-detail) .c-order-detail {
+  display: none;
 }
 .c-order-list .c-scroll {
   padding: 8px;
 }
 .c-filters {
-  padding: 9px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px;
+  padding: 9px 9px 0;
+  display: flex;
+  gap: 6px;
 }
-.c-filters input {
-  grid-column: 1/-1;
-}
-.c-filters select:last-child {
-  grid-column: 1/-1;
-  min-height: 30px;
+.c-filters select {
+  min-height: 32px;
   font-size: 12px;
 }
+/* 一覧は1依頼＝1行。状態は札1枚、報酬は右端。開かずに選べる形にする。 */
 .c-order-card {
   display: flex;
-  align-items: flex-start;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
   background: #fff8ec;
   border: 1px solid #d6c2ac;
+  border-left: 5px solid #c4b5a4;
   border-radius: 9px;
   margin-bottom: 7px;
-  padding: 8px 6px;
+  padding: 7px 9px;
+}
+.c-order-card.c-state-ready {
+  border-left-color: #5f7a54;
+}
+.c-order-card.c-state-brew {
+  border-left-color: #b8913f;
+}
+.c-order-card.c-state-shut {
+  opacity: 0.62;
 }
 .c-order-card.selected {
   border-color: #9e5470;
+  border-left-color: #9e5470;
   background: #ffeff1;
-  box-shadow: inset 3px 0 #9e5470;
 }
-.c-order-card input {
-  margin-top: 4px;
+.c-order-card > input {
   flex: none;
 }
 .c-card-link {
@@ -363,18 +432,39 @@ body {
   text-align: left;
   padding: 0;
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  align-items: center;
+  gap: 9px;
   flex: 1;
+  min-width: 0;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.45;
 }
-.c-card-link small {
+.c-card-body {
+  flex: 1;
+  min-width: 0;
+}
+.c-card-body b {
+  display: block;
+  font-size: 14px;
+}
+.c-card-body small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 10px;
   color: #8b7366;
 }
-.c-card-link b {
-  font-size: 14px;
+.c-card-pay {
+  font-family: var(--serif);
+  font-size: 17px;
+  text-align: right;
+  white-space: nowrap;
+}
+.c-card-pay small {
+  display: block;
+  font-family: inherit;
+  font-size: 10px;
+  color: #a5473c;
 }
 .c-order-detail,
 .c-brew-detail,
@@ -713,4 +803,231 @@ body {
 }
 .dialog .c-button {
   font-size: 14px;
+}
+
+/* ── 記号（src/ui/symbols.tsx）─────────────────────────── */
+.sym {
+  height: 11px;
+  width: auto;
+  flex: none;
+  vertical-align: -1px;
+}
+.sym-stars {
+  height: 12px;
+  color: #b8913f;
+}
+.sym-rings {
+  height: 10px;
+  color: #96546d;
+}
+.sym-pips {
+  height: 12px;
+  color: #5f7a54;
+}
+.sym-tag {
+  flex: none;
+  font-size: 10.5px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: #e7dccb;
+  color: #6d5f52;
+  white-space: nowrap;
+}
+.sym-tag.sym-ready {
+  background: #dcecd4;
+  color: #3f5c37;
+}
+.sym-tag.sym-brew {
+  background: #f6e6c4;
+  color: #7a5f26;
+}
+.sym-tag.sym-shut {
+  background: #e6dfda;
+  color: #8b7366;
+}
+/* ── 依頼状 ──────────────────────────────────────────── */
+.c-who {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #8b7366;
+  font-size: 12px;
+  margin: 0 0 14px;
+}
+.c-goods {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  background: #fff8ec;
+  border: 1px solid #e0d2c2;
+  border-radius: 11px;
+  padding: 11px 15px;
+  margin-bottom: 8px;
+}
+.c-goods > span {
+  flex: 1;
+  min-width: 0;
+}
+.c-goods b {
+  display: block;
+  font-family: var(--serif);
+  font-size: 18px;
+}
+.c-goods small {
+  color: #8b7366;
+  font-size: 11px;
+}
+.c-goods .c-item {
+  width: 38px;
+  height: 38px;
+}
+.c-pay {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  margin: 14px 0 6px;
+}
+.c-pay b {
+  font-family: var(--serif);
+  font-size: 30px;
+}
+.c-pay span {
+  color: #8b7366;
+  font-size: 12px;
+}
+.c-allocation-box {
+  background: #f4e9db;
+  border-radius: 8px;
+  padding: 8px 11px;
+}
+.c-footer-note {
+  color: #a13b50;
+  font-size: 12px;
+}
+/* ── 素材・調合 ───────────────────────────────────────── */
+.c-mats {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin: 12px 0 4px;
+}
+.c-mat {
+  flex: 1;
+  min-width: 148px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff8ec;
+  border: 1px solid #e0d2c2;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+.c-mat b {
+  margin-left: auto;
+  font-family: var(--serif);
+  font-size: 16px;
+}
+.c-mat small {
+  color: #8b7366;
+  font-size: 11px;
+}
+.c-mat.short {
+  border-color: #d9a48f;
+  background: #fff2ec;
+}
+.c-mat.short b {
+  color: #a5473c;
+}
+.c-count {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.c-count > b {
+  font-family: var(--serif);
+  font-size: 26px;
+  min-width: 38px;
+  text-align: center;
+}
+.c-count .c-button {
+  min-height: 40px;
+}
+.c-cap {
+  margin-left: auto;
+  font-size: 12px;
+  color: #8b7366;
+}
+.c-cap b {
+  font-family: var(--serif);
+  font-size: 16px;
+  color: #493b4c;
+}
+.c-use-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+}
+.c-use-row small {
+  margin-left: auto;
+  color: #8b7366;
+  font-size: 11px;
+}
+.c-goal-row .c-button {
+  gap: 6px;
+}
+.c-recipe.locked {
+  opacity: 0.6;
+}
+.c-recipe small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.c-brew-detail h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.c-brew-detail h2 .sym-stars {
+  height: 15px;
+}
+.c-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.c-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f4e9db;
+  border-radius: 20px;
+  padding: 4px 11px;
+  font-size: 12px;
+}
+.c-prep-goods {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.c-prep-goods > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.c-prep-goods .c-item {
+  width: 24px;
+  height: 24px;
+}
+.c-journal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+.c-journal-tabs .c-who {
+  margin: 0 0 0 auto;
 }

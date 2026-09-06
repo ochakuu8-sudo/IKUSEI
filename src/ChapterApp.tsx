@@ -58,6 +58,7 @@ import {
   axisStage,
   materialIds,
   materialOf,
+  relationStage,
   type MaterialId,
   type PlaceId,
   type RecipeId,
@@ -72,6 +73,8 @@ import {
 import { supportOffers } from "./content/support";
 import { offerReason } from "./contracts";
 import { Art, Modal } from "./ui/components";
+import { Mark } from "./marks";
+import { Pips, Rings, Stars, StateTag, qualityWord } from "./ui/symbols";
 import { Dialogue } from "./ui/Narrative";
 import { backgroundSrc, heroSrc, itemSrc, mapSrc } from "./art";
 import { fullscreenSupported, useFullscreen } from "./ui/fullscreen";
@@ -79,6 +82,8 @@ import "./chapter.css";
 type Tab = "home" | "orders" | "map" | "brew" | "inventory" | "journal";
 type UI = {
   tab: Tab;
+  /** 依頼状（全画面）を開いているか。一覧と詳細は同時に出さない。 */
+  sheet: boolean;
   selected: string[];
   goals: string[];
   targets: { id: string; contractId?: string; requirements: Need[] }[];
@@ -98,6 +103,7 @@ type UI = {
 };
 const freshUI = (): UI => ({
   tab: "home",
+  sheet: false,
   selected: [],
   goals: [],
   targets: [],
@@ -149,6 +155,7 @@ function loadUI(): UI {
       !Array.isArray(v.allocation)
     )
       d.allocation = v.allocation;
+    d.sheet = v.sheet === true && d.selected.length > 0;
     if (v.priority === "low") d.priority = "low";
     if ([0, 24, 50].includes(v.speed)) d.speed = v.speed;
     d.motion = v.motion === true;
@@ -244,6 +251,32 @@ function Requirements({ q }: { q: Quest }) {
     </span>
   );
 }
+/**
+ * 一覧で「開かずに選べる」ようにするための状態。
+ * 納品できる／いま作れる／何が足りない、の3段階に畳む。
+ * 正確な内訳は依頼状と折りたたみに残す。
+ */
+function questState(s: ChapterState, q: Quest) {
+  const contract = contractFor(s, q.id);
+  if (!quoteDelivery(s, [q.id]).error)
+    return { kind: "ready" as const, text: "納品できる" };
+  const reason = questReason(s, q);
+  if (reason) return { kind: "shut" as const, text: reason };
+  if (q.mode === "contract" && !contract)
+    return { kind: "accept" as const, text: "受けられる" };
+  const short = Object.entries(preparation(s, [q.id]).materials).filter(
+    ([, n]) => n! > 0,
+  );
+  if (!short.length) return { kind: "brew" as const, text: "いま作れる" };
+  const [m, n] = short[0];
+  return {
+    kind: "short" as const,
+    text:
+      short.length > 1
+        ? `${materialOf(m as MaterialId).name}ほか${short.length}種が足りない`
+        : `${materialOf(m as MaterialId).name}が${n}つ足りない`,
+  };
+}
 function DeliverySummary({
   quote,
 }: {
@@ -286,8 +319,8 @@ function OrderScreen(c: Ctx) {
       ui.priority,
     ),
     prep = preparation(s, selected);
-  const shown = quests
-    .filter((q) => questVisible(s, q))
+  const visible = quests.filter((q) => questVisible(s, q));
+  const shown = visible
     .filter(
       (q) =>
         (ui.filter === "all" ||
@@ -296,10 +329,7 @@ function OrderScreen(c: Ctx) {
           (ui.filter === "active" &&
             contractFor(s, q.id)?.status === "active") ||
           (ui.filter === "ready" && !quoteDelivery(s, [q.id]).error)) &&
-        (ui.person === "all" || ui.person === q.personId) &&
-        `${q.title}${personName(q.personId)}${q.requirements.map((n) => recipeName(n.recipeId)).join("")}`.includes(
-          ui.search,
-        ),
+        (ui.person === "all" || ui.person === q.personId),
     )
     .sort((a, b) =>
       ui.sort === "name"
@@ -316,150 +346,188 @@ function OrderScreen(c: Ctx) {
           : [...selected, id]
         : [id],
       allocation: null,
+      sheet: !multi,
     });
+  const open = ui.sheet && qs.length > 0;
+  const stageOf = (id: string) =>
+    rules.relationStageThresholds.filter(
+      (t) => (s.relationPoints[id] ?? 0) >= t,
+    ).length - 1;
+  /* 絞り込みは件数が増えてから出す。1〜5件の一覧に検索窓と3つの選択は要らない。 */
+  const manyRows = visible.length >= 6;
   return (
-    <div className="c-orders">
+    <div className={`c-orders ${open ? "has-detail" : ""}`}>
       <aside className="c-order-list">
-        <div className="c-filters">
-          <input
-            aria-label="依頼を検索"
-            placeholder="依頼・人物・薬を探す"
-            value={ui.search}
-            onChange={(e) => patch({ search: e.target.value })}
-          />
-          <select
-            aria-label="依頼の分類"
-            value={ui.filter}
-            onChange={(e) => patch({ filter: e.target.value })}
-          >
-            <option value="all">すべて</option>
-            <option value="repeat">反復依頼</option>
-            <option value="contract">契約</option>
-            <option value="active">受諾済み</option>
-            <option value="ready">納品可能</option>
-          </select>
-          <select
-            aria-label="依頼人"
-            value={ui.person}
-            onChange={(e) => patch({ person: e.target.value })}
-          >
-            <option value="all">すべての相手</option>
-            {chapterPeople
-              .filter((p) => s.introducedPeople.includes(p.id))
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-          </select>
-          <select
-            aria-label="並べ替え"
-            value={ui.sort}
-            onChange={(e) => patch({ sort: e.target.value })}
-          >
-            <option value="day">出現順</option>
-            <option value="name">名前順</option>
-            <option value="pay">参考額順</option>
-          </select>
-        </div>
-        <Scroll id="orders-list" {...c}>
-          {shown.map((q) => (
-            <article
-              className={`c-order-card ${selected.includes(q.id) ? "selected" : ""}`}
-              key={q.id}
+        {manyRows && (
+          <div className="c-filters">
+            <select
+              aria-label="依頼の分類"
+              value={ui.filter}
+              onChange={(e) => patch({ filter: e.target.value })}
             >
-              <input
-                type="checkbox"
-                aria-label={`${q.title}をまとめ納品に選択`}
-                checked={selected.includes(q.id)}
-                onChange={() => choose(q.id, true)}
-              />
-              <button onClick={() => choose(q.id)} className="c-card-link">
-                <b>{q.title}</b>
-                <span>
-                  <Requirements q={q} />
-                </span>
-                <small>
-                  {personName(q.personId)} · {questStatus(s, q)}
-                </small>
-                <small>
-                  {q.mode === "repeat"
-                    ? "反復"
-                    : `納品 ${q.deliveryWindow![0]}〜${q.deliveryWindow![1]}日`}{" "}
-                  ／ 関係{(s.relationPoints[q.personId] / 100).toFixed(2)}
-                </small>
-                <small>
-                  準備{" "}
-                  {q.requirements
-                    .map(
-                      (n) =>
-                        `${recipeName(n.recipeId)} ${getStockTotal(s, n.recipeId)}/${n.count}`,
-                    )
-                    .join(" ＋ ")}
-                </small>
-                <small>
-                  {!quoteDelivery(s, [q.id]).error
-                    ? `${gold(quoteDelivery(s, [q.id]).pay)}（在庫の品質で計算）`
-                    : `${gold(estimate(q))}（品質40・値下げ前）`}
-                </small>
-              </button>
-            </article>
-          ))}
+              <option value="all">すべて</option>
+              <option value="repeat">反復依頼</option>
+              <option value="contract">契約</option>
+              <option value="active">受諾済み</option>
+              <option value="ready">納品可能</option>
+            </select>
+            <select
+              aria-label="依頼人"
+              value={ui.person}
+              onChange={(e) => patch({ person: e.target.value })}
+            >
+              <option value="all">すべての相手</option>
+              {chapterPeople
+                .filter((p) => s.introducedPeople.includes(p.id))
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+            </select>
+            <select
+              aria-label="並べ替え"
+              value={ui.sort}
+              onChange={(e) => patch({ sort: e.target.value })}
+            >
+              <option value="day">出現順</option>
+              <option value="name">名前順</option>
+              <option value="pay">参考額順</option>
+            </select>
+          </div>
+        )}
+        <Scroll id="orders-list" {...c}>
+          {shown.map((q) => {
+            const state = questState(s, q),
+              pay = state.kind === "ready" ? quoteDelivery(s, [q.id]).pay : 0;
+            return (
+              <article
+                className={`c-order-card c-state-${state.kind} ${selected.includes(q.id) ? "selected" : ""}`}
+                key={q.id}
+              >
+                <button onClick={() => choose(q.id)} className="c-card-link">
+                  <Medicine id={q.requirements[0].recipeId} />
+                  <span className="c-card-body">
+                    <b>{q.title}</b>
+                    <small>
+                      {personName(q.personId)}
+                      {stageOf(q.personId) > 0 && (
+                        <Rings
+                          stage={stageOf(q.personId)}
+                          label={`${personName(q.personId)}との関係 ${stageOf(q.personId)}／3`}
+                        />
+                      )}
+                      · <Requirements q={q} />
+                    </small>
+                  </span>
+                  <StateTag
+                    kind={state.kind === "accept" ? "brew" : state.kind}
+                  >
+                    {state.text}
+                  </StateTag>
+                  <span className="c-card-pay">
+                    {gold(pay || estimate(q))}
+                    {q.applyMarketFatigue &&
+                      s.today.deliveries.filter((x) => x === q.personId)
+                        .length > 0 && (
+                        <small>
+                          ▼ 本日
+                          {s.today.deliveries.filter((x) => x === q.personId)
+                            .length + 1}
+                          件目
+                        </small>
+                      )}
+                  </span>
+                </button>
+                {state.kind === "ready" && (
+                  <input
+                    type="checkbox"
+                    aria-label={`${q.title}をまとめ納品に選択`}
+                    checked={selected.includes(q.id)}
+                    onChange={() => choose(q.id, true)}
+                  />
+                )}
+              </article>
+            );
+          })}
           {!shown.length && <p>この条件の依頼はありません。</p>}
         </Scroll>
+        {selected.length > 1 && (
+          <footer className="c-footer">
+            <Button primary onClick={() => patch({ sheet: true })}>
+              選んだ{selected.length}件をまとめて納品へ
+            </Button>
+          </footer>
+        )}
       </aside>
       <section className="c-order-detail">
         {!qs.length ? (
           <div className="c-empty">
             <BookOpen size={40} />
             <h2>依頼を選ぶ</h2>
-            <p>
-              必要な薬を確認して、仕入れと調合へ。
-              <br />
-              チェックを付けると、まとめて納品できます。
-            </p>
           </div>
         ) : (
           <>
             <Scroll id={`order-${selected.join(",")}`} {...c}>
               {qs.map((q) => {
                 const reason = questReason(s, q),
-                  contract = contractFor(s, q.id);
+                  contract = contractFor(s, q.id),
+                  state = questState(s, q);
                 return (
                   <article key={q.id} className="c-request">
-                    <div className="c-eyebrow">
-                      {q.mode === "repeat"
-                        ? "反復依頼・受諾不要"
-                        : "一度限りの契約"}
-                    </div>
                     <h2>{q.title}</h2>
-                    <p>
-                      {personName(q.personId)} ／ 納品先：
+                    <p className="c-who">
+                      {personName(q.personId)}
+                      {stageOf(q.personId) > 0 && (
+                        <Rings
+                          stage={stageOf(q.personId)}
+                          label={`${personName(q.personId)}との関係 ${stageOf(q.personId)}／3`}
+                        />
+                      )}
                       {locationName(q.deliveryPlaceId)}
-                      <br />
-                      関係 {(s.relationPoints[q.personId] / 100).toFixed(2)}
+                      {q.acceptWindow && (
+                        <>
+                          ・納品{" "}
+                          {q.deliveryWindow![0] === q.deliveryWindow![1]
+                            ? dateOf(q.deliveryWindow![0])
+                            : `${dateOf(q.deliveryWindow![0])}〜${dateOf(q.deliveryWindow![1])}`}
+                        </>
+                      )}
                     </p>
-                    <h3>
-                      <Requirements q={q} />
-                    </h3>
-                    <p>{q.description ?? q.normalResultText}</p>
-                    {q.acceptWindow && (
-                      <p>
-                        受付：{dateOf(q.acceptWindow[0])}〜
-                        {dateOf(q.acceptWindow[1])}
-                        <br />
-                        納品：
-                        {q.deliveryWindow![0] === q.deliveryWindow![1]
-                          ? dateOf(q.deliveryWindow![0])
-                          : `${dateOf(q.deliveryWindow![0])}〜${dateOf(q.deliveryWindow![1])}`}
-                      </p>
-                    )}
-                    <p className={reason ? "c-warning" : "c-muted"}>
-                      {questStatus(s, q)}
-                      {contract?.status === "active"
-                        ? " ／ 受諾済みのため納品権は有効（納品期間・在庫・スタミナは必要）"
-                        : ""}
+                    {q.requirements.map((n) => {
+                      const have = getStockTotal(s, n.recipeId);
+                      return (
+                        <div className="c-goods" key={n.recipeId}>
+                          <Medicine id={n.recipeId} />
+                          <span>
+                            <b>
+                              {recipeName(n.recipeId)} ×{n.count}
+                            </b>
+                            <small>
+                              手持ち {have}個
+                              {have < n.count &&
+                                ` ・ あと${n.count - have}個つくる`}
+                            </small>
+                          </span>
+                          <Pips
+                            have={Math.min(have, n.count)}
+                            need={n.count}
+                            label={`${recipeName(n.recipeId)} ${Math.min(have, n.count)}／${n.count}個`}
+                          />
+                        </div>
+                      );
+                    })}
+                    <p className="c-pay">
+                      <b>
+                        {gold(state.kind === "ready" ? quote.pay : estimate(q))}
+                      </b>
+                      <span>
+                        {state.kind === "ready"
+                          ? `出来ばえ ${qualityWord(quote.lines[0]?.quality ?? 40)}`
+                          : "見込み（出来ばえ 並）"}
+                      </span>
                     </p>
+                    {reason && <p className="c-warning">{reason}</p>}
                     <details>
                       <summary>報酬・条件・初回の出来事</summary>
                       <p>
@@ -473,13 +541,26 @@ function OrderScreen(c: Ctx) {
                         ／ 品質100で＋{q.qualityBonusBP / 100}% ／ 納品スタミナ
                         {q.staminaCost}
                         <br />
-                        関係評価：{q.relationBasePoints}＋
+                        関係 {(s.relationPoints[q.personId] / 100).toFixed(2)}／
+                        評価：{q.relationBasePoints}＋
                         {q.relationQualityBonusPoints}×平均品質/100 ポイント
                         <br />
                         {q.applyMarketFatigue
                           ? "反復販売は同じ相手への回数で買い叩きあり"
                           : "買い叩きなし・前金なし"}
+                        <br />
+                        {questStatus(s, q)}
+                        {contract?.status === "active"
+                          ? " ／ 受諾済みのため納品権は有効（納品期間・在庫・スタミナは必要）"
+                          : ""}
                       </p>
+                      {q.acceptWindow && (
+                        <p>
+                          受付：{dateOf(q.acceptWindow[0])}〜
+                          {dateOf(q.acceptWindow[1])}
+                        </p>
+                      )}
+                      <p>{q.description ?? q.normalResultText}</p>
                       {effectLabels(q.onFirstComplete, contract?.events).map(
                         (x, i) => (
                           <p key={i}>{x}</p>
@@ -498,18 +579,6 @@ function OrderScreen(c: Ctx) {
                       !contract &&
                       !s.declinedQuests.includes(q.id) && (
                         <div className="c-row">
-                          <Button
-                            primary
-                            disabled={!!questReason(s, q, true)}
-                            onClick={() =>
-                              ask(
-                                { type: "quest-accept", quest: q.id },
-                                "契約を受諾する",
-                              )
-                            }
-                          >
-                            受諾条件を確認
-                          </Button>
                           <Button
                             disabled={!!questReason(s, q)}
                             onClick={() =>
@@ -541,91 +610,95 @@ function OrderScreen(c: Ctx) {
                   </article>
                 );
               })}
-              <div className="c-row">
-                <label>
-                  納品する品質
-                  <select
-                    value={ui.allocation ? "manual" : ui.priority}
-                    onChange={(e) =>
-                      patch(
-                        e.target.value === "manual"
-                          ? {
-                              allocation: allocateDelivery(
-                                s,
-                                selected,
-                                ui.priority,
-                              ),
-                            }
-                          : {
-                              priority: e.target.value as "high" | "low",
-                              allocation: null,
-                            },
-                      )
-                    }
-                  >
-                    <option value="high">高品質から充当</option>
-                    <option value="low">低品質から充当</option>
-                    <option value="manual">手動で指定</option>
-                  </select>
-                </label>
-                <Button onClick={() => patch({ allocation: null })}>
-                  自動選択に戻す
-                </Button>
-              </div>
-              {qs.map((q) => (
-                <div key={`quality-${q.id}`} className="c-allocation">
-                  <h3>{q.title}</h3>
-                  {q.requirements.map((n) => (
-                    <div key={n.recipeId}>
-                      <b>
-                        {recipeName(n.recipeId)}：必要{n.count} ／ 所持
-                        {getStockTotal(s, n.recipeId)}
-                      </b>
-                      {Object.entries(s.stockByQuality[n.recipeId] ?? {})
-                        .filter(([, n]) => n > 0)
-                        .sort((a, b) => +b[0] - +a[0])
-                        .map(([quality, total]) => (
-                          <label key={quality}>
-                            品質{quality}（所持{total}）
-                            <input
-                              aria-label={`${q.id} ${n.recipeId} 品質${quality}`}
-                              type="number"
-                              min="0"
-                              max={total}
-                              value={
-                                quote.allocation[q.id]?.[n.recipeId]?.[
-                                  quality
-                                ] ?? 0
-                              }
-                              onChange={(e) => {
-                                const a = structuredClone(quote.allocation);
-                                a[q.id] ??= {};
-                                a[q.id][n.recipeId] ??= {};
-                                a[q.id][n.recipeId]![quality] = qty(
-                                  e.target.value,
-                                  total,
-                                );
-                                patch({ allocation: a });
-                              }}
-                            />
-                          </label>
-                        ))}
-                      {!getStockTotal(s, n.recipeId) && (
-                        <p className="c-muted">
-                          在庫なし。仕入れ・調合で準備できます。
-                        </p>
-                      )}
+              {qs.some((q) =>
+                q.requirements.some((n) => getStockTotal(s, n.recipeId) > 0),
+              ) && (
+                <details className="c-allocation-box">
+                  <summary>納める品を選ぶ（既定は高品質から）</summary>
+                  <div className="c-row">
+                    <label>
+                      納品する品質
+                      <select
+                        value={ui.allocation ? "manual" : ui.priority}
+                        onChange={(e) =>
+                          patch(
+                            e.target.value === "manual"
+                              ? {
+                                  allocation: allocateDelivery(
+                                    s,
+                                    selected,
+                                    ui.priority,
+                                  ),
+                                }
+                              : {
+                                  priority: e.target.value as "high" | "low",
+                                  allocation: null,
+                                },
+                          )
+                        }
+                      >
+                        <option value="high">高品質から充当</option>
+                        <option value="low">低品質から充当</option>
+                        <option value="manual">手動で指定</option>
+                      </select>
+                    </label>
+                    <Button onClick={() => patch({ allocation: null })}>
+                      自動選択に戻す
+                    </Button>
+                  </div>
+                  {qs.map((q) => (
+                    <div key={`quality-${q.id}`} className="c-allocation">
+                      <h3>{q.title}</h3>
+                      {q.requirements.map((n) => (
+                        <div key={n.recipeId}>
+                          <b>
+                            {recipeName(n.recipeId)}：必要{n.count} ／ 所持
+                            {getStockTotal(s, n.recipeId)}
+                          </b>
+                          {Object.entries(s.stockByQuality[n.recipeId] ?? {})
+                            .filter(([, n]) => n > 0)
+                            .sort((a, b) => +b[0] - +a[0])
+                            .map(([quality, total]) => (
+                              <label key={quality}>
+                                {qualityWord(+quality)}（品質{quality}・所持
+                                {total}）
+                                <input
+                                  aria-label={`${q.id} ${n.recipeId} 品質${quality}`}
+                                  type="number"
+                                  min="0"
+                                  max={total}
+                                  value={
+                                    quote.allocation[q.id]?.[n.recipeId]?.[
+                                      quality
+                                    ] ?? 0
+                                  }
+                                  onChange={(e) => {
+                                    const a = structuredClone(quote.allocation);
+                                    a[q.id] ??= {};
+                                    a[q.id][n.recipeId] ??= {};
+                                    a[q.id][n.recipeId]![quality] = qty(
+                                      e.target.value,
+                                      total,
+                                    );
+                                    patch({ allocation: a });
+                                  }}
+                                />
+                              </label>
+                            ))}
+                          {!getStockTotal(s, n.recipeId) && (
+                            <p className="c-muted">
+                              在庫なし。仕入れ・調合で準備できます。
+                            </p>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   ))}
-                </div>
-              ))}
-              <DeliverySummary quote={quote} />
+                  <DeliverySummary quote={quote} />
+                </details>
+              )}
             </Scroll>
             <footer className="c-footer">
-              <span>
-                {quote.error ??
-                  `報酬 ${gold(quote.pay)} ／ スタミナ ${quote.stamina}`}
-              </span>
               <div className="c-row">
                 {qs.length === 1 &&
                 qs[0].mode === "contract" &&
@@ -642,38 +715,64 @@ function OrderScreen(c: Ctx) {
                   >
                     受諾する
                   </Button>
+                ) : !quote.error ? (
+                  <Button
+                    primary
+                    onClick={() =>
+                      ask(
+                        {
+                          type: "quest-deliver",
+                          ids: selected,
+                          allocation: quote.allocation,
+                        },
+                        "品質を確認して納品する",
+                      )
+                    }
+                  >
+                    納品する <small>体力 {quote.stamina}</small>
+                  </Button>
                 ) : (
-                  <>
-                    <Button
-                      disabled={qs.some(
-                        (q) =>
-                          !!questReason(s, q) ||
-                          (q.mode === "contract" && !contractFor(s, q.id)),
-                      )}
-                      onClick={() => prepare(selected)}
-                    >
-                      {Object.values(prep.materials).some((n) => n! > 0)
-                        ? "不足素材を仕入れる"
-                        : "調合・準備へ"}
-                    </Button>
-                    <Button
-                      primary
-                      disabled={!!quote.error}
-                      onClick={() =>
-                        ask(
-                          {
-                            type: "quest-deliver",
-                            ids: selected,
-                            allocation: quote.allocation,
-                          },
-                          "品質を確認して納品する",
-                        )
-                      }
-                    >
-                      納品する
-                    </Button>
-                  </>
+                  <Button
+                    primary
+                    disabled={qs.some(
+                      (q) =>
+                        !!questReason(s, q) ||
+                        (q.mode === "contract" && !contractFor(s, q.id)),
+                    )}
+                    onClick={() => prepare(selected)}
+                  >
+                    {Object.values(prep.materials).some((n) => n! > 0) ? (
+                      <>
+                        素材をそろえる{" "}
+                        <small>
+                          不足{" "}
+                          {Object.entries(prep.materials)
+                            .filter(([, n]) => n! > 0)
+                            .map(
+                              ([m, n]) =>
+                                `${materialOf(m as MaterialId).name}${n}`,
+                            )
+                            .join("・")}
+                        </small>
+                      </>
+                    ) : (
+                      <>
+                        調合へ{" "}
+                        <small>
+                          {Object.entries(prep.missing)
+                            .filter(([, n]) => n! > 0)
+                            .map(([id, n]) => `${recipeName(id)}×${n}`)
+                            .join("・")}
+                        </small>
+                      </>
+                    )}
+                  </Button>
                 )}
+                <Button onClick={() => patch({ sheet: false })}>一覧へ</Button>
+                {qs.every((q) => !questReason(s, q)) &&
+                  !Object.values(prep.missing).some((n) => n! > 0) && (
+                    <span className="c-footer-note">{quote.error}</span>
+                  )}
               </div>
             </footer>
           </>
@@ -688,7 +787,8 @@ function SupplyScreen(c: Ctx) {
     p = known.find((p) => p.id === ui.place),
     prep = preparation(s, ui.goals),
     gather = quoteGather(s, ui.place),
-    buy = quoteBuy(s, ui.place, ui.basket);
+    buy = quoteBuy(s, ui.place, ui.basket),
+    short = Object.entries(prep.materials).filter(([, n]) => n! > 0);
   return (
     <div className="c-supply">
       <div className="c-map">
@@ -706,25 +806,22 @@ function SupplyScreen(c: Ctx) {
                 {!canVisit(s, p.id) ? "🔒" : p.majorDrops ? "✿" : "◈"}
               </span>
               {p.name}
-              <small>{p.majorDrops ? "採集" : "購入"}</small>
             </button>
           ))}
-        <div className="c-map-legend">
-          ✿ 採集　◈ 購入　🔒 利用条件あり
-          <br />
-          場所の選択では資源を消費しません
-        </div>
+        <div className="c-map-legend">✿ 採集　◈ 購入　🔒 利用条件あり</div>
       </div>
       <section className="c-place">
         <Scroll id={`place-${ui.place}`} {...c}>
           <h2>{p?.name ?? "場所を選んでください"}</h2>
           {ui.goals.length > 0 && (
             <p className="c-note">
-              不足素材：
-              {Object.entries(prep.materials)
-                .filter(([, n]) => n! > 0)
-                .map(([m, n]) => `${materialOf(m as MaterialId).name} ×${n}`)
-                .join("、") || "揃いました。調合へ進めます。"}
+              {short.length
+                ? `不足：${short
+                    .map(
+                      ([m, n]) => `${materialOf(m as MaterialId).name} ×${n}`,
+                    )
+                    .join("、")}`
+                : "素材は揃いました。調合へ進めます。"}
             </p>
           )}
           {p && (
@@ -734,29 +831,30 @@ function SupplyScreen(c: Ctx) {
               )}
               {p.majorDrops && (
                 <>
-                  <p>採集スタミナ {gather.stamina}</p>
-                  {gather.major.map((d) => (
-                    <p className="c-material-row" key={d.materialId}>
-                      <Medicine id={d.materialId} />
-                      <span>
-                        必ず{materialOf(d.materialId).name} {d.min}〜{d.max}個
-                        <br />
-                        <small>
-                          所持{s.materials[d.materialId]} ／ 各素材を独立抽選
-                        </small>
-                      </span>
+                  <div className="c-mats">
+                    {gather.major.map((d) => (
+                      <div className="c-mat" key={d.materialId}>
+                        <Medicine id={d.materialId} />
+                        {materialOf(d.materialId).name}
+                        <b>
+                          {d.min}〜{d.max}
+                        </b>
+                        <small>所持{s.materials[d.materialId]}</small>
+                      </div>
+                    ))}
+                  </div>
+                  {gather.bonus.length > 0 && (
+                    <p className="c-muted">
+                      ときどき{" "}
+                      {gather.bonus
+                        .map(
+                          (d) =>
+                            `${materialOf(d.materialId).name}${d.count}個（${d.probabilityBP / 100}%）`,
+                        )
+                        .join("、")}
                     </p>
-                  ))}
-                  {gather.bonus.map((d) => (
-                    <p key={d.materialId}>
-                      追加：{materialOf(d.materialId).name}
-                      {d.count}個、{d.probabilityBP / 100}%
-                    </p>
-                  ))}
-                  <p className="c-muted">
-                    追加素材が出ても主要素材は減りません。
-                  </p>
-                  <h3>素材の用途</h3>
+                  )}
+                  <h3>ここの素材でできる薬</h3>
                   {chapterRecipes
                     .filter(
                       (r) =>
@@ -766,13 +864,12 @@ function SupplyScreen(c: Ctx) {
                         ),
                     )
                     .map((r) => (
-                      <p key={r.id}>
-                        {r.name} ／ 現在{brewCount(s, r.id)}個制作可能
-                        <br />
+                      <p className="c-use-row" key={r.id}>
+                        <Medicine id={r.id} />
+                        {r.name}
                         <small>
-                          主要収量の入手後：
-                          {gatherBrewRange(s, p.id, r.id).join("〜")}
-                          個（レアを除く）
+                          いま{brewCount(s, r.id)}個 ／ 採ったあと
+                          {gatherBrewRange(s, p.id, r.id).join("〜")}個
                         </small>
                       </p>
                     ))}
@@ -780,7 +877,6 @@ function SupplyScreen(c: Ctx) {
               )}
               {p.prices && (
                 <>
-                  <p>購入はスタミナ・日付を消費しません。</p>
                   {Object.entries(p.prices).map(([id, price]) => (
                     <label className="c-shopping" key={id}>
                       <Medicine id={id as MaterialId} />
@@ -807,57 +903,63 @@ function SupplyScreen(c: Ctx) {
                       />
                     </label>
                   ))}
-                  <Button
-                    onClick={() => {
-                      const basket = { ...ui.basket };
-                      for (const m of materialIds)
-                        if (p.prices?.[m] !== undefined)
-                          basket[m] = Math.max(
-                            basket[m] ?? 0,
-                            prep.materials[m] ?? 0,
-                          );
-                      patch({ basket });
-                    }}
-                  >
-                    準備中の不足分をカゴへ
-                  </Button>
-                  <p>
-                    合計 {gold(buy.cost)} ／ 購入後 {gold(buy.moneyAfter)}
-                  </p>
+                  <div className="c-row">
+                    {short.length > 0 && (
+                      <Button
+                        onClick={() => {
+                          const basket = { ...ui.basket };
+                          for (const m of materialIds)
+                            if (p.prices?.[m] !== undefined)
+                              basket[m] = Math.max(
+                                basket[m] ?? 0,
+                                prep.materials[m] ?? 0,
+                              );
+                          patch({ basket });
+                        }}
+                      >
+                        不足分をカゴへ
+                      </Button>
+                    )}
+                    <span>
+                      合計 {gold(buy.cost)} ／ 残り {gold(buy.moneyAfter)}
+                    </span>
+                  </div>
                 </>
               )}
             </>
           )}
         </Scroll>
         <footer className="c-footer">
-          <span>
-            {p?.majorDrops ? gather.error : p?.prices ? buy.error : ""}
-          </span>
-          {p?.majorDrops && (
-            <Button
-              primary
-              disabled={!!gather.error}
-              onClick={() =>
-                ask({ type: "gather", place: p.id }, `${p.name}で採集する`)
-              }
-            >
-              採集する
-            </Button>
-          )}
-          {p?.prices && (
-            <Button
-              primary
-              disabled={!!buy.error}
-              onClick={() =>
-                ask(
-                  { type: "buy", place: p.id, basket: ui.basket },
-                  "素材を購入する",
-                )
-              }
-            >
-              購入する
-            </Button>
-          )}
+          <div className="c-row">
+            {p?.majorDrops && (
+              <Button
+                primary
+                disabled={!!gather.error}
+                onClick={() =>
+                  ask({ type: "gather", place: p.id }, `${p.name}で採集する`)
+                }
+              >
+                採集する <small>体力 {gather.stamina}</small>
+              </Button>
+            )}
+            {p?.prices && (
+              <Button
+                primary
+                disabled={!!buy.error}
+                onClick={() =>
+                  ask(
+                    { type: "buy", place: p.id, basket: ui.basket },
+                    "素材を購入する",
+                  )
+                }
+              >
+                購入する <small>{gold(buy.cost)}</small>
+              </Button>
+            )}
+            <span className="c-footer-note">
+              {p?.majorDrops ? gather.error : p?.prices ? buy.error : ""}
+            </span>
+          </div>
         </footer>
       </section>
     </div>
@@ -868,7 +970,9 @@ function BrewingScreen(c: Ctx) {
     r = chapterRecipes.find((r) => r.id === ui.recipe)!,
     xp = s.recipeXP[r.id] ?? 0,
     level = levelForXP(xp),
+    quality = qualityForRecipe(s, r.id),
     plan = planBrew(s, r.id, ui.quantity),
+    max = brewCount(s, r.id),
     prep = preparation(s, ui.goals);
   return (
     <div className="c-brewing">
@@ -877,7 +981,7 @@ function BrewingScreen(c: Ctx) {
           {chapterRecipes.map((r) => (
             <button
               key={r.id}
-              className={`c-recipe ${ui.recipe === r.id ? "selected" : ""}`}
+              className={`c-recipe ${ui.recipe === r.id ? "selected" : ""} ${s.known.includes(r.id) ? "" : "locked"}`}
               onClick={() =>
                 patch({
                   recipe: r.id,
@@ -888,116 +992,130 @@ function BrewingScreen(c: Ctx) {
               <Medicine id={r.id} />
               <span>
                 <b>{r.name}</b>
-                <small>
-                  {s.known.includes(r.id)
-                    ? `Lv.${levelForXP(s.recipeXP[r.id] ?? 0)} ／ 品質${qualityForRecipe(s, r.id)}`
-                    : "未習得"}
-                </small>
+                {s.known.includes(r.id) ? (
+                  <small>
+                    <Stars
+                      level={levelForXP(s.recipeXP[r.id] ?? 0)}
+                      label={`熟練 ${levelForXP(s.recipeXP[r.id] ?? 0)}／5`}
+                    />
+                    {qualityWord(qualityForRecipe(s, r.id))}
+                  </small>
+                ) : (
+                  <small>未習得</small>
+                )}
               </span>
-              {!s.known.includes(r.id) && <Lock size={16} />}
+              {!s.known.includes(r.id) && <Lock size={15} />}
             </button>
           ))}
         </Scroll>
       </aside>
       <section className="c-brew-detail">
         <Scroll id={`brew-${r.id}`} {...c}>
-          <div className="c-eyebrow">レシピごとに育つ制作経験</div>
           <h2>
-            {r.name}{" "}
-            <span>
-              Lv.{level} ／ 完成品質{qualityForRecipe(s, r.id)}
-            </span>
+            {r.name} <Stars level={level} label={`熟練 ${level}／5`} />
           </h2>
-          <p>
-            制作経験 {xp}
-            {level < 5
-              ? ` ／ 次のLvまで${rules.levelThresholds[level] - xp}個 → 品質${rules.qualityByLevel[level]}`
-              : " ／ 最高レベル"}
-          </p>
-          <progress
-            value={level < 5 ? xp - rules.levelThresholds[level - 1] : 1}
-            max={
-              level < 5
-                ? rules.levelThresholds[level] -
-                  rules.levelThresholds[level - 1]
-                : 1
-            }
-          />
           {!s.known.includes(r.id) ? (
             <p className="c-warning">{recipeSource(r.id)}</p>
           ) : (
             <>
-              <h3>1個あたりの素材</h3>
-              {Object.entries(r.needs).map(([m, n]) => (
-                <p className="c-material-row" key={m}>
-                  <Medicine id={m as MaterialId} />
-                  {materialOf(m as MaterialId).name} ×{n} ／ 所持
-                  {s.materials[m as MaterialId]} ／ 今回必要{n! * ui.quantity}
-                </p>
-              ))}
-              <div className="c-row">
-                <label>
-                  制作数
-                  <input
-                    aria-label="制作数"
-                    type="number"
-                    min="1"
-                    max="99"
-                    value={ui.quantity}
-                    onChange={(e) => patch({ quantity: qty(e.target.value) })}
-                  />
-                </label>
-                <Button
-                  onClick={() =>
-                    patch({ quantity: Math.max(1, brewCount(s, r.id)) })
-                  }
-                >
-                  作れる数：{brewCount(s, r.id)}
-                </Button>
+              <p className="c-who">
+                できる品は {qualityWord(quality)}
+                {level < 5 &&
+                  ` ・ あと${rules.levelThresholds[level] - xp}個で${qualityWord(rules.qualityByLevel[level])}に上がる`}
+              </p>
+              <div className="c-mats">
+                {Object.entries(r.needs).map(([m, n]) => {
+                  const have = s.materials[m as MaterialId],
+                    want = n! * ui.quantity;
+                  return (
+                    <div
+                      className={`c-mat ${have < want ? "short" : ""}`}
+                      key={m}
+                    >
+                      <Medicine id={m as MaterialId} />
+                      {materialOf(m as MaterialId).name}
+                      <b>
+                        {have} / {want}
+                      </b>
+                    </div>
+                  );
+                })}
               </div>
-              <p>
-                消費スタミナ {plan.stamina} ／ 完成予定：
-                {stockText(plan.produced)}
-                <br />
-                制作後の経験 {plan.xp} ／ Lv.{levelForXP(plan.xp)}
-              </p>
-              <p>現在の在庫：{stockText(s.stockByQuality[r.id] ?? {})}</p>
-              <p className="c-muted">
-                完成済みの品質は変わりません。1個ずつ、その時点のレベルで品質が決まります。
-              </p>
+              <div className="c-count">
+                <Button
+                  aria-label="ひとつ減らす"
+                  disabled={ui.quantity <= 1}
+                  onClick={() => patch({ quantity: ui.quantity - 1 })}
+                >
+                  −
+                </Button>
+                <b>{ui.quantity}</b>
+                <Button
+                  aria-label="ひとつ増やす"
+                  disabled={ui.quantity >= 99}
+                  onClick={() => patch({ quantity: ui.quantity + 1 })}
+                >
+                  ＋
+                </Button>
+                {max > 0 && (
+                  <Button onClick={() => patch({ quantity: max })}>
+                    作れるのは{max}個まで
+                  </Button>
+                )}
+                <span className="c-cap">
+                  つかう体力 <b>{plan.stamina}</b>
+                </span>
+              </div>
+              <details>
+                <summary>品質と在庫のうちわけ</summary>
+                <p>
+                  完成品質 {quality} ／ 制作経験 {xp}
+                  {level < 5
+                    ? ` ／ 次のLv.${level + 1}まで${rules.levelThresholds[level] - xp}個 → 品質${rules.qualityByLevel[level]}`
+                    : " ／ 最高レベル"}
+                </p>
+                <progress
+                  value={level < 5 ? xp - rules.levelThresholds[level - 1] : 1}
+                  max={
+                    level < 5
+                      ? rules.levelThresholds[level] -
+                        rules.levelThresholds[level - 1]
+                      : 1
+                  }
+                />
+                <p>完成予定：{stockText(plan.produced)}</p>
+                <p>現在の在庫：{stockText(s.stockByQuality[r.id] ?? {})}</p>
+                <p className="c-muted">
+                  完成済みの品質は変わりません。1個ずつ、その時点のレベルで品質が決まります。
+                </p>
+              </details>
             </>
           )}
           {ui.goals.length > 0 && (
-            <>
-              <h3>準備中の薬</h3>
-              <div className="c-row">
-                {Object.entries(prep.needs).map(([id, n]) => (
-                  <Button
-                    key={id}
-                    onClick={() =>
-                      patch({
-                        recipe: id as RecipeId,
-                        quantity: Math.max(
-                          1,
-                          Math.min(99, prep.missing[id as RecipeId] ?? 1),
-                        ),
-                      })
-                    }
-                  >
-                    {recipeName(id)} {getStockTotal(s, id as RecipeId)}/{n}
-                  </Button>
-                ))}
-              </div>
-              <p>
-                明日の注文には薬を作り置きできます。スタミナは翌朝100に戻ります。
-              </p>
-            </>
+            <div className="c-row c-goal-row">
+              {Object.entries(prep.needs).map(([id, n]) => (
+                <Button
+                  key={id}
+                  className={id === r.id ? "c-primary" : ""}
+                  onClick={() =>
+                    patch({
+                      recipe: id as RecipeId,
+                      quantity: Math.max(
+                        1,
+                        Math.min(99, prep.missing[id as RecipeId] ?? 1),
+                      ),
+                    })
+                  }
+                >
+                  <Medicine id={id as RecipeId} />
+                  {getStockTotal(s, id as RecipeId)}/{n}
+                </Button>
+              ))}
+            </div>
           )}
         </Scroll>
         <footer className="c-footer">
-          <span>{plan.error ?? `完成予定：${stockText(plan.produced)}`}</span>
           <div className="c-row">
-            <Button onClick={() => patch({ tab: "map" })}>仕入れへ</Button>
             <Button
               primary
               disabled={!!plan.error}
@@ -1008,8 +1126,10 @@ function BrewingScreen(c: Ctx) {
                 )
               }
             >
-              調合する
+              {ui.quantity}個つくる
             </Button>
+            <Button onClick={() => patch({ tab: "map" })}>仕入れへ</Button>
+            <span className="c-footer-note">{plan.error}</span>
           </div>
         </footer>
       </section>
@@ -1031,14 +1151,22 @@ function Inventory(c: Ctx) {
                   {r.name}：計{getStockTotal(c.s, r.id)}個
                 </b>
               </div>
-              <p>
-                Lv.{levelForXP(c.s.recipeXP[r.id] ?? 0)} ／ XP{" "}
-                {c.s.recipeXP[r.id] ?? 0} ／ 次の完成品質
-                {qualityForRecipe(c.s, r.id)}
+              <p className="c-who">
+                <Stars
+                  level={levelForXP(c.s.recipeXP[r.id] ?? 0)}
+                  label={`熟練 ${levelForXP(c.s.recipeXP[r.id] ?? 0)}／5`}
+                />
+                次の品は {qualityWord(qualityForRecipe(c.s, r.id))}
               </p>
               <details>
-                <summary>品質別の在庫</summary>
-                <p>{stockText(c.s.stockByQuality[r.id] ?? {})}</p>
+                <summary>品質別の在庫と制作経験</summary>
+                <p>
+                  {stockText(c.s.stockByQuality[r.id] ?? {})}
+                  <br />
+                  Lv.{levelForXP(c.s.recipeXP[r.id] ?? 0)} ／ 制作経験{" "}
+                  {c.s.recipeXP[r.id] ?? 0} ／ 次の完成品質{" "}
+                  {qualityForRecipe(c.s, r.id)}
+                </p>
               </details>
             </article>
           ))}
@@ -1057,153 +1185,213 @@ function Inventory(c: Ctx) {
 }
 function Journal(c: Ctx) {
   const { s, ask, patch } = c,
-    legacy = projectLegacy(s);
+    legacy = projectLegacy(s),
+    [page, setPage] = useState<"promise" | "bond" | "log">("promise");
   return (
     <Scroll id="journal" {...c}>
-      <h2>約束帳・取引の記録</h2>
-      <p>
-        新しい契約：受諾中{" "}
-        {s.acceptedQuestContracts.filter((c) => c.status === "active").length}
-        /2件 ／ 掛け仕入れ・旧契約は別枠
-      </p>
-      {s.acceptedQuestContracts.map((ct) => (
-        <article className="c-paper" key={ct.id}>
-          <h3>{ct.terms.title}</h3>
-          <p>
-            {questStatus(s, ct.terms)} ／ 納品
-            {dateOf(ct.terms.deliveryWindow![0])}〜
-            {dateOf(ct.terms.deliveryWindow![1])}
-            <br />
-            <Requirements q={ct.terms} />
-          </p>
-          <Button
-            onClick={() =>
-              patch({ tab: "orders", selected: [ct.questId], allocation: null })
-            }
-          >
-            依頼を確認
+      <div className="c-journal-tabs">
+        {(
+          [
+            ["promise", "約束"],
+            ["bond", "人と場所"],
+            ["log", "記録"],
+          ] as const
+        ).map(([id, label]) => (
+          <Button key={id} primary={page === id} onClick={() => setPage(id)}>
+            {label}
           </Button>
-        </article>
-      ))}
-      <h3>掛け仕入れ</h3>
-      {supportOffers
-        .filter((o) => o.kind === "credit")
-        .map((o) => (
-          <article className="c-paper" key={o.id}>
-            <h3>{o.title}</h3>
-            <p>
-              {o.description}
-              <br />
-              {Object.entries(o.materials)
-                .map(([m, n]) => `${materialOf(m as MaterialId).name}×${n}`)
-                .join("、")}
-              <br />
-              支払額 {gold(o.repayment)} ／ 受諾から{o.term}日後まで
-            </p>
-            <p>{offerReason(legacy, o)}</p>
-            <Button
-              disabled={!!offerReason(legacy, o)}
-              onClick={() =>
-                ask(
-                  { type: "accept", offer: o.id },
-                  "掛け仕入れの条件を確認する",
-                )
-              }
-            >
-              掛け仕入れを受ける
-            </Button>
-          </article>
         ))}
-      {s.obligations.length > 0 && <h3>掛け仕入れ・引き継いだ契約</h3>}
-      {s.obligations.map((o) => (
-        <article className="c-paper" key={o.id}>
-          <h3>{o.terms.title}</h3>
-          <p>
-            {o.status} ／ 期限{dateOf(o.due)} ／ 未精算{gold(o.outstanding)}
-            <br />
-            受取済み前金 {gold(o.terms.money)} ／ 納品時の固定残額{" "}
-            {gold(o.terms.totalPay - o.terms.money)}
-          </p>
-          <div className="c-row">
-            {o.outstanding > 0 && (
+        <span className="c-who">
+          受諾中の契約{" "}
+          {s.acceptedQuestContracts.filter((c) => c.status === "active").length}
+          ／{rules.maxActiveQuestContracts}
+        </span>
+      </div>
+      {page === "promise" && (
+        <>
+          {s.acceptedQuestContracts.map((ct) => (
+            <article className="c-paper" key={ct.id}>
+              <h3>{ct.terms.title}</h3>
+              <p>
+                {questStatus(s, ct.terms)} ／ 納品
+                {dateOf(ct.terms.deliveryWindow![0])}〜
+                {dateOf(ct.terms.deliveryWindow![1])}
+                <br />
+                <Requirements q={ct.terms} />
+              </p>
               <Button
-                disabled={
-                  s.money < o.outstanding ||
-                  (o.status === "active" && o.terms.kind !== "credit")
+                onClick={() =>
+                  patch({
+                    tab: "orders",
+                    selected: [ct.questId],
+                    allocation: null,
+                  })
                 }
-                onClick={() => ask({ type: "pay", id: o.id }, "未精算を支払う")}
               >
-                支払う
+                依頼を確認
               </Button>
-            )}
-            {o.status === "active" && (
-              <>
+            </article>
+          ))}
+          <h3>掛け仕入れ</h3>
+          {supportOffers
+            .filter((o) => o.kind === "credit")
+            .map((o) => (
+              <article className="c-paper" key={o.id}>
+                <h3>{o.title}</h3>
+                <p>
+                  {o.description}
+                  <br />
+                  {Object.entries(o.materials)
+                    .map(([m, n]) => `${materialOf(m as MaterialId).name}×${n}`)
+                    .join("、")}
+                  <br />
+                  支払額 {gold(o.repayment)} ／ 受諾から{o.term}日後まで
+                </p>
+                <p>{offerReason(legacy, o)}</p>
                 <Button
+                  disabled={!!offerReason(legacy, o)}
                   onClick={() =>
-                    ask({ type: "cancel", id: o.id }, "約束を解消する")
+                    ask(
+                      { type: "accept", offer: o.id },
+                      "掛け仕入れの条件を確認する",
+                    )
                   }
                 >
-                  解消
+                  掛け仕入れを受ける
                 </Button>
-                {!o.terms.schedule && (
+              </article>
+            ))}
+          {s.obligations.length > 0 && <h3>掛け仕入れ・引き継いだ契約</h3>}
+          {s.obligations.map((o) => (
+            <article className="c-paper" key={o.id}>
+              <h3>{o.terms.title}</h3>
+              <p>
+                {o.status} ／ 期限{dateOf(o.due)} ／ 未精算{gold(o.outstanding)}
+                <br />
+                受取済み前金 {gold(o.terms.money)} ／ 納品時の固定残額{" "}
+                {gold(o.terms.totalPay - o.terms.money)}
+              </p>
+              <div className="c-row">
+                {o.outstanding > 0 && (
                   <Button
-                    disabled={o.extensions >= o.terms.extensionLimit}
+                    disabled={
+                      s.money < o.outstanding ||
+                      (o.status === "active" && o.terms.kind !== "credit")
+                    }
                     onClick={() =>
-                      ask({ type: "renegotiate", id: o.id }, "期限を延長する")
+                      ask({ type: "pay", id: o.id }, "未精算を支払う")
                     }
                   >
-                    延長
+                    支払う
                   </Button>
                 )}
-                {o.terms.options.map((option) => (
-                  <Button
-                    key={option.id}
-                    onClick={() =>
-                      ask(
-                        { type: "fulfill", id: o.id, option: option.id },
-                        "引き継いだ契約に納品する",
-                      )
-                    }
-                  >
-                    {option.label}：{recipeName(option.recipe)}×{option.count}
-                  </Button>
-                ))}
-              </>
-            )}
+                {o.status === "active" && (
+                  <>
+                    <Button
+                      onClick={() =>
+                        ask({ type: "cancel", id: o.id }, "約束を解消する")
+                      }
+                    >
+                      解消
+                    </Button>
+                    {!o.terms.schedule && (
+                      <Button
+                        disabled={o.extensions >= o.terms.extensionLimit}
+                        onClick={() =>
+                          ask(
+                            { type: "renegotiate", id: o.id },
+                            "期限を延長する",
+                          )
+                        }
+                      >
+                        延長
+                      </Button>
+                    )}
+                    {o.terms.options.map((option) => (
+                      <Button
+                        key={option.id}
+                        onClick={() =>
+                          ask(
+                            { type: "fulfill", id: o.id, option: option.id },
+                            "引き継いだ契約に納品する",
+                          )
+                        }
+                      >
+                        {option.label}：{recipeName(option.recipe)}×
+                        {option.count}
+                      </Button>
+                    ))}
+                  </>
+                )}
+              </div>
+            </article>
+          ))}
+        </>
+      )}
+      {page === "log" && (
+        <>
+          <h3>出来事の記録</h3>
+          {!s.occurredEvents.length && <p>まだ出来事はありません。</p>}
+          <div className="c-chips">
+            {s.occurredEvents.map((id) => (
+              <span key={id} className="c-chip">
+                {id.startsWith("evt-c1-") ? `出来事${id.slice(-2)}` : id}
+                {!s.playedEvents.includes(id) && (
+                  <StateTag kind="brew">未読</StateTag>
+                )}
+              </span>
+            ))}
           </div>
-        </article>
-      ))}
-      <h3>出来事の記録</h3>
-      <p>
-        {s.occurredEvents
-          .map((id) =>
-            id.startsWith("evt-c1-")
-              ? `第一章・出来事${id.slice(-2)}${s.playedEvents.includes(id) ? "（閲覧済み）" : "（未読）"}`
-              : id,
-          )
-          .join(" ／ ") || "まだ出来事はありません。"}
-      </p>
-      <h3>紹介済みの場所</h3>
-      {locations
-        .filter((p) => s.introducedPlaces.includes(p.id))
-        .map((p) => (
-          <p key={p.id}>
-            {p.name}：{visitReason(s, p.id) ?? "利用可能"}
-          </p>
-        ))}
-      <h3>関係</h3>
-      {chapterPeople
-        .filter((p) => s.introducedPeople.includes(p.id))
-        .map((p) => (
-          <p key={p.id}>
-            {p.name} {(s.relationPoints[p.id] / 100).toFixed(2)} ／
-            本日の最高評価 {((s.dailyRelationBest[p.id] ?? 0) / 100).toFixed(2)}
-          </p>
-        ))}
-      <h3>最近の記録</h3>
-      {s.log.map((line, i) => (
-        <p key={i}>{line}</p>
-      ))}
+        </>
+      )}
+      {page === "bond" && (
+        <>
+          <h3>紹介済みの場所</h3>
+          {locations
+            .filter((p) => s.introducedPlaces.includes(p.id))
+            .map((p) => (
+              <p key={p.id}>
+                {p.name}：{visitReason(s, p.id) ?? "利用可能"}
+              </p>
+            ))}
+          <h3>関係</h3>
+          {chapterPeople
+            .filter((p) => s.introducedPeople.includes(p.id))
+            .map((p) => {
+              const stage =
+                rules.relationStageThresholds.filter(
+                  (t) => (s.relationPoints[p.id] ?? 0) >= t,
+                ).length - 1;
+              return (
+                <p className="c-use-row" key={p.id}>
+                  {p.name}
+                  <Rings stage={stage} label={`関係 ${stage}／3`} />
+                  <small>{relationStage(stage)}</small>
+                </p>
+              );
+            })}
+          <details>
+            <summary>関係の内訳（点数）</summary>
+            {chapterPeople
+              .filter((p) => s.introducedPeople.includes(p.id))
+              .map((p) => (
+                <p key={p.id}>
+                  {p.name} {(s.relationPoints[p.id] / 100).toFixed(2)} ／
+                  本日の最高評価{" "}
+                  {((s.dailyRelationBest[p.id] ?? 0) / 100).toFixed(2)}
+                </p>
+              ))}
+          </details>
+        </>
+      )}
+      {page === "log" && (
+        <>
+          <h3>最近の記録</h3>
+          {s.log.map((line, i) => (
+            <p key={i}>{line}</p>
+          ))}
+        </>
+      )}
     </Scroll>
   );
 }
@@ -1533,6 +1721,9 @@ export default function ChapterApp() {
         .filter((q) => questVisible(s, q) && !s.seenQuests.includes(q.id))
         .map((q) => q.id);
       if (ids.length && !saveError) execute({ type: "mark-seen", ids });
+      /* 依頼へは必ず一覧から入る。依頼状は選んだときだけ開く。 */
+      patch({ tab, sheet: false });
+      return;
     }
     patch({ tab });
   };
@@ -1557,6 +1748,11 @@ export default function ChapterApp() {
   const ctx = s ? { s, ui, patch, ask, prepare } : null,
     prep = s ? preparation(s, ui.goals) : null,
     due = s ? rules.quotas[s.chapter - 1] + s.carryOver : 0,
+    readyCount = s
+      ? quests.filter(
+          (q) => questVisible(s, q) && !quoteDelivery(s, [q.id]).error,
+        ).length
+      : 0,
     event = s?.eventQueue[0];
   return (
     <>
@@ -1598,21 +1794,24 @@ export default function ChapterApp() {
           <>
             <header className="c-hud">
               <button onClick={() => navigate("journal")}>
-                第{s.chapter}章 <b>{s.day}日目</b>
-                <small>返済まであと{15 - s.day}日</small>
+                <b>{s.day}日目</b>
+                <small>第{s.chapter}章</small>
               </button>
-              <span>
-                スタミナ <b>{s.stamina}/100</b>
+              <span className="c-stamina">
+                <Mark name="体力" label="体力" />
+                <span className="c-gauge">
+                  <i style={{ width: `${s.stamina}%` }} />
+                </span>
+                <b>{s.stamina}</b>
               </span>
-              <span>
-                所持金 <b>{gold(s.money)}</b>
-              </span>
-              <span>
-                返済 {gold(due)}
-                <small>不足{gold(Math.max(0, due - s.money))}</small>
+              <span className="c-purse">
+                <b>{gold(s.money)}</b>
               </span>
               <span className="c-debt">
-                残債 <b>{gold(s.debt)}</b>
+                <b>{gold(s.debt)}</b>
+                <small>
+                  この章で納める {gold(due)} ・ 残り{15 - s.day}日
+                </small>
               </span>
               <Button aria-label="設定" onClick={() => setSettings(true)}>
                 <Settings size={20} />
@@ -1627,15 +1826,21 @@ export default function ChapterApp() {
                 />
                 <div className="c-axes">
                   {axes.map((a) => (
-                    <div key={a}>
-                      <span>
-                        {a} <small>{axisStage(a, s.axes[a])}</small>
-                        <b>{s.axes[a]}</b>
+                    <div key={a} className={`c-ax c-ax-${a}`}>
+                      <Mark name={a} label={a} />
+                      <span className="c-gauge">
+                        <i style={{ width: `${s.axes[a]}%` }} />
+                        {a === "品位" && s.dignityCap < 100 && (
+                          <u
+                            style={{ left: `${s.dignityCap}%` }}
+                            aria-label={`品位上限 ${s.dignityCap}`}
+                          />
+                        )}
                       </span>
-                      <progress value={s.axes[a]} max="100" />
+                      {ui.tab === "home" && <em>{axisStage(a, s.axes[a])}</em>}
+                      <b>{s.axes[a]}</b>
                     </div>
                   ))}
-                  <small>品位上限 {s.dignityCap}/100</small>
                 </div>
               </aside>
               <nav className="c-nav">
@@ -1670,18 +1875,28 @@ export default function ChapterApp() {
                 {ui.goals.length > 0 &&
                   !["home", "inventory", "journal"].includes(ui.tab) && (
                     <div className="c-preparation">
-                      <span>
-                        準備：
-                        {Object.entries(prep!.needs)
-                          .map(
-                            ([id, n]) =>
-                              `${recipeName(id)} ${getStockTotal(s, id as RecipeId)}/${n}`,
-                          )
-                          .join(" ＋ ")}
+                      <span className="c-prep-goods">
+                        {Object.entries(prep!.needs).map(([id, n]) => (
+                          <span key={id}>
+                            <Medicine id={id as RecipeId} />
+                            <Pips
+                              have={Math.min(
+                                getStockTotal(s, id as RecipeId),
+                                n!,
+                              )}
+                              need={n!}
+                              label={`${recipeName(id)} ${getStockTotal(s, id as RecipeId)}／${n}個`}
+                            />
+                          </span>
+                        ))}
                       </span>
                       <Button
                         onClick={() =>
-                          patch({ tab: "orders", selected: ui.goals })
+                          patch({
+                            tab: "orders",
+                            selected: ui.goals,
+                            sheet: true,
+                          })
                         }
                       >
                         依頼へ戻る
@@ -1802,15 +2017,18 @@ export default function ChapterApp() {
                     )}
                     <Button primary onClick={() => navigate("orders")}>
                       <BookOpen />
-                      依頼 <small>約束と出来栄えを確かめる</small>
+                      依頼
+                      {readyCount > 0 && (
+                        <small>納められる品が {readyCount}件</small>
+                      )}
                     </Button>
                     <Button onClick={() => navigate("map")}>
                       <Map />
-                      仕入れ <small>地図から素材の入手先へ</small>
+                      仕入れ
                     </Button>
                     <Button onClick={() => navigate("brew")}>
                       <FlaskConical />
-                      調合 <small>処方を重ね、品質を育てる</small>
+                      調合
                     </Button>
                     <div className="c-row">
                       <Button

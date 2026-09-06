@@ -21,6 +21,11 @@ async function click(name) {
   await button(name).tap();
   await page.waitForTimeout(230);
 }
+/** 主操作のボタンは体力や不足素材を併記するので、前方一致でつかむ。 */
+async function clickLike(re) {
+  await page.getByRole("button", { name: re }).first().tap();
+  await page.waitForTimeout(230);
+}
 async function confirm() {
   await page
     .locator("dialog[open]")
@@ -49,22 +54,22 @@ try {
     .filter({ hasText: "商会の帳場へ薬湯を" })
     .tap();
   await page.screenshot({ path: resolve(out, "orders-1366.png") });
-  await click("不足素材を仕入れる");
+  await clickLike(/^素材をそろえる/);
   await page.screenshot({ path: resolve(out, "map-1366.png") });
-  await click("採集する");
+  await clickLike(/^採集する/);
   await confirm();
   await closeResult();
   const gathered = await read();
   assert(gathered.materials.rose >= 2 && gathered.materials.rose <= 4);
   assert.equal(gathered.day, 1);
-  await click("調合へ");
+  await clickLike(/^調合へ/);
   await page.screenshot({ path: resolve(out, "brew-1366.png") });
-  await click("調合する");
+  await clickLike(/個つくる/);
   await confirm();
   await closeResult();
   assert.equal((await read()).recipeXP.tisane, 1);
   await click("依頼へ戻る");
-  await click("納品する");
+  await clickLike(/^納品する/);
   await confirm();
   await page.locator(".scenario-dialog").waitFor();
   const before = await read();
