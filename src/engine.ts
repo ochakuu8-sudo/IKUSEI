@@ -40,6 +40,12 @@ import { planDelivery, type DeliverySelection } from "./delivery";
 import { applyRewards } from "./rewards";
 import { storyEvents } from "./content/events";
 import type { SupportOffer } from "./supportTypes";
+import { chapterAction } from "./chapter";
+import type {
+  ChapterState,
+  ChapterAction,
+  ChapterOutcome,
+} from "./chapterTypes";
 
 export type Action =
   | ({ type: "deliver" } & DeliverySelection)
@@ -70,6 +76,30 @@ const fail = (message: string): never => {
 
 /** 唯一の行動入口。失敗時は入力状態を変えない。UI・テスト・simで共用する。 */
 export function performAction(
+  before: ChapterState,
+  action: ChapterAction,
+): ChapterOutcome;
+export function performAction(
+  before: GameState,
+  action: Action,
+  offers?: SupportOffer[],
+): ActionOutcome;
+export function performAction(
+  before: GameState | ChapterState,
+  action: Action | ChapterAction,
+  offers: SupportOffer[] = supportOffers,
+): ActionOutcome | ChapterOutcome {
+  return before.saveVersion === 13
+    ? chapterAction(before, action as ChapterAction, (s, a) =>
+        legacyPerformAction(
+          s,
+          a,
+          offers.filter((o) => o.kind === "credit"),
+        ),
+      )
+    : legacyPerformAction(before, action as Action, offers);
+}
+export function legacyPerformAction(
   before: GameState,
   action: Action,
   offers: SupportOffer[] = supportOffers,
