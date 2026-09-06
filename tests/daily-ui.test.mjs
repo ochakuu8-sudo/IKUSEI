@@ -124,6 +124,26 @@ try {
   assert.equal(afterRest.stamina, 100);
   assert.equal(afterRest.money, afterJob.money);
 
+  /* 回想。目録は全53枚（依頼24・関係21・結末8）で、見たものだけ開ける。 */
+  await tap(page.locator(".c-hud button").first());
+  await tap(button("開く"));
+  assert.equal(await page.locator(".c-recall").count(), 53);
+  const got = page.locator(".c-recall.c-got");
+  assert((await got.count()) >= 1, "受けた依頼が回想に入る");
+  await page.screenshot({ path: resolve(out, "gallery-1366.png") });
+  await tap(got.first());
+  assert.equal(
+    await page.locator(".scenario-dialog").count(),
+    1,
+    "回想から場面を読み返せる",
+  );
+  await playScene();
+  const kept = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("ikusei-prototype-gallery-v1") ?? "[]"),
+  );
+  assert(kept.length >= 1, "回想はプレイの保存とは別に貯まる");
+  await tap(button("閉じる"));
+
   /* 台帳はHUDの日付から開く */
   await tap(page.locator(".c-hud button").first());
   await page.screenshot({ path: resolve(out, "journal-1366.png") });

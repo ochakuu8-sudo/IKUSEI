@@ -1489,3 +1489,126 @@ body {
   font-size: 15px;
   margin-top: 3px;
 }
+
+/* ══ 回想 ══════════════════════════════════════════════════════
+   見た場面を読み返す場所であり、まだ見ていないものを数える場所。
+   本文がまだ無い場面も並べる（伏せると進捗表として使えない）。 */
+.c-gallery {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #f8efe1ee;
+}
+.c-gallery-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 20px 8px;
+  flex: none;
+}
+.c-gallery-head h2 {
+  margin: 0;
+  font-size: 20px;
+  flex: none;
+}
+.c-gallery-tabs {
+  display: flex;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+.c-gallery-tab {
+  min-height: 34px;
+  padding: 4px 10px;
+  font-size: 13px;
+  gap: 5px;
+}
+.c-gallery-tab .mark {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+.c-gallery-tab small {
+  font-size: 10px;
+  opacity: 0.75;
+}
+.c-gallery-count {
+  flex: none;
+  font-size: 12px;
+  color: #8b7366;
+}
+.c-gallery-count b {
+  font-family: var(--serif);
+  font-size: 19px;
+  color: #493b4c;
+}
+.c-gallery-grid {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 0 20px 12px;
+  align-content: start;
+}
+/* 回想の1枚。依頼状と同じ紙の作りにして、地に筋の紋を透かす。 */
+.c-recall {
+  position: relative;
+  overflow: hidden;
+  text-align: left;
+  min-height: 66px;
+  padding: 9px 12px;
+  border: 1px solid #d9c7ae;
+  border-left: 5px solid #c9bba6;
+  border-radius: 4px 9px 9px 4px;
+  background: linear-gradient(#f2ece1, #e9e0d1);
+  color: #8b7366;
+}
+.c-recall.c-got {
+  background: linear-gradient(#fffdf7, #fbf3e4);
+  border-left-color: #9e5470;
+  color: #402f42;
+}
+.c-recall.c-got.c-unwritten {
+  border-left-color: #b8913f;
+}
+.c-recall:disabled {
+  cursor: default;
+}
+.c-recall-seal {
+  position: absolute;
+  right: -8px;
+  bottom: -10px;
+  width: 54px;
+  height: 54px;
+  fill: #7a5f6c;
+  opacity: 0.07;
+  pointer-events: none;
+}
+.c-recall-kind {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #00000010;
+  margin-bottom: 3px;
+}
+.c-recall b {
+  display: block;
+  font-family: var(--serif);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.c-recall small {
+  display: block;
+  margin-top: 3px;
+  font-size: 10.5px;
+  opacity: 0.85;
+}
+.c-gallery-count small {
+  display: block;
+  text-align: right;
+  font-size: 10px;
+  color: #a08a7a;
+}

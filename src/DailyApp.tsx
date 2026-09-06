@@ -30,6 +30,8 @@ import {
   type DayOutcome,
 } from "./daily";
 import { clearDaily, loadDaily, saveDaily, SAVE_KEY, UI_KEY } from "./saveV14";
+import { catalogCounts, routes, type Route, type SceneEntry } from "./scenes";
+import { clearGallery, loadGallery, recordScenes } from "./gallery";
 import { Art, Modal } from "./ui/shell";
 import { Mark } from "./marks";
 import { Rings, StateTag } from "./ui/symbols";
@@ -167,6 +169,99 @@ function Ledger({
   );
 }
 
+/**
+ * 回想。**見た場面を読み返す場所であり、まだ見ていないものを数える場所。**
+ * §14「引き継ぐ：回想」に従い、プレイの保存とは別に持つので、周回しても消えない。
+ * 本文がまだ無い場面も並べる ── 伏せると、目録が制作の進捗表として使えない。
+ */
+function Gallery({
+  seen,
+  onPlay,
+  onClose,
+}: {
+  seen: string[];
+  onPlay: (entry: SceneEntry) => void;
+  onClose: () => void;
+}) {
+  const [route, setRoute] = useState<Route | "すべて">("すべて");
+  const { rows, seen: got, total, written } = catalogCounts(seen);
+  const shown = rows.filter(
+    (r) => route === "すべて" || r.entry.route === route,
+  );
+  return (
+    <section className="c-screen c-gallery">
+      <header className="c-gallery-head">
+        <h2>回想</h2>
+        <div className="c-gallery-tabs">
+          {(["すべて", ...routes] as const).map((r) => {
+            const n = rows.filter(
+              (x) => (r === "すべて" || x.entry.route === r) && x.seen,
+            ).length;
+            const all = rows.filter(
+              (x) => r === "すべて" || x.entry.route === r,
+            ).length;
+            return (
+              <Button
+                key={r}
+                primary={route === r}
+                onClick={() => setRoute(r)}
+                className="c-gallery-tab"
+              >
+                {r !== "すべて" && r !== "共通" && r !== "清廉" && (
+                  <Mark name={r} decorative />
+                )}
+                {r}
+                <small>
+                  {n}/{all}
+                </small>
+              </Button>
+            );
+          })}
+        </div>
+        <span className="c-gallery-count">
+          回収 <b>{got}</b> / {total}
+          {written < total && (
+            <small>
+              本文 {written}/{total}
+            </small>
+          )}
+        </span>
+      </header>
+      <div className="c-gallery-grid">
+        {shown.map(({ entry, seen: got, written }) => (
+          <button
+            key={entry.id}
+            className={`c-recall ${got ? "c-got" : ""} ${written ? "" : "c-unwritten"}`}
+            disabled={!got || !written}
+            onClick={() => onPlay(entry)}
+          >
+            {entry.route !== "共通" && entry.route !== "清廉" ? (
+              <Mark name={entry.route} className="c-recall-seal" decorative />
+            ) : (
+              <Mark name="関係" className="c-recall-seal" decorative />
+            )}
+            <span className="c-recall-kind">{entry.kind}</span>
+            <b>{got ? entry.title : "？？？"}</b>
+            <small>
+              {got
+                ? written
+                  ? placeOf(entry.place).name
+                  : "本文はこれから"
+                : entry.hint}
+            </small>
+          </button>
+        ))}
+      </div>
+      <footer className="c-footer">
+        <Button primary onClick={onClose}>
+          閉じる
+        </Button>
+        <span className="c-footer-note">回想は周回しても残ります</span>
+      </footer>
+    </section>
+  );
+}
+
 /** 何を差し出すか。紋と「払ったあとの値」を並べる（§5「隠して受けさせない」）。 */
 function Costs({ job, s }: { job: Job; s: DailyState }) {
   if (!job.costs.length)
@@ -291,7 +386,13 @@ export default function DailyApp() {
     [reset, setReset] = useState<"new" | "delete" | null>(null),
     [pending, setPending] = useState<Job | "rest" | null>(null),
     [scene, setScene] = useState<DayOutcome | null>(null),
-    [result, setResult] = useState<DayOutcome | null>(null);
+    [result, setResult] = useState<DayOutcome | null>(null),
+    /* 回想はプレイの保存とは別に持つ。周回しても消えない（§14）。 */
+    [seenScenes, setSeenScenes] = useState<string[]>(() =>
+      loadGallery(localStorage),
+    ),
+    [gallery, setGallery] = useState(false),
+    [replay, setReplay] = useState<SceneEntry | null>(null);
   const lock = useRef(false),
     stateRef = useRef(s);
   stateRef.current = s;
@@ -372,6 +473,10 @@ export default function DailyApp() {
     else {
       persist(out.state);
       patch({ sheet: null });
+      if (out.outcome?.sceneIds.length)
+        setSeenScenes((seen) =>
+          recordScenes(localStorage, seen, out.outcome!.sceneIds),
+        );
       if (out.outcome?.scene.length) setScene(out.outcome);
       else setResult(out.outcome ?? null);
     }
@@ -402,7 +507,13 @@ export default function DailyApp() {
           backgroundImage: `url(${backgroundSrc(!started ? "title" : "home")})`,
         }}
       >
-        {!started ? (
+        {!started && gallery ? (
+          <Gallery
+            seen={seenScenes}
+            onPlay={setReplay}
+            onClose={() => setGallery(false)}
+          />
+        ) : !started ? (
           <>
             <Art src={heroSrc} className="c-title-hero" alt="エレオノール" />
             <div className="c-title-panel">
@@ -418,6 +529,9 @@ export default function DailyApp() {
               </Button>
               <Button onClick={() => (s ? setReset("new") : begin())}>
                 はじめから
+              </Button>
+              <Button onClick={() => setGallery(true)}>
+                回想 <small>{catalogCounts(seenScenes).seen}</small>
               </Button>
               <Button onClick={() => setSettings(true)}>設定</Button>
               <small>
@@ -496,7 +610,13 @@ export default function DailyApp() {
                 </nav>
               )}
               <main className="c-main">
-                {s.awaitingSettlement ? (
+                {gallery ? (
+                  <Gallery
+                    seen={seenScenes}
+                    onPlay={setReplay}
+                    onClose={() => setGallery(false)}
+                  />
+                ) : s.awaitingSettlement ? (
                   <section className="c-screen c-sheet">
                     <div className="c-sheet-body">
                       <h2>第{s.chapter}章 章末</h2>
@@ -639,6 +759,15 @@ export default function DailyApp() {
                         <small>{t.reason}</small>
                       </p>
                     ))}
+                    <h3>回想</h3>
+                    <p className="c-use-row">
+                      見た場面
+                      <small>
+                        {catalogCounts(seenScenes).seen} /{" "}
+                        {catalogCounts(seenScenes).total}
+                      </small>
+                      <Button onClick={() => setGallery(true)}>開く</Button>
+                    </p>
                     <h3>記録</h3>
                     {!s.log.length && <p className="c-muted">まだ無い。</p>}
                     {s.log.map((line, i) => (
@@ -735,6 +864,16 @@ export default function DailyApp() {
             </>
           )}
         </Modal>
+      )}
+
+      {replay && (
+        <Dialogue
+          title={replay.title}
+          lines={replay.lines}
+          place={replay.place}
+          speed={ui.speed}
+          onDone={() => setReplay(null)}
+        />
       )}
 
       {scene && s && (
@@ -868,6 +1007,14 @@ export default function DailyApp() {
               </Button>
             )}
             <Button onClick={() => setReset("delete")}>保存を消す</Button>
+            <Button
+              onClick={() => {
+                clearGallery(localStorage);
+                setSeenScenes([]);
+              }}
+            >
+              回想を消す
+            </Button>
             {saveError && <p className="c-warning">{saveError}</p>}
           </div>
         </Modal>

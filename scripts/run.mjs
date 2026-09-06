@@ -46,7 +46,11 @@ function compile(dir, target) {
 try {
   compile("src", out);
   const entry =
-    process.argv[2] === "daily" ? "tests/daily.test.mjs" : "scripts/sim.mjs";
+    process.argv[2] === "daily"
+      ? "tests/daily.test.mjs"
+      : process.argv[2] === "scenes"
+        ? "tests/scenes.test.mjs"
+        : "scripts/sim.mjs";
   const source = readFileSync(entry, "utf8").replace(
     /from ['"]@game\/([^'"]+)['"]/g,
     (_, path) => `from '${pathToFileURL(join(out, path + ".mjs")).href}'`,

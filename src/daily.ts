@@ -88,6 +88,8 @@ export type DayOutcome = {
   title: string;
   person?: PersonId;
   scene: SceneLine[];
+  /** この行動で見た場面のid（`src/scenes.ts` の目録に対応）。回想に記録する。 */
+  sceneIds: string[];
   listPrice: number;
   pay: number;
   fatigueRate: number;
@@ -385,6 +387,7 @@ export function dailyAction(
         kind: "settle",
         title: `第${state.chapter}章 章末`,
         scene: [],
+        sceneIds: [],
         listPrice: quota,
         pay: -paid,
         fatigueRate: 1,
@@ -423,6 +426,7 @@ export function dailyAction(
         kind: "rest",
         title: "今日は受けない",
         scene: [],
+        sceneIds: [],
         listPrice: 0,
         pay: 0,
         fatigueRate: 1,
@@ -492,6 +496,9 @@ export function dailyAction(
     }),
     ...stageUpLine(job.person, before, s.relations[job.person]),
   ];
+  /* 見た場面を目録のidで控える。回想と、CGの発注の突き合わせに使う。 */
+  const sceneIds = [`job:${job.id}`];
+  if (relationUp) sceneIds.push(`bond:${job.person}:${s.relations[job.person]}`);
   const gains = recover(
     s,
     job.costs.some((c) => c.axis === "威厳"),
@@ -509,6 +516,7 @@ export function dailyAction(
       title: job.title,
       person: job.person,
       scene,
+      sceneIds,
       listPrice,
       pay,
       fatigueRate: rate,

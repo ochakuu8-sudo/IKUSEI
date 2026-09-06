@@ -8,7 +8,7 @@
     "build": "tsc --noEmit -p tsconfig.app.json && vite build",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy.sh",
-    "test": "node scripts/run.mjs daily",
+    "test": "node scripts/run.mjs daily && node scripts/run.mjs scenes",
     "test:ui": "node tests/daily-ui.test.mjs",
     "sim": "node scripts/run.mjs sim"
   },
