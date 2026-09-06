@@ -36,7 +36,14 @@ async function playScene() {
   throw new Error("場面が終わらない");
 }
 async function closeResult() {
+  /* 場面が閉じてから結果が出るまで1フレーム空くので、待ってから閉じる。 */
+  await page.waitForTimeout(260);
   if (await button("確認").count()) await tap(button("確認"));
+  assert.equal(
+    await page.locator("dialog[open]").count(),
+    0,
+    "結果を閉じきれていない",
+  );
 }
 
 try {
@@ -62,12 +69,21 @@ try {
   await page.screenshot({ path: resolve(out, "today-1366.png") });
 
   /* 今日の提示は3件＋「今日は受けない」。開かずに比べられること。 */
-  const rows = page.locator(".c-offer");
-  assert.equal(await rows.count(), 4);
-  assert(await page.locator(".c-offer .c-costs").count());
+  assert.equal(await page.locator(".c-slip").count(), 4);
+  assert(await page.locator(".c-slip .c-costs").count());
+  assert(await page.locator(".c-slip .c-slip-seal").count(), "地の紋が入る");
+  /* 手元の一覧に、いま管理しているものが揃っていること。 */
+  const ledger = page.locator(".c-ledger");
+  assert.equal(await ledger.count(), 1);
+  assert.equal(await ledger.locator(".c-ax").count(), 3, "三軸");
+  assert((await ledger.locator(".c-bond").count()) >= 6, "相手ごとの関係");
+  assert(
+    (await ledger.locator(".c-res").count()) >= 3,
+    "体力・所持金・章の返済",
+  );
 
   /* 1件選ぶ → 依頼状 → 確認 → 場面 → 結果 → 翌日 */
-  await tap(page.locator(".c-offer .c-card-link").first());
+  await tap(page.locator(".c-slip .c-slip-face").first());
   await page.screenshot({ path: resolve(out, "sheet-1366.png") });
   assert(await button("この依頼を受ける").count());
   await tap(button("この依頼を受ける"));
@@ -86,16 +102,16 @@ try {
   assert(afterJob.money > start.money);
 
   /* 読み込み直しても、その日の顔ぶれは変わらない */
-  const before = await page.locator(".c-offer .c-card-body b").allInnerTexts();
+  const before = await page.locator(".c-slip .c-slip-main b").allInnerTexts();
   await page.reload();
   await tap(button("続きから"));
   assert.deepEqual(
-    await page.locator(".c-offer .c-card-body b").allInnerTexts(),
+    await page.locator(".c-slip .c-slip-main b").allInnerTexts(),
     before,
   );
 
   /* 休むと体力だけが戻り、1日を失う */
-  await tap(page.locator(".c-offer.c-rest .c-card-link"));
+  await tap(page.locator(".c-slip.c-rest .c-slip-face"));
   await tap(
     page
       .locator("dialog[open]")

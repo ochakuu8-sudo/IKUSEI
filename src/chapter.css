@@ -301,6 +301,11 @@ body {
   opacity: 0.85;
   white-space: nowrap;
 }
+/* 立ち絵の裾では段階の言葉を省く。254pxにゲージと数値を通すため。
+   言葉は「手元」パネルと結果画面が並べて教える。 */
+.c-axes .c-ax em {
+  display: none;
+}
 .c-ax b {
   font-size: 12px;
   width: 24px;
@@ -1033,80 +1038,185 @@ body {
 }
 
 /* ══ 1日1行動（v14）════════════════════════════════════════════
-   今日の3件と「今日は受けない」を1画面に並べる。開かずに比べられることが要件。 */
+   今日の3件と「今日は受けない」を1画面に並べ、その下に手元の一覧を置く。 */
 .c-today {
-  padding: 18px 26px;
+  padding: 11px 22px 9px;
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  gap: 8px;
   height: 100%;
   min-height: 0;
 }
 .c-today h2 {
   background: #fcf2e5ef;
   color: #503a4d;
-  padding: 8px 14px;
+  padding: 7px 14px;
   border-radius: 10px;
-  font-size: 18px;
+  font-size: 17px;
   margin: 0;
 }
 .c-offers {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 7px;
 }
-.c-offer {
-  margin: 0;
-  padding: 0;
-  border-left-width: 5px;
+
+/* ── 依頼状。ボタンではなく紙にする ───────────────────────── */
+.c-slip {
+  position: relative;
+  background:
+    linear-gradient(#fffdf7, #fbf3e4) padding-box,
+    #d9c7ae border-box;
+  border: 1px solid #d9c7ae;
+  border-left: 6px solid #bfae99;
+  border-radius: 4px 10px 10px 4px;
+  box-shadow:
+    0 1px 0 #ffffffcc inset,
+    0 2px 5px #3a2a3a1f;
+  overflow: hidden;
 }
-.c-offer.c-clean {
-  border-left-color: #5f7a54;
+.c-slip.c-clean {
+  border-left-color: #6f8a62;
 }
-.c-offer.c-paid {
+.c-slip.c-paid {
   border-left-color: #9e5470;
 }
-.c-offer.c-rest {
+.c-slip.c-rest {
   border-left-color: #8d8296;
-  background: #f3ecdfee;
+  background: linear-gradient(#f7f1e6, #efe6d7);
 }
-.c-offer .c-card-link {
-  padding: 10px 14px;
-  gap: 12px;
+.c-slip.c-shut {
+  filter: saturate(0.55);
+  opacity: 0.7;
+}
+/* 地の紋。読む前に「何を差し出す依頼か」が絵で分かる。 */
+.c-slip-seal {
+  position: absolute;
+  right: 128px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 74px;
+  height: 74px;
+  fill: #7a5f6c;
+  opacity: 0.1;
+  pointer-events: none;
+}
+.c-slip.c-clean .c-slip-seal {
+  fill: #4e6b45;
+  opacity: 0.08;
+}
+.c-slip-face {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 13px;
   width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 9px 15px 9px 11px;
+  font-size: 13px;
 }
-.c-offer .c-card-link:disabled {
-  opacity: 0.55;
+.c-slip-face:disabled {
+  cursor: default;
 }
-.c-kind {
+/* 種別の札。紙に貼られた小さなラベル。 */
+.c-slip-kind {
   flex: none;
-  width: 34px;
+  width: 40px;
+  padding: 3px 0;
+  border-radius: 3px;
+  background: #efe3d0;
+  border: 1px solid #ddcbb2;
+  color: #6b5a63;
   font-family: var(--serif);
   font-size: 12px;
-  color: #7c6a76;
-  writing-mode: horizontal-tb;
   text-align: center;
+  letter-spacing: 1px;
 }
-.c-offer .c-card-pay small {
+.c-slip.c-paid .c-slip-kind {
+  background: #f4e0e6;
+  border-color: #e0bfc9;
+  color: #8b4a63;
+}
+.c-slip.c-clean .c-slip-kind {
+  background: #e6eddf;
+  border-color: #c8d6bd;
+  color: #4e6b45;
+}
+.c-slip-main {
+  flex: 1;
+  min-width: 0;
+}
+.c-slip-main b {
+  display: block;
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.3;
+  color: #402f42;
+}
+.c-slip-main small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #8b7366;
+}
+.c-slip-main small i {
+  font-style: normal;
+  opacity: 0.8;
+}
+.c-slip-main small i::before {
+  content: "・";
+}
+/* 受け取る額と、残りの体力をどれだけ食うか。 */
+.c-slip-pay {
+  flex: none;
+  width: 104px;
+  text-align: right;
+}
+.c-slip-pay > b {
+  font-family: var(--serif);
+  font-size: 19px;
+  color: #402f42;
+}
+.c-slip-stamina {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 3px;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: 11px;
   color: #8b7366;
 }
-.c-offer .c-card-pay .mark {
+.c-slip-stamina .mark {
   width: 11px;
   height: 11px;
   fill: currentColor;
+  flex: none;
 }
-.c-offer > .sym-tag {
-  margin-right: 12px;
+.c-slip-stamina .c-gauge {
+  width: 34px;
+  height: 5px;
+  background: #00000018;
+}
+.c-slip-stamina .c-gauge > i {
+  background: #b99a6a;
+}
+.c-slip-stamina .c-gauge > i.c-over {
+  background: #b4685c;
+}
+.c-slip > .sym-tag {
+  position: absolute;
+  right: 12px;
+  bottom: 7px;
 }
 /* 差し出すもの。紋と、払ったあとの値。 */
 .c-costs {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   flex: none;
 }
 .c-cost {
@@ -1114,11 +1224,11 @@ body {
   align-items: center;
   gap: 3px;
   font-family: var(--serif);
-  font-size: 15px;
+  font-size: 16px;
 }
 .c-cost .mark {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   fill: currentColor;
 }
 .c-cost small {
@@ -1137,23 +1247,128 @@ body {
   color: #4d6480;
 }
 .c-costs.c-free {
-  font-size: 12px;
-  color: #6f8262;
+  font-size: 11px;
+  color: #93a488;
   gap: 5px;
 }
 .c-costs.c-free .mark {
   width: 13px;
   height: 13px;
   fill: currentColor;
+  flex: none;
+}
+
+/* ── 手元。いま管理しているものを1枚に集める ───────────────── */
+.c-ledger {
+  margin-top: auto;
+  background: #2e2434d9;
+  color: #f4e7d8;
+  border: 1px solid #6b5a6b;
+  border-radius: 11px;
+  padding: 6px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.c-ledger-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.c-ledger .mark {
+  fill: currentColor;
+  flex: none;
+}
+.c-res {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.c-res .mark {
+  width: 15px;
+  height: 15px;
+}
+.c-res .c-gauge {
+  width: 78px;
+  height: 7px;
+}
+.c-res b {
+  font-family: var(--serif);
+  font-size: 15px;
+}
+.c-res-money {
+  margin-left: 2px;
+}
+.c-coin {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  opacity: 0.85;
+  flex: none;
+}
+.c-res-quota {
+  margin-left: auto;
+}
+.c-res-quota small {
+  color: #cdb4c4;
+  font-size: 11px;
+}
+.c-res-quota .c-gauge > i.c-met {
+  background: linear-gradient(90deg, #86a877, #a9c79a);
+}
+.c-ledger-axes {
+  gap: 14px;
+  border-top: 1px solid #ffffff1f;
+  border-bottom: 1px solid #ffffff1f;
+  padding: 3px 0;
+}
+.c-ledger-axes .c-ax {
+  flex: 1;
+  margin: 0;
+  gap: 6px;
+}
+.c-ledger-axes .c-ax .c-gauge {
+  flex: none;
+  width: 62px;
+}
+.c-ledger-axes .c-ax em {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #d6c2cf;
+}
+.c-ledger-bonds {
+  gap: 10px;
+  font-size: 10.5px;
+}
+.c-ledger-bonds > .mark {
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
+}
+.c-bond {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #e6d5e0;
+  white-space: nowrap;
+}
+.c-bond .sym-rings {
+  color: #e0b6c8;
 }
 .c-trace-link {
-  align-self: flex-start;
+  margin-left: auto;
   border: 0;
   background: none;
-  color: #6d5f66;
-  font-size: 12px;
-  padding: 4px 0;
+  color: #d6bccb;
+  font-size: 11px;
+  padding: 2px 0;
 }
+
 /* 依頼状。本文は内側でスクロールし、操作列は最終行に置く。 */
 .c-sheet {
   display: flex;

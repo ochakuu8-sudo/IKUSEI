@@ -304,6 +304,8 @@ export type PersonId =
 export type Person = {
   id: PersonId;
   name: string;
+  /** 一覧で並べるときの短い呼び方。手元のパネルは横に7人並ぶ。 */
+  short: string;
   role: string;
   place: PlaceId;
   note: string;
@@ -321,6 +323,7 @@ export const people: Person[] = [
   {
     id: "herbalist",
     name: "紹介された薬師",
+    short: "薬師",
     role: "協力者（仮）",
     place: "academy",
     requiresUnlock: true,
@@ -335,6 +338,7 @@ export const people: Person[] = [
   {
     id: "vernet",
     name: "ヴェルネ",
+    short: "ヴェルネ",
     role: "番頭",
     place: "arnaud",
     note: "帳簿より正確に人を見る。感情は挟まない。",
@@ -348,6 +352,7 @@ export const people: Person[] = [
   {
     id: "jean",
     name: "ジャン・アルノー",
+    short: "ジャン",
     role: "若旦那",
     place: "arnaud",
     note: "金払いはいい。身分というものに何の敬意も無い。",
@@ -360,6 +365,7 @@ export const people: Person[] = [
   {
     id: "claire",
     name: "クレール",
+    short: "クレール",
     role: "司書",
     place: "academy",
     note: "詮索をしない。ここでの仕事は、まだ彼女を令嬢のまま扱う。",
@@ -376,6 +382,7 @@ export const people: Person[] = [
   {
     id: "guillaume",
     name: "ギヨーム",
+    short: "ギヨーム",
     role: "家令",
     place: "valere",
     note: "慇懃で、丁寧で、こちらを一段下に置く。",
@@ -389,6 +396,7 @@ export const people: Person[] = [
   {
     id: "count",
     name: "ヴァレール伯爵",
+    short: "伯爵",
     role: "当主",
     place: "valere",
     note: "かつては同格だった。その事実を、両方が覚えている。",
@@ -401,6 +409,7 @@ export const people: Person[] = [
   {
     id: "marc",
     name: "マルク",
+    short: "マルク",
     role: "組合の顔役",
     place: "guild",
     note: "下世話だが、値切らないし嘘もつかない。",
@@ -979,9 +988,7 @@ export function sceneScript(subject: SceneSubject): SceneLine[] {
   const body = subject.recipe
     ? brewScript[recipeOf(subject.recipe).grade]
     : plainScript;
-  return paid
-    ? [opening, ...body, ...scriptByAxis[paid]]
-    : [opening, ...body];
+  return paid ? [opening, ...body, ...scriptByAxis[paid]] : [opening, ...body];
 }
 
 /** 関係が新しい段階に入った日の一言。上がっていなければ空。 */

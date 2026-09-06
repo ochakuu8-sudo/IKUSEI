@@ -8,6 +8,7 @@ import {
   personOf,
   placeOf,
   relationStage,
+  type Axis as AxisName,
   type Job,
 } from "./game";
 import {
@@ -77,6 +78,95 @@ function Button({
   );
 }
 
+/** 三軸の1行。紋・ゲージ・段階の言葉・数値。品位だけ上限の刻みが入る。 */
+function Axis({ axis, s }: { axis: AxisName; s: DailyState }) {
+  return (
+    <div className={`c-ax c-ax-${axis}`}>
+      <Mark name={axis} label={axis} />
+      <span className="c-gauge">
+        <i style={{ width: `${s.axes[axis]}%` }} />
+        {axis === "品位" && s.dignityCap < 100 && (
+          <u
+            style={{ left: `${s.dignityCap}%` }}
+            aria-label={`品位上限 ${s.dignityCap}`}
+          />
+        )}
+      </span>
+      <em>{axisStage(axis, s.axes[axis])}</em>
+      <b>{s.axes[axis]}</b>
+    </div>
+  );
+}
+
+/**
+ * 手元にあるもの一覧。**いま自分が管理している資源を1枚に集める。**
+ * 散らばっていると「あと何日で何G、そのとき何が閉じているか」が繋がらない。
+ * 体力・金・章の返済・三軸・相手との関係・失った依頼を、同じ枠の中で読ませる。
+ */
+function Ledger({
+  s,
+  due,
+  traces,
+  onJournal,
+}: {
+  s: DailyState;
+  due: number;
+  traces: number;
+  onJournal: () => void;
+}) {
+  const left = CHAPTER_DAYS - s.day + 1;
+  const known = [...new Set(jobs.map((j) => j.person))].filter(
+    (p) => !personOf(p).requiresUnlock || s.unlocked.includes(p),
+  );
+  return (
+    <section className="c-ledger" aria-label="手元">
+      <div className="c-ledger-row c-ledger-top">
+        <span className="c-res">
+          <Mark name="体力" label="体力" />
+          <span className="c-gauge">
+            <i style={{ width: `${s.stamina}%` }} />
+          </span>
+          <b>{s.stamina}</b>
+        </span>
+        <span className="c-res c-res-money">
+          <i className="c-coin" aria-hidden="true" />
+          <b>{gold(s.money)}</b>
+        </span>
+        <span className="c-res c-res-quota">
+          <small>章末まで {left}日</small>
+          <span className="c-gauge">
+            <i
+              className={s.money >= due ? "c-met" : ""}
+              style={{ width: `${Math.min(100, (s.money / due) * 100)}%` }}
+            />
+          </span>
+          <b>{gold(due)}</b>
+        </span>
+      </div>
+      <div className="c-ledger-row c-ledger-axes">
+        {axes.map((a) => (
+          <Axis key={a} axis={a} s={s} />
+        ))}
+      </div>
+      <div className="c-ledger-row c-ledger-bonds">
+        <Mark name="関係" label="関係" />
+        {known.map((p) => (
+          <span className="c-bond" key={p} title={personOf(p).name}>
+            {personOf(p).short}
+            <Rings
+              stage={s.relations[p]}
+              label={`${personOf(p).name} ${s.relations[p]}／3`}
+            />
+          </span>
+        ))}
+        <button className="c-trace-link" onClick={onJournal}>
+          {traces > 0 ? `失った依頼 ${traces}件` : "台帳"} ▸
+        </button>
+      </div>
+    </section>
+  );
+}
+
 /** 何を差し出すか。紋と「払ったあとの値」を並べる（§5「隠して受けさせない」）。 */
 function Costs({ job, s }: { job: Job; s: DailyState }) {
   if (!job.costs.length)
@@ -100,6 +190,16 @@ function Costs({ job, s }: { job: Job; s: DailyState }) {
   );
 }
 
+/** 依頼の地に押される紋。何を差し出す依頼かが、読む前に絵で分かる。 */
+const sealOf = (job: Job): "貞操" | "品位" | "威厳" | "関係" =>
+  axes.find((a) => job.costs.some((c) => c.axis === a && c.amount > 0)) ??
+  "関係";
+
+/**
+ * 今日の1件。ボタンではなく**依頼状**として出す。
+ * 種別の札、地の紋（透かし）、相手と関係の輪、差し出すものの紋、
+ * 受け取る額、そして「残りの体力のどれだけを食うか」を1枚に並べる。
+ */
 function OfferRow({
   job,
   s,
@@ -110,14 +210,17 @@ function OfferRow({
   onOpen: () => void;
 }) {
   const reason = takeReason(job, s),
-    tired = !reason ? null : reason.startsWith("体力");
+    tired = !!reason && reason.startsWith("体力"),
+    cost = staminaOf(job),
+    bite = Math.min(100, (cost / Math.max(1, s.stamina)) * 100);
   return (
     <article
-      className={`c-order-card c-offer ${job.costs.length ? "c-paid" : "c-clean"} ${reason ? "c-state-shut" : ""}`}
+      className={`c-slip ${job.costs.length ? "c-paid" : "c-clean"} ${reason ? "c-shut" : ""}`}
     >
-      <button className="c-card-link" onClick={onOpen} disabled={!!reason}>
-        <span className="c-kind">{job.kind}</span>
-        <span className="c-card-body">
+      <button className="c-slip-face" onClick={onOpen} disabled={!!reason}>
+        <Mark name={sealOf(job)} className="c-slip-seal" decorative />
+        <span className="c-slip-kind">{job.kind}</span>
+        <span className="c-slip-main">
           <b>{job.title}</b>
           <small>
             {personOf(job.person).name}
@@ -127,19 +230,52 @@ function OfferRow({
                 label={`${personOf(job.person).name}との関係 ${s.relations[job.person]}／3`}
               />
             )}
-            · {placeOf(personOf(job.person).place).short}
+            <i>{placeOf(personOf(job.person).place).short}</i>
           </small>
         </span>
         <Costs job={job} s={s} />
-        <span className="c-card-pay">
-          {gold(payOf(job, s))}
-          <small>
+        <span className="c-slip-pay">
+          <b>{gold(payOf(job, s))}</b>
+          <span className="c-slip-stamina" title={`体力 ${cost}`}>
             <Mark name="体力" decorative />
-            {staminaOf(job)}
-          </small>
+            <span className="c-gauge">
+              <i
+                className={tired ? "c-over" : ""}
+                style={{ width: `${bite}%` }}
+              />
+            </span>
+            {cost}
+          </span>
         </span>
       </button>
       {reason && <StateTag kind={tired ? "brew" : "shut"}>{reason}</StateTag>}
+    </article>
+  );
+}
+
+/** 「今日は受けない」。同じ依頼状の形で並べ、選択肢の一つとして見せる（§6）。 */
+function RestRow({ s, onPick }: { s: DailyState; onPick: () => void }) {
+  return (
+    <article className="c-slip c-rest">
+      <button className="c-slip-face" onClick={onPick}>
+        <Mark name="体力" className="c-slip-seal" decorative />
+        <span className="c-slip-kind">休む</span>
+        <span className="c-slip-main">
+          <b>今日は受けない</b>
+          <small>何も払わない。1日だけを使う</small>
+        </span>
+        <span className="c-costs c-free">差し出すものはない</span>
+        <span className="c-slip-pay">
+          <b>±0G</b>
+          <span className="c-slip-stamina">
+            <Mark name="体力" decorative />
+            <span className="c-gauge">
+              <i className="c-met" style={{ width: "100%" }} />
+            </span>
+            {s.stamina}→100
+          </span>
+        </span>
+      </button>
     </article>
   );
 }
@@ -299,16 +435,21 @@ export default function DailyApp() {
                 <b>{s.day}日目</b>
                 <small>第{s.chapter}章</small>
               </button>
-              <span className="c-stamina">
-                <Mark name="体力" label="体力" />
-                <span className="c-gauge">
-                  <i style={{ width: `${s.stamina}%` }} />
-                </span>
-                <b>{s.stamina}</b>
-              </span>
-              <span className="c-purse">
-                <b>{gold(s.money)}</b>
-              </span>
+              {/* 今日の画面は「手元」が持つので、HUDでは繰り返さない。 */}
+              {!(ui.tab === "today" && !sheetJob) && (
+                <>
+                  <span className="c-stamina">
+                    <Mark name="体力" label="体力" />
+                    <span className="c-gauge">
+                      <i style={{ width: `${s.stamina}%` }} />
+                    </span>
+                    <b>{s.stamina}</b>
+                  </span>
+                  <span className="c-purse">
+                    <b>{gold(s.money)}</b>
+                  </span>
+                </>
+              )}
               <span className="c-debt">
                 <b>{gold(s.debt)}</b>
                 <small>
@@ -327,26 +468,14 @@ export default function DailyApp() {
                   className="c-hero"
                   alt="エレオノール・ラティエ"
                 />
-                <div className="c-axes">
-                  {axes.map((a) => (
-                    <div key={a} className={`c-ax c-ax-${a}`}>
-                      <Mark name={a} label={a} />
-                      <span className="c-gauge">
-                        <i style={{ width: `${s.axes[a]}%` }} />
-                        {a === "品位" && s.dignityCap < 100 && (
-                          <u
-                            style={{ left: `${s.dignityCap}%` }}
-                            aria-label={`品位上限 ${s.dignityCap}`}
-                          />
-                        )}
-                      </span>
-                      {ui.tab === "today" && !sheetJob && (
-                        <em>{axisStage(a, s.axes[a])}</em>
-                      )}
-                      <b>{s.axes[a]}</b>
-                    </div>
-                  ))}
-                </div>
+                {/* 今日の画面は「手元」パネルが軸を持つので、裾には重ねない。 */}
+                {!(ui.tab === "today" && !sheetJob) && (
+                  <div className="c-axes">
+                    {axes.map((a) => (
+                      <Axis key={a} axis={a} s={s} />
+                    ))}
+                  </div>
+                )}
               </aside>
               {!(ui.tab === "today" && !sheetJob) && (
                 <nav className="c-nav">
@@ -533,40 +662,14 @@ export default function DailyApp() {
                           今日は誰からも声がかからない。
                         </p>
                       )}
-                      <article className="c-order-card c-offer c-rest">
-                        <button
-                          className="c-card-link"
-                          onClick={() => setPending("rest")}
-                        >
-                          <span className="c-kind">休む</span>
-                          <span className="c-card-body">
-                            <b>今日は受けない</b>
-                            <small>
-                              何も払わない。1日だけを使う
-                              {s.stamina < 100 && " ・ 体力が戻る"}
-                            </small>
-                          </span>
-                          <span className="c-card-pay">
-                            {s.stamina < 100 ? (
-                              <>
-                                <Mark name="体力" decorative />
-                                {s.stamina}→100
-                              </>
-                            ) : (
-                              <small>1日を使う</small>
-                            )}
-                          </span>
-                        </button>
-                      </article>
+                      <RestRow s={s} onPick={() => setPending("rest")} />
                     </div>
-                    {traces.length > 0 && (
-                      <button
-                        className="c-trace-link"
-                        onClick={() => patch({ tab: "journal" })}
-                      >
-                        もう紹介されない依頼 {traces.length}件 ▸
-                      </button>
-                    )}
+                    <Ledger
+                      s={s}
+                      due={due}
+                      traces={traces.length}
+                      onJournal={() => patch({ tab: "journal" })}
+                    />
                   </div>
                 )}
               </main>
