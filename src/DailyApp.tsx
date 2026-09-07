@@ -115,74 +115,61 @@ function Button({
   );
 }
 
-/** The three crests share a vertical reading order: emblem, value, state. */
+/** Emblems lead each row; the state describes the number beside it. */
 function StatusAxis({ axis, s }: { axis: AxisName; s: DailyState }) {
-  const value = s.axes[axis];
-  const cap = axis === "品位" ? s.dignityCap : 100;
+  const value = s.axes[axis],
+    cap = axis === "品位" ? s.dignityCap : 100;
   return (
     <div className="r-status-axis" data-axis={axis}>
-      <div className="r-status-emblem">
-        <Mark name={axis} decorative />
-        <span>{axis}</span>
+      <Mark name={axis} decorative />
+      <div className="r-status-copy">
+        <div className="r-status-axis-title">
+          <span>{axis}</span>
+          <b>{value}</b>
+        </div>
+        <div
+          className="r-status-meter"
+          role="progressbar"
+          aria-label={axis}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={value}
+          aria-valuetext={`${value}、${axisStage(axis, value)}${axis === "品位" ? `、上限${cap}` : ""}`}
+        >
+          <i style={{ width: `${value}%` }} />
+          {cap < 100 && (
+            <span className="r-status-cap-track" style={{ left: `${cap}%` }} />
+          )}
+        </div>
+        <div className="r-status-axis-note">
+          <span>{axisStage(axis, value)}</span>
+          {axis === "品位" && <small>上限 {cap}</small>}
+        </div>
       </div>
-      <b className="r-status-value">{value}</b>
-      <div
-        className="r-status-meter"
-        role="progressbar"
-        aria-label={axis}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={value}
-        aria-valuetext={`${value}、${axisStage(axis, value)}${axis === "品位" ? `、上限${cap}` : ""}`}
-      >
-        <i style={{ width: `${value}%` }} />
-        {cap < 100 && (
-          <span className="r-status-cap-track" style={{ left: `${cap}%` }} />
-        )}
-      </div>
-      <small className="r-status-limit">
-        {axis === "品位" ? `上限 ${cap}` : ""}
-      </small>
-      <p className="r-status-state">{axisStage(axis, value)}</p>
     </div>
   );
 }
-
-/** Resources above; the three personal parameters below, inside one illustrated window. */
 function Ledger({ s }: { s: DailyState }) {
   return (
     <section className="r-status-window" aria-label="エレオノールの状態">
-      <div className="r-status-resources">
-        <div className="r-status-stamina">
-          <div className="r-status-resource-label">
-            <Mark name="体力" decorative />
-            <span>体力</span>
-          </div>
-          <div className="r-status-resource-value">
-            <b>{s.stamina}</b>
-            <small>/ 100</small>
-          </div>
-          <div
-            className="r-status-meter"
-            role="progressbar"
-            aria-label="体力"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={s.stamina}
-          >
-            <i style={{ width: `${s.stamina}%` }} />
-          </div>
+      <header className="r-character-name">
+        <b>エレオノール</b>
+      </header>
+      <div className="r-status-stamina">
+        <Mark name="体力" decorative />
+        <span>体力</span>
+        <div
+          className="r-status-meter"
+          role="progressbar"
+          aria-label="体力"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={s.stamina}
+        >
+          <i style={{ width: `${s.stamina}%` }} />
         </div>
-        <div className="r-status-money">
-          <div className="r-status-resource-label">
-            <i className="c-coin" aria-hidden="true" />
-            <span>所持金</span>
-          </div>
-          <div className="r-status-resource-value">
-            <b>{s.money.toLocaleString()}</b>
-            <small>G</small>
-          </div>
-        </div>
+        <b>{s.stamina}</b>
+        <small>/100</small>
       </div>
       <div className="r-status-axes">
         {axes.map((axis) => (
@@ -298,6 +285,7 @@ function OfferCard({
             />
           </small>
           <b>{job.title}</b>
+          <span className="r-letter-teaser">{job.description}</span>
         </span>
         <span className="c-slip-terms">
           <span
@@ -456,10 +444,10 @@ function LetterSheet({
         )}
       </div>
       <footer className="c-footer c-letter-footer">
-        <Button onClick={onBack}>机に戻す</Button>
-        <span className="c-footer-note">{reason ?? "1日が過ぎる"}</span>
+        <Button onClick={onBack}>← 机に戻す</Button>
         <Button primary disabled={!!reason} onClick={onAccept}>
-          この依頼を受ける
+          <span>この依頼を受ける</span>
+          <small>{reason ?? "1日が過ぎる"}</small>
         </Button>
       </footer>
     </section>
@@ -504,9 +492,10 @@ function RestSheet({
         </div>
       </div>
       <footer className="c-footer c-letter-footer">
-        <Button onClick={onBack}>机に戻す</Button>
+        <Button onClick={onBack}>← 机に戻す</Button>
         <Button primary onClick={onAccept}>
-          今日は休む
+          <span>今日は休む</span>
+          <small>体力を回復して、翌日へ</small>
         </Button>
       </footer>
     </section>
@@ -702,6 +691,15 @@ export default function DailyApp() {
   }, [ui.sheet, pending, ui.volume, ui.motion]);
   useEffect(() => {
     mounted.current = true;
+    [
+      reformArt.paper,
+      reformArt.book,
+      reformArt.plaque,
+      reformArt.binding,
+    ].forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
     return () => {
       mounted.current = false;
       window.clearTimeout(transitionTimer.current);
@@ -732,6 +730,10 @@ export default function DailyApp() {
       `url("${reformArt.book}")`,
     );
     document.documentElement.style.setProperty(
+      "--journal-binding",
+      `url("${reformArt.binding}")`,
+    );
+    document.documentElement.style.setProperty(
       "--reform-room",
       `url("${reformArt.room}")`,
     );
@@ -742,14 +744,14 @@ export default function DailyApp() {
         r = n(css.paddingRight),
         t = n(css.paddingTop),
         b = n(css.paddingBottom);
-      const width = Math.min(1280, innerWidth - l - r);
-      const height =
-        innerWidth < innerHeight
-          ? innerHeight - t - b
-          : Math.min(innerHeight - t - b, (width * 9) / 16);
-      document.documentElement.style.setProperty("--fit", "1");
-      document.documentElement.style.setProperty("--stage-w", `${width}px`);
-      document.documentElement.style.setProperty("--stage-h", `${height}px`);
+      // One landscape canvas on every device, including portrait phones.
+      const scale = Math.min(
+        (innerWidth - l - r) / 1200,
+        (innerHeight - t - b) / 500,
+      );
+      document.documentElement.style.setProperty("--fit", String(scale));
+      document.documentElement.style.setProperty("--stage-w", "1200px");
+      document.documentElement.style.setProperty("--stage-h", "500px");
       document.documentElement.style.setProperty(
         "--shift-x",
         `${(l - r) / 2}px`,
@@ -920,6 +922,8 @@ export default function DailyApp() {
             "--reform-book": `url("${reformArt.book}")`,
             "--reform-closed-book": `url("${reformArt.closedBook}")`,
             "--reform-window": `url("${reformArt.window}")`,
+            "--character-plaque": `url("${reformArt.plaque}")`,
+            "--journal-binding": `url("${reformArt.binding}")`,
             backgroundImage: `url("${reformArt.room}")`,
           } as React.CSSProperties
         }
@@ -974,9 +978,15 @@ export default function DailyApp() {
         ) : s ? (
           <>
             <header className="c-hud">
-              <button onClick={openJournal}>
-                <b>{s.day}日目</b>
-                <small>第{s.chapter}章</small>
+              <button
+                className="r-calendar"
+                onClick={openJournal}
+                aria-label={`${s.day}日目 第${s.chapter}章`}
+              >
+                <small>
+                  第{s.chapter}章 · {s.day}日目
+                </small>
+                <b>本日の依頼</b>
               </button>
               <button
                 className="r-goal"
@@ -986,26 +996,34 @@ export default function DailyApp() {
                 <small>
                   {s.awaitingSettlement
                     ? "今日は返済の日"
-                    : `返済まで、あと${CHAPTER_DAYS - s.day + 1}日`}
+                    : `返済まで あと${CHAPTER_DAYS - s.day + 1}日`}
                 </small>
                 <b>
                   {s.money >= due
                     ? "必要額を確保"
                     : `あと ${gold(due - s.money)}`}
                 </b>
-                <span>
-                  手元 {gold(s.money)} ／ 納入 {gold(due)}
-                </span>
+                <span>納入予定 {gold(due)}</span>
               </button>
-              <Button
-                className="r-gallery-shortcut"
-                onClick={() => setGallery(true)}
-              >
-                回想
-              </Button>
-              <Button aria-label="設定" onClick={() => setSettings(true)}>
-                <Settings size={20} />
-              </Button>
+              <div className="r-purse">
+                <small>所持金</small>
+                <b>
+                  <i className="c-coin" aria-hidden="true" />
+                  {s.money.toLocaleString()}
+                  <small>G</small>
+                </b>
+              </div>
+              <div className="r-hud-actions">
+                <Button
+                  className="r-gallery-shortcut"
+                  onClick={() => setGallery(true)}
+                >
+                  回想
+                </Button>
+                <Button aria-label="設定" onClick={() => setSettings(true)}>
+                  <Settings size={19} />
+                </Button>
+              </div>
             </header>
             <div className="c-body">
               <aside className="c-portrait">

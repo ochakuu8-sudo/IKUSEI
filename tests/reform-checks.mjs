@@ -27,7 +27,7 @@ export async function checkReform(page, setViewport, base) {
       );
       must(detail.includes(`−${offer.stamina}`), `${offer.title}: stamina`);
       must(
-        (await button("この依頼を受ける").isEnabled()) !== offer.blocked,
+        (await button(/^この依頼を受ける/).isEnabled()) !== offer.blocked,
         `${offer.title}: availability`,
       );
       if (offer.cap)
@@ -37,7 +37,7 @@ export async function checkReform(page, setViewport, base) {
       stats.offers++;
       stats.jobs.add(offer.id);
       if (offer.blocked) stats.blocked++;
-      await button("机に戻す").click();
+      await button("← 机に戻す").click();
     }
   }
   for (const [index, short, money, debt] of [
