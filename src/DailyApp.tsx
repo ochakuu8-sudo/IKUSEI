@@ -279,13 +279,8 @@ function OfferCard({
         <span className="c-slip-main">
           <small>
             {personOf(job.person).name}
-            <Rings
-              stage={s.relations[job.person]}
-              label={`${personOf(job.person).name}との関係 ${s.relations[job.person]}／3`}
-            />
           </small>
           <b>{job.title}</b>
-          <span className="r-letter-teaser">{job.description}</span>
         </span>
         <span className="c-slip-terms">
           <span
@@ -928,7 +923,6 @@ export default function DailyApp() {
             "--reform-window": `url("${reformArt.window}")`,
             "--character-plaque": `url("${reformArt.plaque}")`,
             "--journal-binding": `url("${reformArt.binding}")`,
-            "--writing-mat": `url("${reformArt.mat}")`,
             "--stationery-button": `url("${reformArt.button}")`,
             "--letter-bookmark": `url("${reformArt.bookmark}")`,
             "--manor-wax": `url("${reformArt.wax}")`,
@@ -992,9 +986,9 @@ export default function DailyApp() {
                 aria-label={`${s.day}日目 第${s.chapter}章`}
               >
                 <small>
-                  第{s.chapter}章 · {s.day}日目
+                  第{s.chapter}章
                 </small>
-                <b>本日の依頼</b>
+                <b>{s.day}日目</b>
               </button>
               <button
                 className="r-goal"

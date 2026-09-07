@@ -40,7 +40,6 @@ export const reformArt = {
   paper: artAssetSrc("ui/portrait/letter.svg"),
   book: artAssetSrc("ui/portrait/open-book.svg"),
   closedBook: artAssetSrc("ui/portrait/closed-book.svg"),
-  mat: artAssetSrc("ui/portrait/writing-mat.svg"),
   button: artAssetSrc("ui/portrait/button.svg"),
   bookmark: artAssetSrc("ui/portrait/bookmark.svg"),
   wax: artAssetSrc("ui/portrait/wax.svg"),
