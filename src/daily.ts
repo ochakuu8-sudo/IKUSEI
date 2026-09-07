@@ -493,12 +493,16 @@ export function dailyAction(
       costs: job.costs,
       /* 品の格で場面が変わる。生産ラインは無くても、納める物の格は残っている。 */
       recipe: job.recipe,
-    }),
-    ...stageUpLine(job.person, before, s.relations[job.person]),
+    }).map((line) => ({ ...line, sceneId: `job:${job.id}` })),
+    ...stageUpLine(job.person, before, s.relations[job.person]).map((line) => ({
+      ...line,
+      sceneId: `bond:${job.person}:${s.relations[job.person]}`,
+    })),
   ];
   /* 見た場面を目録のidで控える。回想と、CGの発注の突き合わせに使う。 */
   const sceneIds = [`job:${job.id}`];
-  if (relationUp) sceneIds.push(`bond:${job.person}:${s.relations[job.person]}`);
+  if (relationUp)
+    sceneIds.push(`bond:${job.person}:${s.relations[job.person]}`);
   const gains = recover(
     s,
     job.costs.some((c) => c.axis === "威厳"),

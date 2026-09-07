@@ -1,22 +1,21 @@
-/* Fullscreen art with compact, unframed subtitles. */
+/* 1200×500の舞台に、標準24pxの2行字幕を重ねる。 */
 .dialog.scenario-dialog {
-  /* シーンもキャンバスの内側。ステージ座標で組み、同じ --fit で拡大する。 */
-  position: fixed;
+  position: absolute;
   left: 50%;
   top: 50%;
-  width: var(--stage-w);
-  height: var(--stage-h);
+  width: 1200px;
+  height: 500px;
   max-width: none;
   max-height: none;
   margin: 0;
-  transform: translate(-50%, -50%)
-    translate(var(--shift-x, 0px), var(--shift-y, 0px)) scale(var(--fit, 1));
-  transform-origin: center center;
   padding: 0;
   border: 0;
   border-radius: 0;
-  background: #1e1925;
-  color: #fff;
+  transform: translate(-50%, -50%)
+    translate(var(--shift-x, 0px), var(--shift-y, 0px)) scale(var(--fit, 1));
+  transform-origin: center;
+  background: #211925;
+  color: #f5eee2;
   overflow: hidden;
 }
 .scenario-dialog[open] {
@@ -25,205 +24,344 @@
 .scenario-dialog > .dialog-body {
   display: contents;
 }
+.scenario-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  font-family: var(--serif);
+  font-weight: 400;
+}
+.scenario-stage [hidden] {
+  display: none !important;
+}
+.scenario-stage button {
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+}
 .scenario-art {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  background: #211925;
 }
 .scenario-background {
   width: 100%;
   height: 100%;
+  display: block;
   object-fit: cover;
 }
 .scenario-portrait {
   position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  height: 100%;
-  width: min(100%, 1100px);
+  top: -10px;
+  right: 84px;
+  left: auto;
+  bottom: auto;
+  width: 530px;
+  max-width: none;
+  height: 530px;
   object-fit: contain;
   object-position: center top;
-  filter: drop-shadow(0 4px 14px #28182950);
+  filter: drop-shadow(4px 8px 10px #190f2438);
+  mask-image: linear-gradient(#000 82%, transparent);
+  transform: none;
 }
-.scenario-message,
-.scenario-log,
-.scenario-restore {
-  text-shadow:
-    -1px -1px 1px #191320,
-    1px -1px 1px #191320,
-    -1px 1px 1px #191320,
-    1px 1px 1px #191320,
-    0 2px 4px #000;
+.scenario-anchor-left {
+  left: 84px;
+  right: auto;
 }
-.scenario-message {
+.scenario-anchor-center {
+  left: 335px;
+  right: auto;
+}
+.scenario-shade {
   position: absolute;
-  bottom: max(8px, env(safe-area-inset-bottom));
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(1000px, calc(100% - 48px));
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
+  inset: 350px 0 0;
+  background: linear-gradient(transparent, #1a1321bb 42%, #17101ded);
+  pointer-events: none;
 }
-.scenario-speaker {
-  font-size: 13px;
-  font-weight: 600;
-  padding: 0 4px;
+.scenario-strong .scenario-shade {
+  background: linear-gradient(transparent, #1a1321ed 30%, #17101d);
 }
-.scenario-text {
-  display: block;
-  align-content: start;
-  width: 100%;
-  min-height: 44px;
-  max-height: min(5em, 23dvh);
-  overflow: auto;
-  border: 0;
-  padding: 2px 4px;
-  background: transparent;
-  color: inherit;
-  font-size: 18px;
-  line-height: 1.65;
-  text-align: left;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  scrollbar-width: thin;
-}
-.scenario-next {
-  font-size: 12px;
-  margin-left: 10px;
-}
-.scenario-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.scenario-controls button,
-.scenario-restore,
-.scenario-log .button {
-  min-height: 44px;
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 500;
-}
-.scenario-controls button:hover,
-.scenario-restore:hover,
-.scenario-log .button:hover {
-  background: transparent;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-.scenario-controls .scenario-forward {
-  min-width: 96px;
-}
-.scenario-position {
-  margin-left: auto;
-  font-size: 12px;
-}
-.scenario-restore {
-  position: absolute;
-  bottom: max(8px, env(safe-area-inset-bottom));
-  right: max(12px, env(safe-area-inset-right));
-}
-.scenario-dialog button:focus-visible {
-  outline-color: #ffe0a9;
-  outline-offset: -3px;
-}
-.scenario-log {
-  position: absolute;
-  inset: max(24px, env(safe-area-inset-top))
-    max(24px, calc((100vw - 1000px) / 2)) 24px;
-  display: flex;
-  flex-direction: column;
-}
-.scenario-log header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-.scenario-log h2 {
-  margin: 0;
-  font-size: 18px;
-}
-.scenario-log-lines {
-  overflow: auto;
-  min-height: 0;
-  margin-top: 8px;
-  scrollbar-width: thin;
-}
-.scenario-log p {
-  padding: 4px;
-  font-size: 16px;
-}
-.scenario-log b {
-  display: block;
-}
-/* 固定キャンバス(1200x500)のシーンはステージ座標で組む。
-   端末のビューポートではなく 500px の縦が基準。 */
-.scenario-message {
-  bottom: 6px;
-}
-.scenario-text {
-  font-size: 16px;
-  max-height: 104px;
-}
-.scenario-log {
-  inset: 8px 24px 8px;
-}
-
-/* 画面のどこを触っても次へ送れる当たり判定。旧 workday.css から移設。
-   ここが無いと、立ち絵が触りを吸ってしまい場面が進まなくなる。 */
 .scenario-tap-target {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  border: 0;
-  background: transparent;
   padding: 0;
+  border: 0;
+  background: none;
   touch-action: none;
 }
-.scenario-menu-toggle {
+.scenario-message {
   position: absolute;
-  right: max(8px, env(safe-area-inset-right));
-  bottom: max(4px, env(safe-area-inset-bottom));
-  min-width: 44px;
-  min-height: 44px;
+  left: 80px;
+  bottom: 20px;
+  width: 870px;
+  min-height: 0;
+  padding: 0;
   border: 0;
-  background: transparent;
-  color: white;
-  font-size: 26px;
-  text-shadow:
-    0 1px 3px #000,
-    1px 0 #000;
-  z-index: 2;
-}
-.scenario-dialog .scenario-message {
+  background: none;
   pointer-events: none;
-  bottom: max(44px, env(safe-area-inset-bottom));
+  color: #f5eee2;
+  text-shadow: 0 2px 3px #110a16;
 }
-.scenario-dialog .scenario-text {
+.scenario-speaker {
+  font-size: 16px;
+  font-weight: 400;
+  color: #e3c99b;
+  min-height: 24px;
+  line-height: 24px;
+  margin: 0 0 3px;
+  padding: 0;
+  letter-spacing: 0.06em;
+}
+.scenario-text {
+  display: block;
+  width: 870px;
+  height: calc(var(--novel-font-size, 24px) * 3);
+  min-height: 0;
+  max-height: none;
+  text-align: left;
+  align-content: start;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: none;
+  color: inherit;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: var(--novel-font-size, 24px);
+  line-height: 1.5;
+  letter-spacing: normal;
+  white-space: pre;
+  overflow: visible;
   pointer-events: auto;
-  touch-action: pan-y;
+  touch-action: none;
 }
-.scenario-dialog .scenario-menu {
+.scenario-next {
   position: absolute;
-  bottom: 52px;
-  right: 12px;
-  display: flex;
-  gap: 10px;
-  text-shadow:
-    -1px -1px #191320,
-    1px 1px #191320,
-    0 2px 4px #000;
+  bottom: 2px;
+  right: -24px;
+  color: #e3c99b;
+  font-size: 14px;
 }
-.scenario-log {
-  z-index: 1;
+.scenario-place {
+  position: absolute;
+  top: 24px;
+  left: 48px;
+  font-size: 16px;
+  letter-spacing: 0.12em;
+  color: #fff3dd;
+  text-shadow:
+    0 2px 5px #1b1120,
+    0 0 15px #17101d;
+  pointer-events: none;
+}
+.scenario-controls {
+  position: absolute;
+  bottom: 10px;
+  right: 24px;
+  display: flex;
+  gap: 4px;
+}
+.scenario-controls button {
+  min-width: 74px;
+  width: 74px;
+  height: 74px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px;
+  border: 0;
+  border-radius: 2px;
+  background: #20162726;
+  text-shadow: 0 2px 3px #160d1b;
+}
+.scenario-controls button:hover {
+  background: #322437a8;
+}
+.scenario-controls small {
+  font-family: "Noto Sans JP", sans-serif;
+  font-size: 12px;
+  color: #e4d3bc;
+}
+.scenario-menu {
+  position: absolute;
+  right: 24px;
+  bottom: 20px;
+  width: 300px;
+  padding: 8px;
+  background: #2b2230;
+  border: 1px solid #917d675e;
+  box-shadow: 0 10px 30px #100b1680;
+}
+.scenario-menu button {
+  width: 100%;
+  display: block;
+  text-align: left;
+  min-height: 74px;
+  padding: 12px 18px;
+  border: 0;
+  border-bottom: 1px solid #ad92652b;
+  background: none;
+  font-size: 23px;
+}
+.scenario-menu button:last-child {
+  border: 0;
+  color: #d4bca0;
+}
+.scenario-menu button:hover {
+  background: #59425555;
+}
+.scenario-log,
+.scenario-settings {
+  position: absolute;
+  inset: 24px 80px;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 26px;
+  background: #251d2b;
+  box-shadow: 0 8px 40px #160c1a70;
+}
+.scenario-log header,
+.scenario-settings header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid #b8a08042;
+}
+.scenario-log h2,
+.scenario-settings h2 {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 400;
+  color: #e3c99b;
+}
+.scenario-log button,
+.scenario-settings button {
+  min-height: 74px;
+  padding: 12px 22px;
+  background: #584051;
+  border: 1px solid #9d7c76;
+  border-radius: 2px;
+  font-size: 23px;
+}
+.scenario-log-lines {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #a48b7d #251d2b;
+  font-size: 23px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+.scenario-log p {
+  margin: 16px 0;
+  padding: 0;
+}
+.scenario-log b {
+  display: block;
+  color: #dac19a;
+  font-size: 16px;
+  font-weight: 400;
+}
+.scenario-settings-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 32px;
+  padding: 22px 0;
+}
+.scenario-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 22px;
+}
+.scenario-settings select {
+  min-height: 74px;
+  padding: 8px 16px;
+  background: #3c2d40;
+  border: 1px solid #937869;
+  border-radius: 2px;
+  color: #f5eee2;
+  font-size: 22px;
+}
+.scenario-settings .scenario-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: 74px;
+}
+.scenario-settings input[type="checkbox"] {
+  width: 26px;
+  height: 26px;
+  accent-color: #ac7d97;
+}
+.scenario-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #21192599;
+  font-size: 18px;
+  color: #e4d3bc;
+  pointer-events: none;
+}
+.scenario-stage button:focus-visible {
+  outline: 2px solid #e3c99b;
+  outline-offset: -3px;
+}
+.scenario-stage[data-subtitle="top"] .scenario-message {
+  bottom: auto;
+  top: 28px;
+}
+.scenario-stage[data-subtitle="top"] .scenario-shade {
+  inset: 0 0 350px;
+  transform: rotate(180deg);
+}
+.scenario-stage[data-subtitle="top"] .scenario-place {
+  top: auto;
+  bottom: 28px;
+}
+.scenario-stage[data-ready="true"] .scenario-background {
+  animation: novel-arrive 250ms ease-out;
+}
+.scenario-stage[data-ready="true"] .scenario-message {
+  animation: novel-caption 280ms ease-out;
+}
+@keyframes novel-arrive {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes novel-caption {
+  from {
+    opacity: 0;
+  }
+  45% {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.scenario-reduced *,
+html[data-motion="reduced"] .scenario-stage * {
+  animation: none !important;
+  transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scenario-stage * {
+    animation: none !important;
+    transition: none !important;
+  }
 }

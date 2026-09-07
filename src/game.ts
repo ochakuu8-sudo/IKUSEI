@@ -916,7 +916,12 @@ export function capDropOf(job: Job): number {
    選択は出さず、タップで送るだけにする。
    差分は台詞で担当し、絵は art.ts の規約で1枚ずつ差し替える。 */
 
-export type SceneLine = { speaker?: string; text: string };
+export type SceneLine = {
+  speaker?: string;
+  text: string;
+  sceneId?: string;
+  visual?: string;
+};
 
 const HEROINE = "エレオノール";
 

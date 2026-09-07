@@ -7,6 +7,7 @@ import type {
   RecipeId,
 } from "./game";
 const base = import.meta.env.BASE_URL;
+export const artAssetSrc = (path: string) => `${base}art/${path}`;
 export const heroSrc = `${base}art/hero.png`;
 export const PLACEHOLDER = `${base}hero-key-visual.webp`;
 export const backgroundSrc = (id: string) =>

@@ -37,6 +37,7 @@ import { Art, Modal } from "./ui/shell";
 import { Mark } from "./marks";
 import { Rings } from "./ui/symbols";
 import { Dialogue } from "./ui/scene";
+import { preloadScene } from "./ui/sceneVisuals";
 import { backgroundSrc, heroSrc, personSrc } from "./art";
 import { paperSound } from "./ui/paperAudio";
 import { fullscreenSupported, useFullscreen } from "./ui/fullscreen";
@@ -52,6 +53,8 @@ type UI = {
   speed: number;
   motion: boolean;
   volume: number;
+  textSize: number;
+  strongText: boolean;
 };
 const freshUI = (): UI => ({
   tab: "today",
@@ -59,6 +62,8 @@ const freshUI = (): UI => ({
   speed: 24,
   motion: false,
   volume: 30,
+  textSize: 24,
+  strongText: false,
 });
 function loadUI(): UI {
   try {
@@ -70,6 +75,8 @@ function loadUI(): UI {
     d.motion = v.motion === true;
     if (typeof v.volume === "number" && Number.isFinite(v.volume))
       d.volume = Math.max(0, Math.min(100, v.volume));
+    if ([22, 24, 26, 28].includes(v.textSize)) d.textSize = v.textSize;
+    d.strongText = v.strongText === true;
     return d;
   } catch {
     return freshUI();
@@ -574,6 +581,7 @@ export default function DailyApp() {
   const lock = useRef(false),
     stateRef = useRef(s);
   const transitionTimer = useRef<number | undefined>(undefined);
+  const mounted = useRef(true);
   const lastLetter = useRef<string | null>(null);
   const returnToDesk = useRef(false);
   stateRef.current = s;
@@ -582,6 +590,12 @@ export default function DailyApp() {
 
   function openLetter(id: string) {
     if (lock.current) return;
+    const job = jobs.find((j) => j.id === id);
+    if (job)
+      void preloadScene(
+        [{ text: "", sceneId: `job:${id}` }],
+        personOf(job.person).place,
+      );
     lastLetter.current = id;
     paperSound(ui.volume);
     patch({ sheet: id });
@@ -624,7 +638,13 @@ export default function DailyApp() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [ui.sheet, pending, ui.volume]);
-  useEffect(() => () => window.clearTimeout(transitionTimer.current), []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      window.clearTimeout(transitionTimer.current);
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -715,6 +735,7 @@ export default function DailyApp() {
           recordScenes(localStorage, seen, out.outcome!.sceneIds),
         );
       const reveal = () => {
+        if (!mounted.current) return;
         setRitual(null);
         if (out.outcome?.scene.length) setScene(out.outcome);
         else setResult(out.outcome ?? null);
@@ -726,7 +747,19 @@ export default function DailyApp() {
           window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         paperSound(ui.volume, action.type === "take" ? "sign" : "place");
         setRitual(action.type === "take" ? "sign" : "rest");
-        transitionTimer.current = window.setTimeout(reveal, reduce ? 0 : 300);
+        const ready = out.outcome?.scene.length
+          ? preloadScene(
+              out.outcome.scene,
+              personOf(out.outcome.person ?? "vernet").place,
+              out.outcome.sceneIds[0],
+            )
+          : Promise.resolve();
+        transitionTimer.current = window.setTimeout(
+          () => {
+            void ready.then(reveal, reveal);
+          },
+          reduce ? 0 : 300,
+        );
       }
     }
   }
@@ -1063,6 +1096,11 @@ export default function DailyApp() {
           lines={replay.lines}
           place={replay.place}
           speed={ui.speed}
+          sceneId={replay.id}
+          textSize={ui.textSize}
+          strongText={ui.strongText}
+          motion={ui.motion}
+          onSettingsChange={patch}
           onDone={closeReplay}
         />
       )}
@@ -1073,6 +1111,11 @@ export default function DailyApp() {
           lines={scene.scene}
           place={personOf(scene.person ?? "vernet").place}
           speed={ui.speed}
+          sceneId={scene.sceneIds[0]}
+          textSize={ui.textSize}
+          strongText={ui.strongText}
+          motion={ui.motion}
+          onSettingsChange={patch}
           onDone={() => {
             setResult(scene);
             setScene(null);
@@ -1184,6 +1227,28 @@ export default function DailyApp() {
           }
         >
           <div className="c-modal-content">
+            <label>
+              ノベルの文字サイズ
+              <select
+                aria-label="ノベルの文字サイズ"
+                value={ui.textSize}
+                onChange={(e) => patch({ textSize: Number(e.target.value) })}
+              >
+                {[22, 24, 26, 28].map((n) => (
+                  <option key={n} value={n}>
+                    {n}px{n === 24 ? "（標準）" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={ui.strongText}
+                onChange={(e) => patch({ strongText: e.target.checked })}
+              />
+              字幕の地を濃くする
+            </label>
             <label>
               文字送りの速さ
               <select

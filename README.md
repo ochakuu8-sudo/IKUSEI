@@ -26,6 +26,8 @@ Viteに表示された `/IKUSEI/` のURLを開きます。全端末で1200×500�
 
 紙を扱う音は設定で音量調整・消音できます。「動きを減らす」と端末の視覚効果設定にも対応します。設定は再読込・新規開始後も保持します。
 
+ノベルは絵を全面に置き、下端に小さな2行字幕を重ねます。タップで全文表示・次のページへ。「絵だけ」で字幕を隠し、「メニュー」（長押し・上スワイプ・Escでも可）から会話ログ・読書設定・スキップを開けます。文字は標準24px、22〜28pxで調整でき、字幕の地を濃くする設定も保存します。
+
 採集・調合・在庫管理の生産ラインはv14で廃止しました。保存はv14で、v13からは返済・尊厳・評判を引き継ぎ、元の保存と回想は残します。
 
 ## 開発・確認
@@ -47,6 +49,8 @@ UI確認はVite起動中に行います。既定は `http://127.0.0.1:5174/IKUSE
 - `src/daily.ts`：抽選・1日1行動・章末精算。
 - `src/DailyApp.tsx` / `src/manor.css`：執務室・依頼状・台帳と受諾の流れ。共通画面は `src/chapter.css`。
 - `src/ui/paperAudio.ts`：紙の効果音。`public/art/backgrounds/study-v1.webp`：執務室背景。
+- `src/ui/scene.tsx` / `narrative.css`：絵と2行字幕、読書操作。`novelText.ts`：実フォント幅で改ページ。
+- `src/sceneArt.ts` / `src/ui/sceneVisuals.ts`：採用済みの場面素材と先読み。CGは未登録。追加方法は `ART_MANIFEST.md` 冒頭。
 - `CLAUDE.md` 冒頭：現行ルールとUI。`GAME_DESIGN.md` には旧版の履歴も含みます。
 - `docs/IMPLEMENTATION_STATUS.md`：変更範囲、互換性、確認済み・未実施項目。
 
