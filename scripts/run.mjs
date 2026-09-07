@@ -50,6 +50,8 @@ try {
       ? "tests/daily.test.mjs"
       : process.argv[2] === "scenes"
         ? "tests/scenes.test.mjs"
+        : process.argv[2] === "read"
+          ? "tests/read-scenes.test.mjs"
         : process.argv[2] === "novel"
           ? "tests/novel-text.test.mjs"
           : "scripts/sim.mjs";

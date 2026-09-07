@@ -1,6 +1,6 @@
 /**
  * 画面の土台。全画面キャンバスの上に出す器と、失敗しても崩れない画像。
- * ここは 1200×500 の外側（`<dialog>` は top layer に出るので `--fit` を自分でかける）。
+ * `<dialog>` は top layer に出るため、共有の舞台寸法をCSS変数から受け取る。
  */
 import { Flower2, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -68,7 +68,7 @@ export function Modal({
   children: ReactNode;
   onClose: () => void;
   footer?: ReactNode;
-  variant?: "window" | "scenario" | "result";
+  variant?: "window" | "scenario" | "result" | "settings";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const close = useRef(onClose);
@@ -85,7 +85,7 @@ export function Modal({
   return createPortal(
     <dialog
       ref={ref}
-      className={`dialog ${variant === "scenario" ? "scenario-dialog" : ""} ${variant === "result" ? "result-dialog" : ""}`}
+      className={`dialog ${variant === "scenario" ? "scenario-dialog" : ""} ${variant === "result" ? "result-dialog" : ""} ${variant === "settings" ? "settings-dialog" : ""}`}
       onKeyDown={(e) => {
         if (e.key !== "Tab") return;
         const elements = [
@@ -120,7 +120,7 @@ export function Modal({
       {variant !== "scenario" && (
         <header>
           <h2>{title}</h2>
-          {variant === "window" && (
+          {(variant === "window" || variant === "settings") && (
             <Button aria-label="閉じる" onClick={onClose}>
               <X size={20} />
             </Button>

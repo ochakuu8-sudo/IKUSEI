@@ -12,6 +12,8 @@ import { Modal } from "./shell";
 import { graphemes, paginateText } from "./novelText";
 import { prepareVisual, visualFor, type SceneVisual } from "./sceneVisuals";
 import "./narrative.css";
+import { GameSettings } from "./ReformScreens";
+import { loadReadScenes, recordReadScene, sceneRange } from "./readScenes";
 
 export type ReadingSettings = {
   speed: number;
@@ -143,9 +145,12 @@ export function Dialogue({
       }));
     };
     measure();
+    const observer = new ResizeObserver(measure);
+    if (textRef.current) observer.observe(textRef.current);
     void document.fonts.ready.then(measure);
     return () => {
       active = false;
+      observer.disconnect();
     };
   }, [reader.textSize, ready]);
   const pages = useMemo(() => {
@@ -189,7 +194,7 @@ export function Dialogue({
         : view === "log"
           ? ".scenario-log button"
           : view === "settings"
-            ? ".scenario-settings select"
+            ? ".scenario-settings button"
             : ".scenario-tap-target";
     stageRef.current
       ?.querySelector<HTMLElement>(selector)
@@ -216,9 +221,30 @@ export function Dialogue({
     if (!full) setChars(letters.length);
     else if (pageIndex + 1 < pages.length)
       setPosition({ line: position.line, offset: pages[pageIndex + 1].start });
-    else if (position.line + 1 < lines.length)
-      setPosition({ line: position.line + 1, offset: 0 });
-    else finish();
+    else {
+      const range = sceneRange(lines, position.line, sceneId);
+      if (position.line + 1 === range.end)
+        recordReadScene(localStorage, range.id);
+      if (position.line + 1 < lines.length)
+        setPosition({ line: position.line + 1, offset: 0 });
+      else finish();
+    }
+  }
+  function skipCurrent(readOnly = false) {
+    const read = loadReadScenes(localStorage);
+    let range = sceneRange(lines, position.line, sceneId);
+    if (readOnly && (!range.id || !read.includes(range.id))) return;
+    let next = range.end;
+    while (readOnly && next < lines.length) {
+      range = sceneRange(lines, next, sceneId);
+      if (!range.id || !read.includes(range.id)) break;
+      next = range.end;
+    }
+    if (next >= lines.length) finish();
+    else {
+      setPosition({ line: next, offset: 0 });
+      restore();
+    }
   }
   function cancelGesture() {
     clearTimeout(hold.current);
@@ -401,8 +427,19 @@ export function Dialogue({
             <button type="button" onClick={() => setView("settings")}>
               読書設定
             </button>
-            <button type="button" onClick={finish}>
+            <button type="button" onClick={() => skipCurrent()}>
               この場面をとばす
+            </button>
+            <button
+              type="button"
+              disabled={
+                !loadReadScenes(localStorage).includes(
+                  sceneRange(lines, position.line, sceneId).id ?? "",
+                )
+              }
+              onClick={() => skipCurrent(true)}
+            >
+              既読部分を送る
             </button>
             <button type="button" onClick={restore}>
               本文に戻る
@@ -435,56 +472,7 @@ export function Dialogue({
                 本文に戻る
               </button>
             </header>
-            <div className="scenario-settings-body">
-              <label>
-                文字の大きさ
-                <select
-                  aria-label="文字の大きさ"
-                  value={reader.textSize}
-                  onChange={(e) =>
-                    updateSettings({ textSize: Number(e.target.value) })
-                  }
-                >
-                  {[22, 24, 26, 28].map((n) => (
-                    <option key={n} value={n}>
-                      {n}px{n === 24 ? "（標準）" : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                文字送り
-                <select
-                  aria-label="文字送り"
-                  value={reader.speed}
-                  onChange={(e) =>
-                    updateSettings({ speed: Number(e.target.value) })
-                  }
-                >
-                  <option value={50}>ゆっくり</option>
-                  <option value={24}>ふつう</option>
-                  <option value={0}>すぐ出す</option>
-                </select>
-              </label>
-              <label className="scenario-check">
-                <input
-                  type="checkbox"
-                  checked={reader.strongText}
-                  onChange={(e) =>
-                    updateSettings({ strongText: e.target.checked })
-                  }
-                />
-                字幕の地を濃くする
-              </label>
-              <label className="scenario-check">
-                <input
-                  type="checkbox"
-                  checked={reader.motion}
-                  onChange={(e) => updateSettings({ motion: e.target.checked })}
-                />
-                動きを減らす
-              </label>
-            </div>
+            <GameSettings value={reader} onChange={updateSettings} />
           </section>
         )}
       </div>

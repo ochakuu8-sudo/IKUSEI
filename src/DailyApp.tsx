@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { BookOpen, Moon, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import {
   axes,
   axisStage,
@@ -7,8 +7,6 @@ import {
   CHAPTER_DAYS,
   jobs,
   personOf,
-  placeOf,
-  relationStage,
   type Axis as AxisName,
   type Job,
 } from "./game";
@@ -30,21 +28,36 @@ import {
   type DailyState,
   type DayOutcome,
 } from "./daily";
-import { clearDaily, loadDaily, saveDaily, SAVE_KEY, UI_KEY } from "./saveV14";
-import { catalogCounts, routes, type Route, type SceneEntry } from "./scenes";
+import { clearDaily, loadDaily, saveDaily, UI_KEY } from "./saveV14";
+import { catalogCounts, type SceneEntry } from "./scenes";
 import { clearGallery, loadGallery, recordScenes } from "./gallery";
 import { Art, Modal } from "./ui/shell";
 import { Mark } from "./marks";
 import { Rings } from "./ui/symbols";
 import { Dialogue } from "./ui/scene";
 import { preloadScene } from "./ui/sceneVisuals";
-import { backgroundSrc, heroSrc, personSrc, manorMaterialStyle } from "./art";
+import { personSrc, manorMaterialStyle } from "./art";
 import { paperSound } from "./ui/paperAudio";
-import { animatePaper, capturePaper, type PaperMotion, type PaperOrigin } from "./ui/letterMotion";
+import {
+  animatePaper,
+  capturePaper,
+  type PaperMotion,
+  type PaperOrigin,
+} from "./ui/letterMotion";
 import { fullscreenSupported, useFullscreen } from "./ui/fullscreen";
 import "./chapter.css";
 import "./manor.css";
-import "./manor-art.css";
+import {
+  ReformGallery as Gallery,
+  Journal,
+  Settlement,
+  DayRecord,
+  Ending,
+  GameSettings,
+  reformArt,
+} from "./ui/ReformScreens";
+import { READ_SCENES_KEY } from "./ui/readScenes";
+import "./reform.css";
 
 const gold = (n: number) => `${n.toLocaleString()}G`;
 
@@ -149,99 +162,6 @@ function Ledger({ s }: { s: DailyState }) {
           <Axis key={a} axis={a} s={s} />
         ))}
       </div>
-    </section>
-  );
-}
-
-/**
- * 回想。**見た場面を読み返す場所であり、まだ見ていないものを数える場所。**
- * §14「引き継ぐ：回想」に従い、プレイの保存とは別に持つので、周回しても消えない。
- * 本文がまだ無い場面も並べる ── 伏せると、目録が制作の進捗表として使えない。
- */
-function Gallery({
-  seen,
-  onPlay,
-  onClose,
-}: {
-  seen: string[];
-  onPlay: (entry: SceneEntry) => void;
-  onClose: () => void;
-}) {
-  const [route, setRoute] = useState<Route | "すべて">("すべて");
-  const { rows, seen: got, total, written } = catalogCounts(seen);
-  const shown = rows.filter(
-    (r) => route === "すべて" || r.entry.route === route,
-  );
-  return (
-    <section className="c-screen c-gallery">
-      <header className="c-gallery-head">
-        <h2>回想</h2>
-        <div className="c-gallery-tabs">
-          {(["すべて", ...routes] as const).map((r) => {
-            const n = rows.filter(
-              (x) => (r === "すべて" || x.entry.route === r) && x.seen,
-            ).length;
-            const all = rows.filter(
-              (x) => r === "すべて" || x.entry.route === r,
-            ).length;
-            return (
-              <Button
-                key={r}
-                primary={route === r}
-                onClick={() => setRoute(r)}
-                className="c-gallery-tab"
-              >
-                {r !== "すべて" && r !== "共通" && r !== "清廉" && (
-                  <Mark name={r} decorative />
-                )}
-                {r}
-                <small>
-                  {n}/{all}
-                </small>
-              </Button>
-            );
-          })}
-        </div>
-        <span className="c-gallery-count">
-          回収 <b>{got}</b> / {total}
-          {written < total && (
-            <small>
-              本文 {written}/{total}
-            </small>
-          )}
-        </span>
-      </header>
-      <div className="c-gallery-grid">
-        {shown.map(({ entry, seen: got, written }) => (
-          <button
-            key={entry.id}
-            className={`c-recall ${got ? "c-got" : ""} ${written ? "" : "c-unwritten"}`}
-            disabled={!got || !written}
-            onClick={() => onPlay(entry)}
-          >
-            {entry.route !== "共通" && entry.route !== "清廉" ? (
-              <Mark name={entry.route} className="c-recall-seal" decorative />
-            ) : (
-              <Mark name="関係" className="c-recall-seal" decorative />
-            )}
-            <span className="c-recall-kind">{entry.kind}</span>
-            <b>{got ? entry.title : "？？？"}</b>
-            <small>
-              {got
-                ? written
-                  ? placeOf(entry.place).name
-                  : "本文はこれから"
-                : entry.hint}
-            </small>
-          </button>
-        ))}
-      </div>
-      <footer className="c-footer">
-        <Button primary onClick={onClose}>
-          閉じる
-        </Button>
-        <span className="c-footer-note">回想は周回しても残ります</span>
-      </footer>
     </section>
   );
 }
@@ -396,8 +316,14 @@ function OfferCard({
         </span>
         <span className="c-slip-foot">
           <span className="c-slip-warnings">
-            {reason && <span className="c-unavailable">{tired ? "体力不足" : reason}</span>}
-            {closed > 0 && <span className="c-consequence">紹介停止 {closed}件</span>}
+            {reason && (
+              <span className="c-unavailable">
+                {tired ? "体力不足" : reason}
+              </span>
+            )}
+            {closed > 0 && (
+              <span className="c-consequence">紹介停止 {closed}件</span>
+            )}
           </span>
           <span>手に取る →</span>
         </span>
@@ -431,7 +357,10 @@ function LetterSheet({
       aria-label={`${job.title}の依頼状`}
     >
       <div className="c-letter-story">
-        <span className={`c-wax c-wax-person c-wax-${job.person} c-letter-sender-seal`} aria-hidden="true">
+        <span
+          className={`c-wax c-wax-person c-wax-${job.person} c-letter-sender-seal`}
+          aria-hidden="true"
+        >
           <img src={personSrc(job.person)} alt="" />
         </span>
         <div className="c-letter-address">
@@ -449,7 +378,9 @@ function LetterSheet({
         <div className="c-letter-response" aria-hidden="true">
           <span className="c-response-caption">承りました</span>
           <span className="c-response-signature">Éléonore</span>
-          <span className="c-response-stamp"><FamilyStamp /></span>
+          <span className="c-response-stamp">
+            <FamilyStamp />
+          </span>
         </div>
       )}
       <div className="c-letter-conditions">
@@ -588,7 +519,7 @@ export default function DailyApp() {
     [notice, setNotice] = useState(loaded.notice),
     [saveError, setSaveError] = useState(""),
     [settings, setSettings] = useState(false),
-    [reset, setReset] = useState<"new" | "delete" | null>(null),
+    [reset, setReset] = useState<"new" | "delete" | "gallery" | null>(null),
     [pending, setPending] = useState<"rest" | null>(null),
     [ritual, setRitual] = useState<"sign" | "rest" | null>(null),
     [scene, setScene] = useState<DayOutcome | null>(null),
@@ -635,7 +566,9 @@ export default function DailyApp() {
         personOf(job.person).place,
       );
     lastLetter.current = id;
-    const card = document.querySelector<HTMLElement>(`[data-job="${CSS.escape(id)}"]`);
+    const card = document.querySelector<HTMLElement>(
+      `[data-job="${CSS.escape(id)}"]`,
+    );
     const stage = document.querySelector<HTMLElement>(".c-manor");
     paperOrigin.current = card && stage ? capturePaper(card, stage) : null;
     paperSound(ui.volume);
@@ -650,14 +583,24 @@ export default function DailyApp() {
       setPending(null);
       patch({ sheet: null });
     };
-    const sheet = document.querySelector<HTMLElement>(".c-manor .c-reading-sheet");
+    const sheet = document.querySelector<HTMLElement>(
+      ".c-manor .c-reading-sheet",
+    );
     const stage = document.querySelector<HTMLElement>(".c-manor");
-    const currentTransform = sheet ? getComputedStyle(sheet).transform : undefined;
+    const currentTransform = sheet
+      ? getComputedStyle(sheet).transform
+      : undefined;
     paperMotion.current?.cancel();
     if (ui.sheet && sheet && stage) {
       paperReturning.current = true;
       paperMotion.current = animatePaper(
-        sheet, stage, paperOrigin.current, "close", reduceMotion(), finish, currentTransform,
+        sheet,
+        stage,
+        paperOrigin.current,
+        "close",
+        reduceMotion(),
+        finish,
+        currentTransform,
       );
     } else finish();
     paperSound(ui.volume, "place");
@@ -670,15 +613,27 @@ export default function DailyApp() {
     paperSound(ui.volume, "book");
   }
   function reduceMotion() {
-    return ui.motion || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    return (
+      ui.motion || window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    );
   }
   useLayoutEffect(() => {
     if (!ui.sheet) return;
-    const sheet = document.querySelector<HTMLElement>(".c-manor .c-reading-sheet");
+    const sheet = document.querySelector<HTMLElement>(
+      ".c-manor .c-reading-sheet",
+    );
     const stage = document.querySelector<HTMLElement>(".c-manor");
     if (sheet && stage)
-      paperMotion.current = animatePaper(sheet, stage, paperOrigin.current, "open", reduceMotion());
-    return () => { paperMotion.current?.cancel(); };
+      paperMotion.current = animatePaper(
+        sheet,
+        stage,
+        paperOrigin.current,
+        "open",
+        reduceMotion(),
+      );
+    return () => {
+      paperMotion.current?.cancel();
+    };
   }, [ui.sheet]);
   useEffect(() => {
     if (ui.sheet || pending) {
@@ -690,15 +645,19 @@ export default function DailyApp() {
       const selector = lastLetter.current
         ? `[data-job="${CSS.escape(lastLetter.current)}"] .c-slip-face`
         : ".c-rest .c-slip-face";
-      document.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+      document
+        .querySelector<HTMLElement>(selector)
+        ?.focus({ preventScroll: true });
     }
   }, [ui.sheet, pending]);
   useEffect(() => {
     if (result || !returnFromResult.current) return;
     returnFromResult.current = false;
-    document.querySelector<HTMLElement>(
-      ".c-main .c-request-card .c-slip-face, .c-main .c-footer .c-primary, .c-main .c-empty button",
-    )?.focus({ preventScroll: true });
+    document
+      .querySelector<HTMLElement>(
+        ".c-main .c-request-card .c-slip-face, .c-main .c-footer .c-primary, .c-main .c-empty button",
+      )
+      ?.focus({ preventScroll: true });
   }, [result]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -737,6 +696,18 @@ export default function DailyApp() {
     probe.style.cssText =
       "position:fixed;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
     document.body.appendChild(probe);
+    document.documentElement.style.setProperty(
+      "--reform-paper",
+      `url("${reformArt.paper}")`,
+    );
+    document.documentElement.style.setProperty(
+      "--reform-book",
+      `url("${reformArt.book}")`,
+    );
+    document.documentElement.style.setProperty(
+      "--reform-room",
+      `url("${reformArt.room}")`,
+    );
     const fit = () => {
       const css = getComputedStyle(probe),
         n = (x: string) => parseFloat(x) || 0,
@@ -744,12 +715,14 @@ export default function DailyApp() {
         r = n(css.paddingRight),
         t = n(css.paddingTop),
         b = n(css.paddingBottom);
-      document.documentElement.style.setProperty(
-        "--fit",
-        String(
-          Math.min((innerWidth - l - r) / 1200, (innerHeight - t - b) / 500),
-        ),
-      );
+      const width = Math.min(1280, innerWidth - l - r);
+      const height =
+        innerWidth < innerHeight
+          ? innerHeight - t - b
+          : Math.min(innerHeight - t - b, (width * 9) / 16);
+      document.documentElement.style.setProperty("--fit", "1");
+      document.documentElement.style.setProperty("--stage-w", `${width}px`);
+      document.documentElement.style.setProperty("--stage-h", `${height}px`);
       document.documentElement.style.setProperty(
         "--shift-x",
         `${(l - r) / 2}px`,
@@ -782,10 +755,22 @@ export default function DailyApp() {
 
   /* 裏に描かれた翌日の札は、結果などを閉じて実際に提示されるまでは未見。 */
   const offersVisible = !!(
-    s && started && !s.awaitingSettlement && !s.ended &&
-    ui.tab === "today" && !ui.sheet && !pending && !deskSnapshot &&
-    !ritual && !scene && !result && !gallery && !replay &&
-    !settings && !reset && !notice
+    s &&
+    started &&
+    !s.awaitingSettlement &&
+    !s.ended &&
+    ui.tab === "today" &&
+    !ui.sheet &&
+    !pending &&
+    !deskSnapshot &&
+    !ritual &&
+    !scene &&
+    !result &&
+    !gallery &&
+    !replay &&
+    !settings &&
+    !reset &&
+    !notice
   );
   useEffect(() => {
     if (!s || !offersVisible) return;
@@ -812,7 +797,7 @@ export default function DailyApp() {
       setNotice(out.error);
       lock.current = false;
     } else {
-      if (action.type !== "settle") setDeskSnapshot(stateRef.current);
+      setDeskSnapshot(stateRef.current);
       persist(out.state);
       if (out.outcome?.sceneIds.length)
         setSeenScenes((seen) =>
@@ -825,7 +810,6 @@ export default function DailyApp() {
         patch({ sheet: null });
         if (out.outcome?.scene.length) setScene(out.outcome);
         else {
-          setDeskSnapshot(null);
           setResult(out.outcome ?? null);
           if (!out.outcome) lock.current = false;
         }
@@ -871,6 +855,7 @@ export default function DailyApp() {
     lock.current = false;
     returnFromResult.current = true;
     setResult(null);
+    setDeskSnapshot(null);
     paperSound(ui.volume, "place");
   }
 
@@ -890,7 +875,7 @@ export default function DailyApp() {
       <div
         /* c-title は `display:block` ＋ 全面の覆い（:before）なので、回想を出すあいだは外す。
            付けたままだと回想が縦に伸びて器からはみ出し、覆いが触りを全部吸ってしまう。 */
-        className={`chapter-app ${
+        className={`chapter-app r-game ${gallery ? "r-gallery-stage" : ui.tab === "journal" && started ? "r-journal-stage" : ""} ${result ? "r-night" : ""} ${s?.awaitingSettlement && started ? "r-settlement-stage" : ""} ${s?.ended && started ? "r-ending-stage" : ""} ${
           !started
             ? gallery
               ? ""
@@ -901,23 +886,38 @@ export default function DailyApp() {
         }`}
         inert={!!ritual || !!scene || !!result || undefined}
         aria-busy={!!ritual || undefined}
-        style={{
-          ...manorMaterialStyle,
-          backgroundImage: `url(${backgroundSrc(showDesk ? "study-v1" : !started ? "title" : "home")})`,
-        }}
+        style={
+          {
+            ...manorMaterialStyle,
+            "--reform-paper": `url("${reformArt.paper}")`,
+            "--reform-book": `url("${reformArt.book}")`,
+            "--reform-closed-book": `url("${reformArt.closedBook}")`,
+            backgroundImage: `url("${reformArt.room}")`,
+          } as React.CSSProperties
+        }
       >
         {!started && gallery ? (
           <Gallery
             seen={seenScenes}
             onPlay={openReplay}
+            onSettings={() => setSettings(true)}
             onClose={() => setGallery(false)}
           />
         ) : !started ? (
           <>
-            <Art src={heroSrc} className="c-title-hero" alt="エレオノール" />
+            <Art
+              src={reformArt.hero}
+              className="c-title-hero"
+              alt="エレオノール"
+            />
             <div className="c-title-panel">
-              <div className="c-eyebrow">IKUSEI · CHAPTER ONE</div>
-              <h1>没落令嬢の返済録</h1>
+              <div className="c-eyebrow">THE LATIER CHRONICLE</div>
+              <div className="r-title-crest">
+                <FamilyStamp />
+              </div>
+              <h1>
+                没落令嬢の<span>返済録</span>
+              </h1>
               <p>
                 借金は返せる。
                 <br />
@@ -930,14 +930,16 @@ export default function DailyApp() {
                 はじめから
               </Button>
               <Button onClick={() => setGallery(true)}>
-                回想 <small>{catalogCounts(seenScenes).seen}</small>
+                回想{" "}
+                <small>
+                  {
+                    catalogCounts(seenScenes).rows.filter(
+                      (r) => r.written && r.seen,
+                    ).length
+                  }
+                </small>
               </Button>
               <Button onClick={() => setSettings(true)}>設定</Button>
-              <small>
-                1日 = 1行動 ／ 全6章 × 14日
-                <br />
-                全端末で縦横比固定・横持ちを想定
-              </small>
               {notice && <p className="c-note">{notice}</p>}
             </div>
           </>
@@ -948,29 +950,31 @@ export default function DailyApp() {
                 <b>{s.day}日目</b>
                 <small>第{s.chapter}章</small>
               </button>
-              {/* 今日の画面は「手元」が持つので、HUDでは繰り返さない。 */}
-              {!showDesk && (
-                <>
-                  <span className="c-stamina">
-                    <Mark name="体力" label="体力" />
-                    <span className="c-gauge">
-                      <i style={{ width: `${s.stamina}%` }} />
-                    </span>
-                    <b>{s.stamina}</b>
-                  </span>
-                  <span className="c-purse">
-                    <b>{gold(s.money)}</b>
-                  </span>
-                </>
-              )}
-              <span className="c-debt">
-                <span className="c-debt-label">残債</span>
-                <b>{gold(s.debt)}</b>
+              <button
+                className="r-goal"
+                onClick={openJournal}
+                aria-label="返済の予定を台帳で確認"
+              >
                 <small>
-                  この章で納める {gold(due)} ・ 残り
-                  {CHAPTER_DAYS - s.day + 1}日
+                  {s.awaitingSettlement
+                    ? "今日は返済の日"
+                    : `返済まで、あと${CHAPTER_DAYS - s.day + 1}日`}
                 </small>
-              </span>
+                <b>
+                  {s.money >= due
+                    ? "必要額を確保"
+                    : `あと ${gold(due - s.money)}`}
+                </b>
+                <span>
+                  手元 {gold(s.money)} ／ 納入 {gold(due)}
+                </span>
+              </button>
+              <Button
+                className="r-gallery-shortcut"
+                onClick={() => setGallery(true)}
+              >
+                回想
+              </Button>
               <Button aria-label="設定" onClick={() => setSettings(true)}>
                 <Settings size={20} />
               </Button>
@@ -978,7 +982,7 @@ export default function DailyApp() {
             <div className="c-body">
               <aside className="c-portrait">
                 <Art
-                  src={heroSrc}
+                  src={reformArt.hero}
                   className="c-hero"
                   alt="エレオノール・ラティエ"
                 />
@@ -993,75 +997,25 @@ export default function DailyApp() {
                   </div>
                 )}
               </aside>
-              {!showDesk && (
-                <nav className="c-nav">
-                  <button
-                    className={ui.tab === "today" ? "selected" : ""}
-                    onClick={() => patch({ tab: "today", sheet: null })}
-                  >
-                    <BookOpen size={22} />
-                    今日
-                  </button>
-                  <button
-                    className={ui.tab === "journal" ? "selected" : ""}
-                    onClick={() => patch({ tab: "journal", sheet: null })}
-                  >
-                    <Moon size={22} />
-                    台帳
-                  </button>
-                </nav>
-              )}
               <main className="c-main">
                 {gallery ? (
                   <Gallery
                     seen={seenScenes}
                     onPlay={openReplay}
+                    onSettings={() => setSettings(true)}
                     onClose={() => setGallery(false)}
                   />
                 ) : s.awaitingSettlement ? (
-                  <section className="c-screen c-sheet">
-                    <div className="c-sheet-body">
-                      <h2>第{s.chapter}章 章末</h2>
-                      <p className="c-who">返済の日。</p>
-                      <div className="c-goods">
-                        <span>
-                          <b>{gold(due)}</b>
-                          <small>
-                            所持 {gold(s.money)}
-                            {s.money < due
-                              ? ` ・ ${gold(due - s.money)}足りない`
-                              : " ・ 納められる"}
-                          </small>
-                        </span>
-                      </div>
-                      {s.money < due && (
-                        <p className="c-warning">
-                          不足分に利息25%が付いて次章へ。威厳−15・品位−10。
-                        </p>
-                      )}
-                    </div>
-                    <footer className="c-footer">
-                      <Button
-                        primary
-                        onClick={() => commit({ type: "settle" })}
-                      >
-                        返済を確定する
-                      </Button>
-                    </footer>
-                  </section>
+                  <Settlement
+                    s={s}
+                    onAccept={() => commit({ type: "settle" })}
+                  />
                 ) : s.ended ? (
-                  <div className="c-empty">
-                    <h1>{s.debt === 0 ? "完済した" : "返しきれなかった"}</h1>
-                    <p>
-                      残債 {gold(s.debt)} ／ 手元 {gold(s.money)}
-                      <br />
-                      {axes.map((a) => `${a} ${s.axes[a]}`).join(" ／ ")}
-                      （品位上限 {s.dignityCap}）
-                    </p>
-                    <Button onClick={() => setStarted(false)}>
-                      タイトルへ
-                    </Button>
-                  </div>
+                  <Ending
+                    s={s}
+                    onTitle={() => setStarted(false)}
+                    onGallery={() => setGallery(true)}
+                  />
                 ) : pending === "rest" ? (
                   <RestSheet
                     s={s}
@@ -1077,54 +1031,22 @@ export default function DailyApp() {
                     signing={ritual === "sign"}
                   />
                 ) : ui.tab === "journal" ? (
-                  <div className="c-scroll">
-                    <header className="c-journal-heading">
-                      <h2>台帳</h2>
-                      <Button
-                        onClick={() => patch({ tab: "today", sheet: null })}
-                      >
-                        机に戻る
-                      </Button>
-                    </header>
-                    <h3>関係</h3>
-                    {[...new Set(jobs.map((j) => j.person))]
-                      .filter(
-                        (p) =>
-                          !personOf(p).requiresUnlock || s.unlocked.includes(p),
-                      )
-                      .map((p) => (
-                        <p className="c-use-row" key={p}>
-                          {personOf(p).name}
-                          <Rings stage={s.relations[p]} />
-                          <small>{relationStage(s.relations[p])}</small>
-                        </p>
-                      ))}
-                    <h3>もう紹介されない依頼</h3>
-                    {!traces.length && <p className="c-muted">まだ無い。</p>}
-                    {traces.map((t) => (
-                      <p className="c-use-row c-trace" key={t.job.id}>
-                        {t.job.title}
-                        <small>{t.reason}</small>
-                      </p>
-                    ))}
-                    <h3>回想</h3>
-                    <p className="c-use-row">
-                      見た場面
-                      <small>
-                        {catalogCounts(seenScenes).seen} /{" "}
-                        {catalogCounts(seenScenes).total}
-                      </small>
-                      <Button onClick={() => setGallery(true)}>開く</Button>
-                    </p>
-                    <h3>記録</h3>
-                    {!s.log.length && <p className="c-muted">まだ無い。</p>}
-                    {s.log.map((line, i) => (
-                      <p key={i}>{line}</p>
-                    ))}
-                  </div>
+                  <Journal
+                    s={s}
+                    onClose={() => {
+                      patch({ tab: "today", sheet: null });
+                      requestAnimationFrame(() =>
+                        document.querySelector<HTMLElement>(".c-book")?.focus(),
+                      );
+                    }}
+                    onGallery={() => setGallery(true)}
+                  />
                 ) : (
                   <div className="c-today">
-                    <h2 className="c-sr-only">本日の依頼状</h2>
+                    <header className="r-desk-heading">
+                      <small>本日の便り</small>
+                      <h2>今日は、どの依頼を。</h2>
+                    </header>
                     <div className="c-offers">
                       {offers.map((job) => (
                         <OfferCard
@@ -1187,9 +1109,7 @@ export default function DailyApp() {
           aria-live="polite"
         >
           <div>
-            <span>
-              手紙を置いて、ひと休み
-            </span>
+            <span>手紙を置いて、ひと休み</span>
             <b>夜が過ぎる</b>
           </div>
         </div>
@@ -1225,100 +1145,52 @@ export default function DailyApp() {
           motion={ui.motion}
           onSettingsChange={patch}
           onDone={() => {
-            setDeskSnapshot(null);
             setResult(scene);
             setScene(null);
           }}
         />
       )}
 
-      {result && s && (
+      {result && savedState && s && (
         <Modal
           variant="result"
-          title={result.title}
+          title={result.kind === "settle" ? "返済の記録" : "本日の記録"}
           onClose={closeResult}
           footer={
-            <Button
-              primary
-              onClick={closeResult}
-            >
-              確認
-            </Button>
+            <>
+              <small role={saveError ? "alert" : undefined}>
+                {saveError
+                  ? "保存できませんでした。再読込する前に保存を再試行してください。"
+                  : result.title}
+              </small>
+              {saveError && (
+                <Button
+                  onClick={() => {
+                    if (stateRef.current) persist(stateRef.current);
+                  }}
+                >
+                  保存を再試行
+                </Button>
+              )}
+              <Button primary onClick={closeResult}>
+                {savedState.ended
+                  ? "結末へ"
+                  : savedState.awaitingSettlement
+                    ? "返済へ"
+                    : result.kind === "settle"
+                      ? "次章へ"
+                      : "翌朝へ"}
+              </Button>
+            </>
           }
         >
-          <div className="c-result">
-            {result.pay !== 0 && (
-              <p className="c-pay">
-                <b>
-                  {result.pay > 0 ? "+" : ""}
-                  {gold(result.pay)}
-                </b>
-                <span>
-                  {result.fatigueRate < 1
-                    ? `定価 ${gold(result.listPrice)} から ${Math.round((1 - result.fatigueRate) * 100)}%引き`
-                    : result.kind === "settle"
-                      ? `納めた（ノルマ ${gold(result.listPrice)}）`
-                      : "定価どおり"}
-                </span>
-              </p>
-            )}
-            {result.drops.map((d) => (
-              <p className="c-move c-drop" key={d.axis}>
-                <Mark name={d.axis} label={d.axis} />
-                {d.axis} −{d.amount}
-                <small>
-                  {d.before}→{d.after}
-                </small>
-              </p>
-            ))}
-            {result.capDrop > 0 && (
-              <p className="c-move c-capdrop">
-                <Mark name="品位" decorative />
-                品位の上限 −{result.capDrop}
-                <small>戻らない</small>
-              </p>
-            )}
-            {result.gains.map((g) => (
-              <p className="c-move c-gain" key={g.axis}>
-                <Mark name={g.axis} label={g.axis} />
-                {g.axis} ＋{g.amount}
-                <small>
-                  {g.before}→{g.after}
-                </small>
-              </p>
-            ))}
-            {result.staminaDelta !== 0 && (
-              <p className="c-move">
-                <Mark name="体力" decorative />
-                体力 {result.staminaDelta > 0 ? "＋" : "−"}
-                {Math.abs(result.staminaDelta)}
-                <small>いま {s.stamina}</small>
-              </p>
-            )}
-            {result.relationUp && (
-              <p className="c-move c-gain">
-                <Mark name="関係" decorative />
-                {result.relationUp.name}
-                <small>{result.relationUp.stage}</small>
-              </p>
-            )}
-            {result.closedNow.map((c) => (
-              <p className="c-move c-closed" key={c.title}>
-                {c.title}
-                <small>もう紹介されない（{c.axis}）</small>
-              </p>
-            ))}
-            {result.notices.map((n, i) => (
-              <p key={i} className="c-muted">
-                {n}
-              </p>
-            ))}
-          </div>
+          <DayRecord before={s} after={savedState} result={result} />
         </Modal>
       )}
 
       {settings && (
         <Modal
+          variant="settings"
           title="設定"
           onClose={() => setSettings(false)}
           footer={
@@ -1327,85 +1199,53 @@ export default function DailyApp() {
             </Button>
           }
         >
-          <div className="c-modal-content">
-            <label>
-              ノベルの文字サイズ
-              <select
-                aria-label="ノベルの文字サイズ"
-                value={ui.textSize}
-                onChange={(e) => patch({ textSize: Number(e.target.value) })}
-              >
-                {[22, 24, 26, 28].map((n) => (
-                  <option key={n} value={n}>
-                    {n}px{n === 24 ? "（標準）" : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={ui.strongText}
-                onChange={(e) => patch({ strongText: e.target.checked })}
-              />
-              字幕の地を濃くする
-            </label>
-            <label>
-              文字送りの速さ
-              <select
-                value={ui.speed}
-                onChange={(e) => patch({ speed: Number(e.target.value) })}
-              >
-                <option value={50}>ゆっくり</option>
-                <option value={24}>ふつう</option>
-                <option value={0}>すぐ出す</option>
-              </select>
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={ui.motion}
-                onChange={(e) => patch({ motion: e.target.checked })}
-              />
-              動きを減らす
-            </label>
-            <label className="c-audio-setting">
-              紙の音{" "}
-              <span>
-                {ui.volume === 0 ? "消音" : Math.round(ui.volume) + "%"}
-              </span>
-              <input
-                aria-label="紙の音量"
-                type="range"
-                min="0"
-                max="100"
-                step="5"
-                value={ui.volume}
-                onChange={(e) => patch({ volume: Number(e.target.value) })}
-              />
-            </label>
-            {fullscreenSupported() && (
-              <Button onClick={fullscreen.toggle}>
-                {fullscreen.active ? "全画面をやめる" : "全画面で遊ぶ"}
-              </Button>
-            )}
-            <Button onClick={() => setReset("delete")}>保存を消す</Button>
-            <Button
-              onClick={() => {
-                clearGallery(localStorage);
-                setSeenScenes([]);
-              }}
-            >
-              回想を消す
-            </Button>
-            {saveError && <p className="c-warning">{saveError}</p>}
-          </div>
+          <GameSettings
+            value={ui}
+            onChange={patch}
+            volume={ui.volume}
+            onVolume={(volume) => patch({ volume })}
+            screen={
+              <>
+                {fullscreenSupported() && (
+                  <Button onClick={fullscreen.toggle}>
+                    {fullscreen.active ? "全画面をやめる" : "全画面で遊ぶ"}
+                  </Button>
+                )}
+                <p>横向きで、絵と依頼状を広く見られます。</p>
+                <Button
+                  onClick={() => {
+                    setSettings(false);
+                    setStarted(false);
+                    setGallery(false);
+                  }}
+                >
+                  タイトルへ戻る
+                </Button>
+              </>
+            }
+            data={
+              <>
+                <h3>進行の記録</h3>
+                <p>はじめから遊んでも、回想は残ります。</p>
+                <Button onClick={() => setReset("delete")}>保存を消す</Button>
+                <h3>回想の記録</h3>
+                <p>解禁した回想と、本文の読了記録を消します。</p>
+                <Button onClick={() => setReset("gallery")}>回想を消す</Button>
+              </>
+            }
+          />
         </Modal>
       )}
 
       {reset && (
         <Modal
-          title={reset === "new" ? "はじめから" : "保存を消す"}
+          title={
+            reset === "new"
+              ? "はじめから"
+              : reset === "gallery"
+                ? "回想を消す"
+                : "保存を消す"
+          }
           onClose={() => setReset(null)}
           footer={
             <>
@@ -1414,7 +1254,12 @@ export default function DailyApp() {
                 primary
                 onClick={() => {
                   if (reset === "new") begin();
-                  else {
+                  else if (reset === "gallery") {
+                    clearGallery(localStorage);
+                    localStorage.removeItem(READ_SCENES_KEY);
+                    setSeenScenes([]);
+                    setReset(null);
+                  } else {
                     clearDaily(localStorage);
                     setS(null);
                     setStarted(false);
@@ -1428,10 +1273,28 @@ export default function DailyApp() {
             </>
           }
         >
-          <p>いまの記録（{SAVE_KEY}）は消えます。元に戻せません。</p>
+          <p>
+            {reset === "gallery"
+              ? "解禁した回想と本文の読了記録を消します。ゲームの進行は残ります。"
+              : "現在の進行記録は消えます。回想は残ります。"}{" "}
+            この操作は元に戻せません。
+          </p>
         </Modal>
       )}
 
+      {saveError && started && !result && !scene && (
+        <div className="r-save-error" role="alert">
+          <b>保存できませんでした</b>
+          <span>再読込すると最後の保存時点に戻ります。</span>
+          <Button
+            onClick={() => {
+              if (stateRef.current) persist(stateRef.current);
+            }}
+          >
+            保存を再試行
+          </Button>
+        </div>
+      )}
       {notice && started && (
         <Modal
           title="お知らせ"

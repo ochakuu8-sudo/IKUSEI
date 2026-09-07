@@ -8,8 +8,8 @@
     "build": "tsc --noEmit -p tsconfig.app.json && vite build",
     "preview": "vite preview",
     "deploy": "bash scripts/deploy.sh",
-    "test": "node scripts/run.mjs daily && node scripts/run.mjs scenes && node scripts/run.mjs novel",
-    "test:ui": "node tests/daily-ui.test.mjs && node tests/manor-ui.test.mjs && node tests/novel-ui.test.mjs",
+    "test": "node scripts/run.mjs daily && node scripts/run.mjs scenes && node scripts/run.mjs novel && node scripts/run.mjs read",
+    "test:ui": "node tests/reform-ui.test.mjs",
     "sim": "node scripts/run.mjs sim"
   },
   "dependencies": {

@@ -1,8 +1,16 @@
-/** Paper coordinates stay relative to the 1200×500 stage, including after a resize. */
-export type PaperOrigin = { x: number; y: number; width: number; height: number };
+/** Paper coordinates stay relative to the responsive stage, including after a resize. */
+export type PaperOrigin = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 export type PaperMotion = { cancel: () => void; finish: () => void };
 
-export function capturePaper(element: HTMLElement, stage: HTMLElement): PaperOrigin | null {
+export function capturePaper(
+  element: HTMLElement,
+  stage: HTMLElement,
+): PaperOrigin | null {
   const paper = element.getBoundingClientRect();
   const frame = stage.getBoundingClientRect();
   if (!frame.width || !frame.height) return null;
@@ -39,20 +47,31 @@ export function animatePaper(
     onFinish();
     return { cancel() {}, finish() {} };
   }
-  const dx = (frame.left + origin.x * frame.width - paper.left) / scaleX;
-  const dy = (frame.top + origin.y * frame.height - paper.top) / scaleY;
-  const sx = origin.width * frame.width / paper.width;
-  const sy = origin.height * frame.height / paper.height;
-  const folded = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+  const dx =
+    (frame.left +
+      (origin.x + origin.width / 2) * frame.width -
+      (paper.left + paper.width / 2)) /
+    scaleX;
+  const dy =
+    (frame.top +
+      (origin.y + origin.height / 2) * frame.height -
+      (paper.top + paper.height / 2)) /
+    scaleY;
+  const sx = (origin.width * frame.width) / paper.width;
+  const sy = (origin.height * frame.height) / paper.height;
+  const folded = `translate(${dx}px, ${dy}px) scale(${Math.min(sx, sy)})`;
   element.dataset.paperMotion = direction;
-  element.style.transformOrigin = "top left";
+  element.style.transformOrigin = "center";
   const animation = element.animate(
     direction === "open"
       ? [{ transform: folded }, { transform: "none" }]
       : [{ transform: currentTransform || "none" }, { transform: folded }],
     {
       duration: direction === "open" ? 300 : 240,
-      easing: direction === "open" ? "cubic-bezier(.2,.8,.25,1)" : "cubic-bezier(.4,0,.65,1)",
+      easing:
+        direction === "open"
+          ? "cubic-bezier(.2,.8,.25,1)"
+          : "cubic-bezier(.4,0,.65,1)",
       fill: "both",
     },
   );
@@ -71,7 +90,9 @@ export function animatePaper(
     if (clean()) onFinish();
   };
   return {
-    cancel: () => { clean(); },
+    cancel: () => {
+      clean();
+    },
     finish: () => {
       if (clean()) onFinish();
     },

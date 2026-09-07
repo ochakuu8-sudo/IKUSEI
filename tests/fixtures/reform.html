@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>UI改革の検証</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React from "react";
+      import { createRoot } from "react-dom/client";
+      import DailyApp from "../../src/DailyApp.tsx";
+      import {
+        freshDaily,
+        offersOf,
+        closingPreview,
+        payOf,
+        staminaOf,
+        takeReason,
+      } from "../../src/daily.ts";
+      import { jobs, capDropOf } from "../../src/game.ts";
+      import { catalogCounts } from "../../src/scenes.ts";
+      import "../../src/styles.css";
+      const cases = [],
+        covered = new Set();
+      for (const level of [100, 70, 40])
+        for (let i = 0; i < 500; i++) {
+          const s = freshDaily("reform-qa-" + i);
+          s.unlocked.push("herbalist");
+          s.money = 700;
+          s.axes = {
+            貞操: level,
+            品位: level,
+            威厳: level === 40 ? 24 : level,
+          };
+          s.stamina = level === 40 ? 15 : 100;
+          s.dignityCap = level === 40 ? 57 : 100;
+          if (i % 2 === 0) s.recent = ["vernet", "vernet", "vernet"];
+          const offers = offersOf(s);
+          if (offers.some((j) => !covered.has(j.id))) {
+            cases.push({
+              name: "依頼 " + cases.length,
+              s,
+              offers: offers.map((j) => ({
+                id: j.id,
+                title: j.title,
+                pay: payOf(j, s),
+                costs: j.costs,
+                cap: capDropOf(j),
+                closing: closingPreview(j, s),
+                blocked: !!takeReason(j, s),
+                stamina: staminaOf(j),
+              })),
+            });
+            offers.forEach((j) => covered.add(j.id));
+          }
+        }
+      for (const [name, chapter, money] of [
+        ["不足返済", 1, 845],
+        ["満額返済", 1, 1290],
+        ["最終返済", 6, 3000],
+      ]) {
+        const s = freshDaily("reform-" + name);
+        s.chapter = chapter;
+        s.day = 14;
+        s.awaitingSettlement = true;
+        s.money = money;
+        cases.push({ name, s, offers: [] });
+      }
+      const end = freshDaily("reform-end");
+      end.chapter = 6;
+      end.day = 14;
+      end.ended = true;
+      end.debt = 0;
+      cases.push({ name: "終幕", s: end, offers: [] });
+      const index = Math.min(
+        cases.length - 1,
+        Math.max(
+          0,
+          Number(new URLSearchParams(location.search).get("case")) || 0,
+        ),
+      );
+      localStorage.setItem(
+        "ikusei-prototype-save-v14",
+        JSON.stringify(cases[index].s),
+      );
+      localStorage.setItem(
+        "ikusei-prototype-ui-v14",
+        JSON.stringify({
+          tab: "today",
+          speed: 0,
+          motion: true,
+          textSize: 24,
+          volume: 0,
+        }),
+      );
+      if (new URLSearchParams(location.search).has("fail")) {
+        const original = Storage.prototype.setItem;
+        let writes = 0;
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "ikusei-prototype-save-v14" && ++writes === 2) {
+            throw new Error("検証用の一時保存失敗");
+          }
+          return original.call(this, key, value);
+        };
+      }
+      const expected = document.createElement("details");
+      expected.id = "qa-cases";
+      expected.style.cssText =
+        "position:fixed;top:0;left:0;z-index:20000;background:#fff;color:#333;font:11px sans-serif;max-height:90vh;overflow:auto";
+      expected.innerHTML = "<summary>検証ケース</summary>";
+      cases.forEach((c, i) => {
+        const a = document.createElement("a");
+        a.href = "?case=" + i;
+        a.textContent = i + " " + c.name;
+        a.style.display = "block";
+        expected.append(a);
+      });
+      const info = document.createElement("output");
+      info.id = "qa-expected";
+      info.textContent = JSON.stringify({
+        index,
+        total: cases.length,
+        covered: covered.size,
+        jobCount: jobs.length,
+        ...cases[index],
+      });
+      info.style.cssText =
+        "display:block;max-width:360px;font-size:9px;overflow-wrap:anywhere";
+      expected.append(info);
+      document.body.append(expected);
+      createRoot(document.getElementById("root")).render(
+        React.createElement(DailyApp),
+      );
+    </script>
+  </body>
+</html>

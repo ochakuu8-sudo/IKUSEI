@@ -17,7 +17,7 @@ export const manorMaterialStyle = {
   "--manor-book": `url("${artAssetSrc("ui/stylized/ledger-book-v2.webp")}")`,
   "--manor-leather": `url("${artAssetSrc("ui/stylized/desk-leather-v2.webp")}")`,
 };
-export const heroSrc = `${base}art/hero.png`;
+export const heroSrc = `${base}art/ui/reform/hero.png`;
 export const PLACEHOLDER = `${base}hero-key-visual.webp`;
 export const backgroundSrc = (id: string) =>
   `${base}art/backgrounds/${["title", "home", "ending", "settlement"].includes(id) ? "estate" : id}.webp`;
