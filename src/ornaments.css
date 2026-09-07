@@ -1,0 +1,534 @@
+/* Nine-slice the painted frame: corners keep their shape at every window size. */
+.r-status-window,
+.r-game .c-hud .r-goal,
+.r-desk-heading,
+.r-screen-head > div,
+.r-screen-foot > small,
+.r-screen-foot > span,
+.r-game .c-letter-footer .c-footer-note {
+  isolation: isolate;
+  color: #503340;
+  text-shadow: none;
+  --window-edge: 24px;
+}
+.r-game .c-hud .r-goal,
+.r-screen-head > div,
+.r-screen-foot > small,
+.r-screen-foot > span,
+.r-game .c-letter-footer .c-footer-note {
+  position: relative;
+}
+.r-status-window::before,
+.r-game .c-hud .r-goal::before,
+.r-desk-heading::before,
+.r-screen-head > div::before,
+.r-screen-foot > small::before,
+.r-screen-foot > span::before,
+.r-game .c-letter-footer .c-footer-note::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: auto;
+  height: auto;
+  pointer-events: none;
+  border: 0 solid transparent;
+  border-image: var(--reform-window) 240 fill / var(--window-edge) / 0 stretch;
+  background: none;
+  border-radius: 0;
+  mask-image: none;
+  filter: drop-shadow(0 2px 1px #24152250);
+}
+.r-game .c-portrait::after {
+  display: none;
+}
+.r-game .c-hud .r-goal {
+  padding: 15px 24px;
+  align-items: center;
+  text-align: center;
+  border: 0;
+  background: none;
+  min-width: 190px;
+}
+.r-goal b {
+  font-size: 25px;
+}
+.r-goal small,
+.r-goal span {
+  font-size: 11px;
+}
+.r-game .c-hud .r-goal small {
+  color: #735045;
+}
+.r-desk-heading {
+  top: 22%;
+  left: 3%;
+  padding: 14px 27px;
+}
+.r-desk-heading > small {
+  display: none;
+}
+.r-game .r-desk-heading h2 {
+  margin: 0;
+  font-size: 23px;
+}
+.r-screen-head {
+  text-shadow: none;
+}
+.r-screen-head > div {
+  padding: 12px 27px;
+}
+.r-screen-head small {
+  color: #775446;
+  font-size: 9px;
+}
+.r-game .r-screen-head h2 {
+  color: #503340;
+  font-size: 22px;
+  margin-top: 3px;
+}
+.r-screen-head > span {
+  color: #fff0db;
+  text-shadow: 0 1px 2px #251725;
+}
+.r-screen-foot > small,
+.r-screen-foot > span {
+  padding: 11px 20px;
+  --window-edge: 18px;
+}
+.r-game .c-letter-footer .c-footer-note {
+  padding: 10px 16px;
+  --window-edge: 16px;
+  color: #503340;
+  text-shadow: none;
+}
+
+/* One status window; no text is placed directly over the heroine. */
+.r-status-window {
+  position: absolute;
+  z-index: 3;
+  left: 1%;
+  bottom: 2%;
+  width: 26.5%;
+  height: 35%;
+  padding: 23px 22px 20px;
+  --window-edge: 35px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  font-family: var(--serif);
+  font-variant-numeric: tabular-nums;
+}
+.r-status-resources {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 18px;
+  flex: none;
+}
+.r-status-resources > div {
+  min-width: 0;
+}
+.r-status-resource-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+.r-status-resource-label .mark {
+  width: 15px;
+  height: 15px;
+  color: #735247;
+}
+.r-status-window .mark {
+  fill: currentColor;
+  flex: none;
+}
+.r-status-resource-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 3px;
+  white-space: nowrap;
+}
+.r-status-resource-value b {
+  font: 23px/1.1 var(--serif);
+}
+.r-status-resource-value small {
+  font-size: 10px;
+  color: #755f50;
+}
+.r-status-money {
+  padding-left: 15px;
+  border-left: 1px solid #a8896c55;
+}
+.r-status-axes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid #a8896c77;
+  padding-top: 10px;
+  flex: 1;
+  min-height: 0;
+}
+.r-status-axis {
+  min-width: 0;
+  text-align: center;
+  padding: 0 9px;
+  --axis-ink: #925268;
+}
+.r-status-axis + .r-status-axis {
+  border-left: 1px solid #a8896c44;
+}
+.r-status-axis[data-axis="品位"] {
+  --axis-ink: #886022;
+}
+.r-status-axis[data-axis="威厳"] {
+  --axis-ink: #4d657d;
+}
+.r-status-emblem {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+.r-status-emblem .mark {
+  width: 24px;
+  height: 24px;
+  color: var(--axis-ink);
+}
+.r-status-value {
+  display: block;
+  font: 30px/1.15 var(--serif);
+  margin-top: 4px;
+}
+.r-status-meter {
+  position: relative;
+  height: 5px;
+  margin-top: 5px;
+  background: #d8c3a4;
+  box-shadow: inset 0 1px 1px #71524244;
+  overflow: hidden;
+  border-radius: 1px;
+}
+.r-status-meter > i {
+  display: block;
+  height: 100%;
+  background: var(--axis-ink, #6e7d4f);
+  box-shadow: inset 0 1px #ffffff55;
+}
+.r-status-cap-track {
+  position: absolute;
+  inset-block: 0;
+  right: 0;
+  border-left: 1px solid #654638;
+  background: repeating-linear-gradient(
+    135deg,
+    #6d554759 0 2px,
+    #d7c6ac 2px 4px
+  );
+}
+.r-game .r-status-limit {
+  display: block;
+  height: 15px;
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.1;
+  color: #79543b;
+}
+.r-game .r-status-state {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.r-game.r-journal-stage .r-status-window,
+.r-game.r-gallery-stage .r-status-window,
+.r-game.r-settlement-stage .r-status-window,
+.r-game.r-ending-stage .r-status-window {
+  display: none;
+}
+.r-night .r-status-window {
+  visibility: hidden;
+}
+
+/* Keep ink legible on parchment. */
+.r-game .c-slip-main small,
+.r-game .c-slip-stamina,
+.r-game .c-letter-address,
+.r-game .c-letter-terms small,
+.r-game .c-letter-terms em {
+  color: #604839;
+}
+.r-help,
+.r-record-caption,
+.r-person-list small,
+.r-person-detail > small,
+.r-memory > small {
+  color: #685044;
+}
+
+@media (max-width: 1000px), (max-height: 570px) {
+  .r-status-window {
+    padding: 17px 15px;
+    gap: 9px;
+    height: 38%;
+    --window-edge: 27px;
+  }
+  .r-status-resources {
+    gap: 10px;
+  }
+  .r-status-money {
+    padding-left: 10px;
+  }
+  .r-status-resource-label {
+    font-size: 10px;
+  }
+  .r-status-resource-value b {
+    font-size: 19px;
+  }
+  .r-status-axes {
+    padding-top: 7px;
+  }
+  .r-status-axis {
+    padding-inline: 6px;
+  }
+  .r-status-emblem {
+    font-size: 10px;
+    gap: 2px;
+  }
+  .r-status-emblem .mark {
+    width: 19px;
+    height: 19px;
+  }
+  .r-status-value {
+    font-size: 23px;
+    margin-top: 2px;
+  }
+  .r-game .r-status-state {
+    font-size: 9px;
+  }
+  .r-game .r-status-limit {
+    font-size: 9px;
+    height: 12px;
+    margin-top: 3px;
+  }
+  .r-desk-heading {
+    top: 20%;
+    padding: 12px 23px;
+    --window-edge: 20px;
+  }
+  .r-game .r-desk-heading h2 {
+    font-size: 19px;
+  }
+  .r-game .c-hud .r-goal {
+    padding: 12px 20px;
+    min-width: 165px;
+    --window-edge: 20px;
+  }
+  .r-goal b {
+    font-size: 20px;
+  }
+  .r-goal small,
+  .r-goal span {
+    font-size: 10px;
+  }
+  .r-screen-head > div {
+    padding: 9px 22px;
+    --window-edge: 20px;
+  }
+  .r-game .r-screen-head h2 {
+    font-size: 19px;
+  }
+}
+@media (max-height: 390px) and (orientation: landscape) {
+  .r-status-window {
+    height: 51%;
+    bottom: 2%;
+    padding: 14px 13px;
+    gap: 5px;
+    --window-edge: 23px;
+  }
+  .r-status-resource-label {
+    font-size: 9px;
+  }
+  .r-status-resource-label .mark {
+    width: 12px;
+    height: 12px;
+  }
+  .r-status-resource-value {
+    margin-top: 1px;
+  }
+  .r-status-resource-value b {
+    font-size: 16px;
+  }
+  .r-status-resource-value small {
+    font-size: 8px;
+  }
+  .r-status-axes {
+    padding-top: 5px;
+  }
+  .r-status-emblem .mark {
+    width: 16px;
+    height: 16px;
+  }
+  .r-status-emblem {
+    font-size: 9px;
+  }
+  .r-status-value {
+    font-size: 19px;
+  }
+  .r-status-meter {
+    height: 4px;
+    margin-top: 3px;
+  }
+  .r-game .r-status-limit {
+    font-size: 8px;
+    height: 10px;
+    margin-top: 2px;
+  }
+  .r-game .r-status-state {
+    font-size: 8px;
+    line-height: 1.2;
+  }
+  .r-game .c-hud .r-goal {
+    min-width: 190px;
+    padding: 8px 18px;
+    --window-edge: 16px;
+  }
+  .r-goal b {
+    font-size: 17px;
+  }
+  .r-goal small,
+  .r-goal span {
+    font-size: 9px;
+  }
+  .r-desk-heading {
+    top: 17%;
+    padding: 8px 19px;
+    --window-edge: 16px;
+  }
+  .r-game .r-desk-heading h2 {
+    font-size: 17px;
+  }
+  .r-screen-head > div {
+    padding: 6px 18px;
+    --window-edge: 15px;
+  }
+  .r-game .r-screen-head h2 {
+    font-size: 15px;
+    margin: 0;
+  }
+  .r-screen-head small {
+    display: none;
+  }
+  .r-game .c-letter-footer .c-footer-note {
+    padding: 7px 12px;
+    --window-edge: 13px;
+  }
+  .r-screen-foot > span,
+  .r-screen-foot > small {
+    font-size: 10px;
+    padding: 7px 16px;
+    --window-edge: 14px;
+  }
+}
+@media (orientation: portrait) {
+  .r-status-window {
+    left: 4%;
+    bottom: auto;
+    top: 26%;
+    width: 92%;
+    height: 20.5%;
+    padding: 16px 20px;
+    --window-edge: 26px;
+    gap: 7px;
+  }
+  .r-status-resources {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .r-status-stamina {
+    display: grid;
+    grid-template-columns: auto auto;
+    align-items: baseline;
+    gap: 1px 8px;
+  }
+  .r-status-stamina .r-status-meter {
+    grid-column: 1/3;
+  }
+  .r-status-money {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 5px;
+  }
+  .r-status-resource-value b {
+    font-size: 20px;
+  }
+  .r-status-axes {
+    padding-top: 6px;
+  }
+  .r-status-value {
+    font-size: 23px;
+  }
+  .r-game .r-status-limit {
+    height: 11px;
+  }
+  .r-game .r-status-state {
+    font-size: 10px;
+  }
+  .r-game .c-portrait {
+    height: 34%;
+  }
+  .r-desk-heading {
+    top: 47%;
+    left: 7%;
+    padding: 9px 23px;
+    --window-edge: 18px;
+  }
+  .r-game .r-desk-heading h2 {
+    font-size: 18px;
+  }
+  .r-game .c-offers {
+    top: 54%;
+    bottom: 14%;
+  }
+  .r-game .c-request-card {
+    min-height: 190px;
+  }
+  .r-game .c-hud .r-goal {
+    padding: 10px 19px;
+    min-width: 165px;
+    --window-edge: 18px;
+  }
+  .r-goal b {
+    font-size: 18px;
+  }
+  .r-goal small,
+  .r-goal span {
+    font-size: 9px;
+  }
+  .r-game.c-reading .r-status-window {
+    display: none;
+  }
+  .r-game .c-letter-footer .c-footer-note {
+    padding: 0;
+  }
+  .r-game .c-letter-footer .c-footer-note::before {
+    display: none;
+  }
+  .r-screen-head > div {
+    padding: 10px 20px;
+    --window-edge: 19px;
+  }
+  .r-screen-head small {
+    display: none;
+  }
+  .r-game .r-screen-head h2 {
+    font-size: 16px;
+  }
+  .r-screen-foot > small {
+    padding: 8px 15px;
+    --window-edge: 14px;
+  }
+}

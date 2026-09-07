@@ -33,6 +33,7 @@ import { paperSound } from "./paperAudio";
 import type { ReadingSettings } from "./scene";
 
 export const reformArt = {
+  window: artAssetSrc("ui/reform/ornate-window.png"),
   room: artAssetSrc("ui/reform/study.png"),
   paper: artAssetSrc("ui/reform/letter.png"),
   book: artAssetSrc("ui/reform/open-book.png"),

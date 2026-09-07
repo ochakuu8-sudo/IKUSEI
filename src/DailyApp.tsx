@@ -58,6 +58,7 @@ import {
 } from "./ui/ReformScreens";
 import { READ_SCENES_KEY } from "./ui/readScenes";
 import "./reform.css";
+import "./ornaments.css";
 
 const gold = (n: number) => `${n.toLocaleString()}G`;
 
@@ -114,52 +115,78 @@ function Button({
   );
 }
 
-/** 三軸の1行。紋・ゲージ・段階の言葉・数値。品位だけ上限の刻みが入る。 */
-function Axis({ axis, s }: { axis: AxisName; s: DailyState }) {
+/** The three crests share a vertical reading order: emblem, value, state. */
+function StatusAxis({ axis, s }: { axis: AxisName; s: DailyState }) {
+  const value = s.axes[axis];
+  const cap = axis === "品位" ? s.dignityCap : 100;
   return (
-    <div className={`c-ax c-ax-${axis}`}>
-      <Mark name={axis} label={axis} />
-      <span className="c-axis-label">{axis}</span>
-      <span className="c-gauge">
-        <i style={{ width: `${s.axes[axis]}%` }} />
-        {axis === "品位" && s.dignityCap < 100 && (
-          <u
-            style={{ left: `${s.dignityCap}%` }}
-            aria-label={`品位上限 ${s.dignityCap}`}
-          />
+    <div className="r-status-axis" data-axis={axis}>
+      <div className="r-status-emblem">
+        <Mark name={axis} decorative />
+        <span>{axis}</span>
+      </div>
+      <b className="r-status-value">{value}</b>
+      <div
+        className="r-status-meter"
+        role="progressbar"
+        aria-label={axis}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={value}
+        aria-valuetext={`${value}、${axisStage(axis, value)}${axis === "品位" ? `、上限${cap}` : ""}`}
+      >
+        <i style={{ width: `${value}%` }} />
+        {cap < 100 && (
+          <span className="r-status-cap-track" style={{ left: `${cap}%` }} />
         )}
-      </span>
-      <em>{axisStage(axis, s.axes[axis])}</em>
-      <b>{s.axes[axis]}</b>
+      </div>
+      <small className="r-status-limit">
+        {axis === "品位" ? `上限 ${cap}` : ""}
+      </small>
+      <p className="r-status-state">{axisStage(axis, value)}</p>
     </div>
   );
 }
 
-/**
- * 手元にあるもの一覧。**いま自分が管理している資源を1枚に集める。**
- * 散らばっていると「あと何日で何G、そのとき何が閉じているか」が繋がらない。
- * 体力・金・三軸は立ち絵の裾へ。関係は依頼状と台帳、期限はHUDで読む。
- */
+/** Resources above; the three personal parameters below, inside one illustrated window. */
 function Ledger({ s }: { s: DailyState }) {
   return (
-    <section className="c-ledger" aria-label="手元">
-      <div className="c-ledger-row c-ledger-top">
-        <span className="c-res">
-          <Mark name="体力" decorative />
-          <small>体力</small>
-          <span className="c-gauge">
+    <section className="r-status-window" aria-label="エレオノールの状態">
+      <div className="r-status-resources">
+        <div className="r-status-stamina">
+          <div className="r-status-resource-label">
+            <Mark name="体力" decorative />
+            <span>体力</span>
+          </div>
+          <div className="r-status-resource-value">
+            <b>{s.stamina}</b>
+            <small>/ 100</small>
+          </div>
+          <div
+            className="r-status-meter"
+            role="progressbar"
+            aria-label="体力"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={s.stamina}
+          >
             <i style={{ width: `${s.stamina}%` }} />
-          </span>
-          <b>{s.stamina}</b>
-        </span>
-        <span className="c-res c-res-money">
-          <i className="c-coin" aria-label="所持金" role="img" />
-          <b>{gold(s.money)}</b>
-        </span>
+          </div>
+        </div>
+        <div className="r-status-money">
+          <div className="r-status-resource-label">
+            <i className="c-coin" aria-hidden="true" />
+            <span>所持金</span>
+          </div>
+          <div className="r-status-resource-value">
+            <b>{s.money.toLocaleString()}</b>
+            <small>G</small>
+          </div>
+        </div>
       </div>
-      <div className="c-ledger-row c-ledger-axes">
-        {axes.map((a) => (
-          <Axis key={a} axis={a} s={s} />
+      <div className="r-status-axes">
+        {axes.map((axis) => (
+          <StatusAxis key={axis} axis={axis} s={s} />
         ))}
       </div>
     </section>
@@ -892,6 +919,7 @@ export default function DailyApp() {
             "--reform-paper": `url("${reformArt.paper}")`,
             "--reform-book": `url("${reformArt.book}")`,
             "--reform-closed-book": `url("${reformArt.closedBook}")`,
+            "--reform-window": `url("${reformArt.window}")`,
             backgroundImage: `url("${reformArt.room}")`,
           } as React.CSSProperties
         }
@@ -986,17 +1014,8 @@ export default function DailyApp() {
                   className="c-hero"
                   alt="エレオノール・ラティエ"
                 />
-                {/* 今日の画面は「手元」パネルが軸を持つので、裾には重ねない。 */}
-                {showDesk ? (
-                  <Ledger s={s} />
-                ) : (
-                  <div className="c-axes">
-                    {axes.map((a) => (
-                      <Axis key={a} axis={a} s={s} />
-                    ))}
-                  </div>
-                )}
               </aside>
+              {showDesk && <Ledger s={s} />}
               <main className="c-main">
                 {gallery ? (
                   <Gallery
