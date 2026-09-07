@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="376" viewBox="0 0 600 376" preserveAspectRatio="none" fill="none"><defs>
+  <linearGradient id="cover" x2="0" y2="1"><stop stop-color="#453b46"/><stop offset="1" stop-color="#36323d"/></linearGradient>
+  <linearGradient id="paper" x2="0.7" y2="1"><stop stop-color="#fff8ed"/><stop offset="1" stop-color="#f4e9d9"/></linearGradient>
+  <linearGradient id="gutter"><stop stop-color="#b8a597" stop-opacity="0"/><stop offset=".5" stop-color="#a59485" stop-opacity=".4"/><stop offset="1" stop-color="#b8a597" stop-opacity="0"/></linearGradient>
+</defs>
+ <path d="M7 6L591 4L596 371L5 373Z" fill="#cfbaa8" stroke="#786467" stroke-width=".8"/>
+ <path d="M4 3H594L597 368L3 370Z" fill="url(#paper)" stroke="#9e8880" stroke-width=".8"/>
+ <path d="M6 6H592M6 8V366" stroke="#fffdf7"/>
+ <path d="M5 128H594M5 252H595" stroke="#bea795" stroke-opacity=".35" stroke-width=".7"/>
+ <path d="M5 130H594M5 254H595" stroke="#fffdf8" stroke-opacity=".9" stroke-width="1"/>
+ <g transform="translate(550 13) scale(0.46875)" fill="none" stroke="#bea0a5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M32 14c5-4 10 0 10 5 7-1 10 5 6 10 6 5 3 12-4 13-1 7-9 9-13 4-6 4-12 0-12-6-7-2-8-10-2-14-3-6 2-12 8-10 1-4 5-5 7-2Z"/><path d="M32 22c8-2 14 6 10 12-2 6-10 9-15 4-6-2-7-11-1-14 5-3 12 1 10 6-1 5-7 5-9 1m4 10-1 10m-1-4c-5 0-8-3-8-6 5 0 8 2 8 6m2-1c5-1 8-4 8-7-5 1-7 3-8 7"/></g></svg>

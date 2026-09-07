@@ -59,15 +59,19 @@ export function animatePaper(
     scaleY;
   const sx = (origin.width * frame.width) / paper.width;
   const sy = (origin.height * frame.height) / paper.height;
-  const folded = `translate(${dx}px, ${dy}px) scale(${Math.min(sx, sy)})`;
+  const folded = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
   element.dataset.paperMotion = direction;
   element.style.transformOrigin = "center";
   const animation = element.animate(
     direction === "open"
-      ? [{ transform: folded }, { transform: "none" }]
+      ? [
+          { transform: folded, offset: 0 },
+          { transform: "translateY(14px) scale(1, .55)", offset: .5 },
+          { transform: "none", offset: 1 },
+        ]
       : [{ transform: currentTransform || "none" }, { transform: folded }],
     {
-      duration: direction === "open" ? 300 : 240,
+      duration: direction === "open" ? 380 : 240,
       easing:
         direction === "open"
           ? "cubic-bezier(.2,.8,.25,1)"

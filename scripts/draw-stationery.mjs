@@ -74,4 +74,20 @@ await save('wax', 48, 48, `
  <circle cx="24" cy="24" r="15" fill="#a54758" stroke="#662d41" stroke-width="1.2"/>
  <path d="M11 21A13 13 0 0 1 35 17M8 14Q10 10 16 9" stroke="#ec9c9c" stroke-width="1.2" stroke-linecap="round"/>
  <path d="M15 35A14 14 0 0 0 38 22" stroke="#6b3041" stroke-width="1.1"/>`);
-console.log('Drew 9 stationery assets.');
+// Three folded sheets on the desk and one opened sheet share the same paper.
+await save('folded-letter', 210, 180, `
+ <path d="M4 6H206V177H4Z" fill="#cbb6a5" stroke="#706064" stroke-width=".8"/>
+ <path d="M3 3H207V173H3Z" fill="url(#paper)" stroke="#8d7873" stroke-width=".8"/>
+ <path d="M4 4L105 44L206 4" fill="#ede0d1" stroke="#b6a092" stroke-width=".8"/>
+ <path d="M5 5L105 41L205 5" fill="#fff7ec"/>
+ <path d="M4 171L29 149M206 171L181 149" stroke="#c8b6a7" stroke-width=".7"/>
+ <path d="M5 175H205M6 7V169" stroke="#fffaf0" stroke-width=".8"/>
+ ${rose(180, 147, 22, '#c2a1a6')}`);
+await save('unfolded-letter', 600, 376, `
+ <path d="M7 6L591 4L596 371L5 373Z" fill="#cfbaa8" stroke="#786467" stroke-width=".8"/>
+ <path d="M4 3H594L597 368L3 370Z" fill="url(#paper)" stroke="#9e8880" stroke-width=".8"/>
+ <path d="M6 6H592M6 8V366" stroke="#fffdf7"/>
+ <path d="M5 128H594M5 252H595" stroke="#bea795" stroke-opacity=".35" stroke-width=".7"/>
+ <path d="M5 130H594M5 254H595" stroke="#fffdf8" stroke-opacity=".9" stroke-width="1"/>
+ ${rose(550, 13, 30, '#bea0a5')}`);
+console.log('Drew 11 stationery assets.');

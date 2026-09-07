@@ -328,7 +328,7 @@ function OfferCard({
           <span className="c-slip-warnings">
             {reason && (
               <span className="c-unavailable">
-                {tired ? "体力不足" : reason}
+                {tired ? "体力不足" : "受諾不可"}
               </span>
             )}
             {closed > 0 && (
@@ -342,7 +342,7 @@ function OfferCard({
   );
 }
 
-/** 開いた手紙が受諾前の確認を兼ねる。条件と操作を本文の外に置く。 */
+/** 開いた一枚の手紙に本文・条件・返事をまとめる。 */
 function LetterSheet({
   job,
   s,
@@ -361,7 +361,7 @@ function LetterSheet({
   const cap = capDropOf(job);
   return (
     <section
-      className={`c-screen c-sheet c-reading-sheet ${signing ? "c-ritual-sign" : ""}`}
+      className={`c-screen c-sheet c-reading-sheet r-unfolded-letter ${signing ? "c-ritual-sign" : ""}`}
       data-stationery={stationeryOf(job)}
       data-paper-state={signing ? "signing" : "reading"}
       aria-label={`${job.title}の依頼状`}
@@ -918,6 +918,8 @@ export default function DailyApp() {
           {
             ...manorMaterialStyle,
             "--reform-paper": `url("${reformArt.paper}")`,
+            "--folded-paper": `url("${reformArt.foldedPaper}")`,
+            "--open-paper": `url("${reformArt.openPaper}")`,
             "--reform-book": `url("${reformArt.book}")`,
             "--reform-closed-book": `url("${reformArt.closedBook}")`,
             "--reform-window": `url("${reformArt.window}")`,
@@ -1062,13 +1064,20 @@ export default function DailyApp() {
                     onAccept={() => commit({ type: "rest" })}
                   />
                 ) : sheetJob ? (
-                  <LetterSheet
-                    job={sheetJob}
-                    s={s}
-                    onBack={closeLetter}
-                    onAccept={() => commit({ type: "take", job: sheetJob.id })}
-                    signing={ritual === "sign"}
-                  />
+                  <>
+                    <div className="c-offers r-waiting-letters" aria-hidden="true" inert>
+                      {offers.map((job) => (
+                        <div key={job.id} className="r-waiting-letter" data-selected={job.id === sheetJob.id} />
+                      ))}
+                    </div>
+                    <LetterSheet
+                      job={sheetJob}
+                      s={s}
+                      onBack={closeLetter}
+                      onAccept={() => commit({ type: "take", job: sheetJob.id })}
+                      signing={ritual === "sign"}
+                    />
+                  </>
                 ) : ui.tab === "journal" ? (
                   <Journal
                     s={s}
