@@ -37,19 +37,28 @@ import { Art, Modal } from "./ui/shell";
 import { Mark } from "./marks";
 import { Rings } from "./ui/symbols";
 import { Dialogue } from "./ui/scene";
-import { backgroundSrc, heroSrc } from "./art";
+import { backgroundSrc, heroSrc, personSrc } from "./art";
+import { paperSound } from "./ui/paperAudio";
 import { fullscreenSupported, useFullscreen } from "./ui/fullscreen";
 import "./chapter.css";
+import "./manor.css";
 
 const gold = (n: number) => `${n.toLocaleString()}G`;
 
 type Tab = "today" | "journal";
-type UI = { tab: Tab; sheet: string | null; speed: number; motion: boolean };
+type UI = {
+  tab: Tab;
+  sheet: string | null;
+  speed: number;
+  motion: boolean;
+  volume: number;
+};
 const freshUI = (): UI => ({
   tab: "today",
   sheet: null,
   speed: 24,
   motion: false,
+  volume: 30,
 });
 function loadUI(): UI {
   try {
@@ -59,6 +68,8 @@ function loadUI(): UI {
     if (v.tab === "journal") d.tab = "journal";
     if ([0, 24, 50].includes(v.speed)) d.speed = v.speed;
     d.motion = v.motion === true;
+    if (typeof v.volume === "number" && Number.isFinite(v.volume))
+      d.volume = Math.max(0, Math.min(100, v.volume));
     return d;
   } catch {
     return freshUI();
@@ -107,15 +118,7 @@ function Axis({ axis, s }: { axis: AxisName; s: DailyState }) {
  * 散らばっていると「あと何日で何G、そのとき何が閉じているか」が繋がらない。
  * 体力・金・三軸は立ち絵の裾へ。関係は依頼状と台帳、期限はHUDで読む。
  */
-function Ledger({
-  s,
-  traces,
-  onJournal,
-}: {
-  s: DailyState;
-  traces: number;
-  onJournal: () => void;
-}) {
+function Ledger({ s }: { s: DailyState }) {
   return (
     <section className="c-ledger" aria-label="手元">
       <div className="c-ledger-row c-ledger-top">
@@ -137,12 +140,6 @@ function Ledger({
           <Axis key={a} axis={a} s={s} />
         ))}
       </div>
-      <button className="c-trace-link" onClick={onJournal}>
-        <span>
-          <Mark name="関係" decorative /> 台帳
-        </span>
-        <span>{traces > 0 ? `紹介停止 ${traces}件` : "関係・記録"} →</span>
-      </button>
     </section>
   );
 }
@@ -254,7 +251,7 @@ function Costs({
     return (
       <span className="c-costs c-free">
         <Mark name="関係" decorative />
-        {compact ? "三値 −0" : "差し出すものはない"}
+        {compact ? "代償なし" : "差し出すものはない"}
       </span>
     );
   return (
@@ -301,6 +298,7 @@ function OfferCard({
   return (
     <article
       className={`c-slip c-request-card ${job.costs.length ? "c-paid" : "c-clean"} ${reason ? "c-shut" : ""}`}
+      data-job={job.id}
     >
       <button
         type="button"
@@ -311,8 +309,8 @@ function OfferCard({
         <Mark name={sealOf(job)} className="c-slip-seal" decorative />
         <span className="c-slip-head">
           <span className="c-slip-kind">{job.kind}</span>
-          <span className={`c-wax c-wax-${sealOf(job)}`}>
-            <Mark name={sealOf(job)} decorative />
+          <span className={`c-wax c-wax-person c-wax-${job.person}`}>
+            <img src={personSrc(job.person)} alt="" />
           </span>
         </span>
         <span className="c-slip-main">
@@ -377,10 +375,145 @@ function OfferCard({
                 ? `紹介停止 ${closed}件`
                 : ""}
           </span>
-          <span>読む →</span>
+          <span>手に取る →</span>
         </span>
       </button>
     </article>
+  );
+}
+
+/** 開いた手紙が受諾前の確認を兼ねる。条件と操作を本文の外に置く。 */
+function LetterSheet({
+  job,
+  s,
+  onAccept,
+  onBack,
+}: {
+  job: Job;
+  s: DailyState;
+  onAccept: () => void;
+  onBack: () => void;
+}) {
+  const reason = takeReason(job, s);
+  const closing = closingPreview(job, s);
+  const cap = capDropOf(job);
+  return (
+    <section
+      className="c-screen c-sheet c-reading-sheet"
+      aria-label={`${job.title}の依頼状`}
+    >
+      <div className="c-letter-story">
+        <div className="c-letter-address">
+          エレオノール・ラティエ様 <span>{job.kind}</span>
+        </div>
+        <h2 className="c-letter-heading" tabIndex={-1}>
+          {job.title}
+        </h2>
+        <p className="c-letter-body">{job.description}</p>
+        <p className="c-letter-signature">
+          {personOf(job.person).name} <Rings stage={s.relations[job.person]} />
+        </p>
+      </div>
+      <div className="c-letter-conditions">
+        <div className="c-letter-terms">
+          <div>
+            <small>受け取る</small>
+            <b>
+              <i className="c-coin" aria-hidden="true" />
+              {gold(payOf(job, s))}
+            </b>
+            {fatigueCount(job.person, s) > 0 && (
+              <em>
+                ▼ {Math.round((1 - fatigueRateOf(job.person, s)) * 100)}%引き ·
+                定価 {gold(listPriceOf(job, s))}
+              </em>
+            )}
+            {materialCostOf(job) > 0 && (
+              <em>素材費 {materialCostOf(job)}G 差引済</em>
+            )}
+          </div>
+          <div>
+            <small>使う体力</small>
+            <b>
+              <Mark name="体力" decorative />−{staminaOf(job)}
+            </b>
+            <em>
+              {s.stamina} → {Math.max(0, s.stamina - staminaOf(job))}
+            </em>
+          </div>
+          <div>
+            <small>差し出すもの</small>
+            <Costs job={job} s={s} compact />
+            {cap > 0 && (
+              <em className="c-cap-note">
+                品位上限 {s.dignityCap} → {Math.max(0, s.dignityCap - cap)}
+                （戻らない）
+              </em>
+            )}
+          </div>
+        </div>
+        {closing.length > 0 && (
+          <div className="c-letter-closing">
+            <b>紹介停止 {closing.length}件</b>
+            <span>{closing.join("、")}</span>
+          </div>
+        )}
+      </div>
+      <footer className="c-footer c-letter-footer">
+        <Button onClick={onBack}>机に戻す</Button>
+        <span className="c-footer-note">{reason ?? "1日が過ぎる"}</span>
+        <Button primary disabled={!!reason} onClick={onAccept}>
+          この依頼を受ける
+        </Button>
+      </footer>
+    </section>
+  );
+}
+
+function RestSheet({
+  s,
+  onAccept,
+  onBack,
+}: {
+  s: DailyState;
+  onAccept: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <section className="c-screen c-sheet c-reading-sheet c-rest-sheet">
+      <div className="c-letter-story">
+        <div className="c-letter-address">ラティエ邸</div>
+        <h2 className="c-letter-heading" tabIndex={-1}>
+          今日は受けない
+        </h2>
+        <p className="c-letter-body">手紙を置いて、身体を休める。</p>
+      </div>
+      <div className="c-letter-conditions">
+        <div className="c-letter-terms">
+          <div>
+            <small>体力</small>
+            <b>
+              <Mark name="体力" decorative />
+              {s.stamina} → 100
+            </b>
+          </div>
+          <div>
+            <small>過ぎる時間</small>
+            <b>1日</b>
+          </div>
+          <div>
+            <small>受け取る・差し出す</small>
+            <b>なし</b>
+          </div>
+        </div>
+      </div>
+      <footer className="c-footer c-letter-footer">
+        <Button onClick={onBack}>机に戻す</Button>
+        <Button primary onClick={onAccept}>
+          今日は休む
+        </Button>
+      </footer>
+    </section>
   );
 }
 
@@ -417,7 +550,8 @@ export default function DailyApp() {
     [saveError, setSaveError] = useState(""),
     [settings, setSettings] = useState(false),
     [reset, setReset] = useState<"new" | "delete" | null>(null),
-    [pending, setPending] = useState<Job | "rest" | null>(null),
+    [pending, setPending] = useState<"rest" | null>(null),
+    [ritual, setRitual] = useState<"sign" | "rest" | null>(null),
     [scene, setScene] = useState<DayOutcome | null>(null),
     [result, setResult] = useState<DayOutcome | null>(null),
     /* 回想はプレイの保存とは別に持つ。周回しても消えない（§14）。 */
@@ -439,9 +573,58 @@ export default function DailyApp() {
   };
   const lock = useRef(false),
     stateRef = useRef(s);
+  const transitionTimer = useRef<number | undefined>(undefined);
+  const lastLetter = useRef<string | null>(null);
+  const returnToDesk = useRef(false);
   stateRef.current = s;
   const fullscreen = useFullscreen(),
     patch = (p: Partial<UI>) => setUI((u) => ({ ...u, ...p }));
+
+  function openLetter(id: string) {
+    if (lock.current) return;
+    lastLetter.current = id;
+    paperSound(ui.volume);
+    patch({ sheet: id });
+  }
+  function closeLetter() {
+    if (lock.current) return;
+    returnToDesk.current = true;
+    setPending(null);
+    patch({ sheet: null });
+    paperSound(ui.volume, "place");
+  }
+  function openJournal() {
+    if (lock.current) return;
+    setPending(null);
+    patch({ tab: "journal", sheet: null });
+    paperSound(ui.volume);
+  }
+  useEffect(() => {
+    if (ui.sheet || pending) {
+      document
+        .querySelector<HTMLElement>(".c-manor .c-letter-heading")
+        ?.focus();
+    } else if (returnToDesk.current) {
+      returnToDesk.current = false;
+      const selector = lastLetter.current
+        ? `[data-job="${CSS.escape(lastLetter.current)}"] .c-slip-face`
+        : ".c-rest .c-slip-face";
+      document.querySelector<HTMLElement>(selector)?.focus();
+    }
+  }, [ui.sheet, pending]);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        event.key === "Escape" &&
+        (ui.sheet || pending) &&
+        !document.querySelector("dialog[open]")
+      )
+        closeLetter();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ui.sheet, pending, ui.volume]);
+  useEffect(() => () => window.clearTimeout(transitionTimer.current), []);
 
   useEffect(() => {
     try {
@@ -509,47 +692,65 @@ export default function DailyApp() {
   }, [s?.revision, s?.day, s?.chapter, started]);
 
   function commit(action: Parameters<typeof dailyAction>[1]) {
-    if (lock.current || saveError || !stateRef.current) return;
+    if (
+      lock.current ||
+      ritual ||
+      scene ||
+      result ||
+      saveError ||
+      !stateRef.current
+    )
+      return;
     lock.current = true;
     setPending(null);
     const out = dailyAction(stateRef.current, action);
-    if (out.error) setNotice(out.error);
-    else {
+    if (out.error) {
+      setNotice(out.error);
+      lock.current = false;
+    } else {
       persist(out.state);
       patch({ sheet: null });
       if (out.outcome?.sceneIds.length)
         setSeenScenes((seen) =>
           recordScenes(localStorage, seen, out.outcome!.sceneIds),
         );
-      if (out.outcome?.scene.length) setScene(out.outcome);
-      else setResult(out.outcome ?? null);
+      const reveal = () => {
+        setRitual(null);
+        if (out.outcome?.scene.length) setScene(out.outcome);
+        else setResult(out.outcome ?? null);
+      };
+      if (action.type === "settle") reveal();
+      else {
+        const reduce =
+          ui.motion ||
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        paperSound(ui.volume, action.type === "take" ? "sign" : "place");
+        setRitual(action.type === "take" ? "sign" : "rest");
+        transitionTimer.current = window.setTimeout(reveal, reduce ? 0 : 300);
+      }
     }
-    window.setTimeout(() => {
-      lock.current = false;
-    }, 180);
   }
 
   function begin() {
-    setUI(freshUI());
+    patch({ tab: "today", sheet: null });
     setNotice("");
     setSaveError("");
     persist(freshDaily());
     setStarted(true);
     setReset(null);
+    lock.current = false;
+    paperSound(ui.volume, "place");
   }
 
   const offers = s && started ? offersOf(s) : [];
   const sheetJob = ui.sheet ? jobs.find((j) => j.id === ui.sheet) : undefined;
   const due = s ? quotaOf(s) : 0;
   const traces = s ? tracesOf(s) : [];
-  const showToday = !!(
+  const showDesk = !!(
     started &&
     s &&
-    ui.tab === "today" &&
-    !sheetJob &&
     !gallery &&
-    !s.awaitingSettlement &&
-    !s.ended
+    ((!s.awaitingSettlement && !s.ended) || ritual)
   );
 
   return (
@@ -558,10 +759,17 @@ export default function DailyApp() {
         /* c-title は `display:block` ＋ 全面の覆い（:before）なので、回想を出すあいだは外す。
            付けたままだと回想が縦に伸びて器からはみ出し、覆いが触りを全部吸ってしまう。 */
         className={`chapter-app ${
-          !started ? (gallery ? "" : "c-title") : showToday ? "c-home" : ""
+          !started
+            ? gallery
+              ? ""
+              : "c-title"
+            : showDesk
+              ? `c-home c-manor ${sheetJob || pending ? "c-reading" : ""} ${ui.tab === "journal" ? "c-journal" : ""} ${ritual ? "c-ritual" : ""}`
+              : ""
         }`}
+        inert={!!ritual || undefined}
         style={{
-          backgroundImage: `url(${backgroundSrc(!started ? "title" : "home")})`,
+          backgroundImage: `url(${backgroundSrc(showDesk ? "study-v1" : !started ? "title" : "home")})`,
         }}
       >
         {!started && gallery ? (
@@ -602,12 +810,12 @@ export default function DailyApp() {
         ) : s ? (
           <>
             <header className="c-hud">
-              <button onClick={() => patch({ tab: "journal" })}>
+              <button onClick={openJournal}>
                 <b>{s.day}日目</b>
                 <small>第{s.chapter}章</small>
               </button>
               {/* 今日の画面は「手元」が持つので、HUDでは繰り返さない。 */}
-              {!showToday && (
+              {!showDesk && (
                 <>
                   <span className="c-stamina">
                     <Mark name="体力" label="体力" />
@@ -622,6 +830,7 @@ export default function DailyApp() {
                 </>
               )}
               <span className="c-debt">
+                <span className="c-debt-label">残債</span>
                 <b>{gold(s.debt)}</b>
                 <small>
                   この章で納める {gold(due)} ・ 残り
@@ -640,12 +849,8 @@ export default function DailyApp() {
                   alt="エレオノール・ラティエ"
                 />
                 {/* 今日の画面は「手元」パネルが軸を持つので、裾には重ねない。 */}
-                {showToday ? (
-                  <Ledger
-                    s={s}
-                    traces={traces.length}
-                    onJournal={() => patch({ tab: "journal" })}
-                  />
+                {showDesk ? (
+                  <Ledger s={s} />
                 ) : (
                   <div className="c-axes">
                     {axes.map((a) => (
@@ -654,7 +859,7 @@ export default function DailyApp() {
                   </div>
                 )}
               </aside>
-              {!showToday && (
+              {!showDesk && (
                 <nav className="c-nav">
                   <button
                     className={ui.tab === "today" ? "selected" : ""}
@@ -723,84 +928,29 @@ export default function DailyApp() {
                       タイトルへ
                     </Button>
                   </div>
+                ) : pending === "rest" ? (
+                  <RestSheet
+                    s={s}
+                    onBack={closeLetter}
+                    onAccept={() => commit({ type: "rest" })}
+                  />
                 ) : sheetJob ? (
-                  <section className="c-screen c-sheet">
-                    <div className="c-sheet-body">
-                      <div className="c-eyebrow">{sheetJob.kind}</div>
-                      <h2>{sheetJob.title}</h2>
-                      <p className="c-who">
-                        {personOf(sheetJob.person).name}
-                        {s.relations[sheetJob.person] > 0 && (
-                          <Rings stage={s.relations[sheetJob.person]} />
-                        )}
-                        · {placeOf(personOf(sheetJob.person).place).name}
-                      </p>
-                      <p className="c-lead">{sheetJob.description}</p>
-                      <div className="c-terms">
-                        <div>
-                          <small>受け取る</small>
-                          <b>{gold(payOf(sheetJob, s))}</b>
-                          {fatigueCount(sheetJob.person, s) > 0 && (
-                            <em>
-                              ▼ 通い詰め{" "}
-                              {Math.round(
-                                (1 - fatigueRateOf(sheetJob.person, s)) * 100,
-                              )}
-                              %引き（定価 {gold(listPriceOf(sheetJob, s))}）
-                            </em>
-                          )}
-                          {materialCostOf(sheetJob) > 0 && (
-                            <em>素材の自腹 −{materialCostOf(sheetJob)}G</em>
-                          )}
-                        </div>
-                        <div>
-                          <small>使う体力</small>
-                          <b>
-                            <Mark name="体力" decorative />
-                            {staminaOf(sheetJob)}
-                          </b>
-                          <em>
-                            {s.stamina}→{s.stamina - staminaOf(sheetJob)}
-                          </em>
-                        </div>
-                        <div>
-                          <small>差し出すもの</small>
-                          <Costs job={sheetJob} s={s} />
-                          {!!sheetJob.costs.find((c) => c.axis === "品位") && (
-                            <em className="c-warning">
-                              品位の上限も下がる（戻らない）
-                            </em>
-                          )}
-                        </div>
-                      </div>
-                      {closingPreview(sheetJob, s).length > 0 && (
-                        <p className="c-closing">
-                          これを受けると、もう紹介されなくなる：
-                          <b>{closingPreview(sheetJob, s).join("、")}</b>
-                        </p>
-                      )}
-                    </div>
-                    <footer className="c-footer">
-                      <div className="c-row">
-                        <Button
-                          primary
-                          disabled={!!takeReason(sheetJob, s)}
-                          onClick={() => setPending(sheetJob)}
-                        >
-                          この依頼を受ける
-                        </Button>
-                        <Button onClick={() => patch({ sheet: null })}>
-                          戻る
-                        </Button>
-                        <span className="c-footer-note">
-                          {takeReason(sheetJob, s)}
-                        </span>
-                      </div>
-                    </footer>
-                  </section>
+                  <LetterSheet
+                    job={sheetJob}
+                    s={s}
+                    onBack={closeLetter}
+                    onAccept={() => commit({ type: "take", job: sheetJob.id })}
+                  />
                 ) : ui.tab === "journal" ? (
                   <div className="c-scroll">
-                    <h2>台帳</h2>
+                    <header className="c-journal-heading">
+                      <h2>台帳</h2>
+                      <Button
+                        onClick={() => patch({ tab: "today", sheet: null })}
+                      >
+                        机に戻る
+                      </Button>
+                    </header>
                     <h3>関係</h3>
                     {[...new Set(jobs.map((j) => j.person))]
                       .filter(
@@ -839,17 +989,14 @@ export default function DailyApp() {
                   </div>
                 ) : (
                   <div className="c-today">
-                    <header className="c-today-heading">
-                      <h2>本日の依頼状</h2>
-                      <span>{offers.length}通</span>
-                    </header>
+                    <h2 className="c-sr-only">本日の依頼状</h2>
                     <div className="c-offers">
                       {offers.map((job) => (
                         <OfferCard
                           key={job.id}
                           job={job}
                           s={s}
-                          onOpen={() => patch({ sheet: job.id })}
+                          onOpen={() => openLetter(job.id)}
                         />
                       ))}
                       {!offers.length && (
@@ -858,7 +1005,26 @@ export default function DailyApp() {
                         </p>
                       )}
                     </div>
-                    <RestRow s={s} onPick={() => setPending("rest")} />
+                    <div className="c-desk-actions">
+                      <button
+                        type="button"
+                        className="c-book"
+                        onClick={openJournal}
+                      >
+                        返済帳・台帳
+                        {traces.length > 0 && (
+                          <small>紹介停止 {traces.length}件</small>
+                        )}
+                      </button>
+                      <RestRow
+                        s={s}
+                        onPick={() => {
+                          lastLetter.current = null;
+                          paperSound(ui.volume);
+                          setPending("rest");
+                        }}
+                      />
+                    </div>
                   </div>
                 )}
               </main>
@@ -874,56 +1040,21 @@ export default function DailyApp() {
         )}
       </div>
 
-      {pending && s && (
-        <Modal
-          title={pending === "rest" ? "今日は受けない" : pending.title}
-          onClose={() => setPending(null)}
-          footer={
-            <>
-              <Button onClick={() => setPending(null)}>戻る</Button>
-              <Button
-                primary
-                onClick={() =>
-                  commit(
-                    pending === "rest"
-                      ? { type: "rest" }
-                      : { type: "take", job: pending.id },
-                  )
-                }
-              >
-                確定する
-              </Button>
-            </>
-          }
+      {ritual && (
+        <div
+          className={`c-letter-ritual c-ritual-${ritual}`}
+          role="status"
+          aria-live="polite"
         >
-          {pending === "rest" ? (
-            <p>
-              1日を使います。体力は100に戻り、何も受け取らず、何も差し出しません。
-            </p>
-          ) : (
-            <>
-              <p>
-                {gold(payOf(pending, s))} を受け取り、体力を{" "}
-                {staminaOf(pending)} 使います。
-              </p>
-              <p>
-                <Costs job={pending} s={s} />
-              </p>
-              {!!pending.costs.find((c) => c.axis === "品位") && (
-                <p className="c-warning">
-                  品位の上限も下がります。上限は戻りません。
-                </p>
-              )}
-              {closingPreview(pending, s).length > 0 && (
-                <p className="c-warning">
-                  これを受けると、
-                  {closingPreview(pending, s).join("、")}
-                  はもう紹介されません。
-                </p>
-              )}
-            </>
-          )}
-        </Modal>
+          <div>
+            <span>
+              {ritual === "sign"
+                ? "返事をしたためる"
+                : "手紙を置いて、ひと休み"}
+            </span>
+            <b>{ritual === "sign" ? "Éléonore" : "夜が過ぎる"}</b>
+          </div>
+        </div>
       )}
 
       {replay && (
@@ -953,9 +1084,20 @@ export default function DailyApp() {
         <Modal
           variant="result"
           title={result.title}
-          onClose={() => setResult(null)}
+          onClose={() => {
+            lock.current = false;
+            setResult(null);
+            paperSound(ui.volume, "place");
+          }}
           footer={
-            <Button primary onClick={() => setResult(null)}>
+            <Button
+              primary
+              onClick={() => {
+                lock.current = false;
+                setResult(null);
+                paperSound(ui.volume, "place");
+              }}
+            >
               確認
             </Button>
           }
@@ -1060,6 +1202,21 @@ export default function DailyApp() {
                 onChange={(e) => patch({ motion: e.target.checked })}
               />
               動きを減らす
+            </label>
+            <label className="c-audio-setting">
+              紙の音{" "}
+              <span>
+                {ui.volume === 0 ? "消音" : Math.round(ui.volume) + "%"}
+              </span>
+              <input
+                aria-label="紙の音量"
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={ui.volume}
+                onChange={(e) => patch({ volume: Number(e.target.value) })}
+              />
             </label>
             {fullscreenSupported() && (
               <Button onClick={fullscreen.toggle}>

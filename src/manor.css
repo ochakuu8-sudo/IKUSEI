@@ -1,0 +1,563 @@
+/* 執務室は一つの場面。位置は全端末で共通の1200×500の舞台座標。 */
+.c-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.c-manor::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, #160e1880, transparent 24%),
+    linear-gradient(0deg, #160e1840, transparent 42%);
+}
+.c-manor .c-hud {
+  position: absolute;
+  z-index: 4;
+  inset: 13px 24px auto;
+  height: 58px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  gap: 22px;
+  text-shadow: 0 2px 5px #140e16;
+}
+.c-manor .c-hud > button:first-child {
+  min-height: 48px;
+}
+.c-manor .c-hud > button:first-child b {
+  font-size: 24px;
+  letter-spacing: 0.08em;
+}
+.c-manor .c-hud small {
+  color: #ebd9c5;
+}
+.c-manor .c-debt {
+  min-width: 250px;
+}
+.c-manor .c-debt b {
+  display: inline;
+  font-size: 27px;
+}
+.c-debt-label {
+  font-size: 11px;
+  margin-right: 9px;
+}
+.c-manor .c-hud > .c-button {
+  width: 42px;
+  height: 42px;
+  color: #efdebf;
+  border: 1px solid #ddbc7948;
+  border-radius: 50%;
+  background: #25192266;
+}
+.c-manor .c-body {
+  display: block;
+}
+.c-manor .c-portrait {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 330px;
+  overflow: visible;
+  background: none;
+}
+.c-manor .c-hero {
+  top: 24px;
+  bottom: auto;
+  left: -27px;
+  width: 382px;
+  height: 382px;
+  object-fit: contain;
+  object-position: top center;
+  filter: drop-shadow(5px 5px 9px #1b101b60);
+  mask-image: linear-gradient(#000 65%, transparent 100%);
+}
+.c-manor .c-portrait::after {
+  content: "";
+  position: absolute;
+  inset: 255px -30px 0 0;
+  background: linear-gradient(0deg, #1c131fee 5%, #221723bd 52%, transparent);
+  mask-image: linear-gradient(90deg, #000 85%, transparent);
+  pointer-events: none;
+}
+.c-manor .c-ledger {
+  position: absolute;
+  width: auto;
+  z-index: 1;
+  left: 22px;
+  right: 13px;
+  bottom: 27px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  text-shadow: 0 1px 3px #160b17;
+}
+.c-manor .c-ledger-row {
+  border: 0;
+}
+.c-manor .c-ledger-top {
+  padding: 0 0 12px;
+}
+.c-manor .c-ledger-axes {
+  padding: 0;
+  gap: 8px;
+}
+.c-manor .c-ledger-axes .c-ax {
+  margin: 0;
+  gap: 6px;
+}
+.c-manor .c-ledger-axes .c-ax em {
+  width: 96px;
+  color: #e0cbd7;
+}
+.c-manor .c-main {
+  position: absolute;
+  inset: 0 0 0 330px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  overflow: visible;
+}
+.c-manor .c-today {
+  padding: 126px 22px 25px 20px;
+  gap: 20px;
+}
+.c-manor .c-offers {
+  flex: none;
+  height: 278px;
+  gap: 16px;
+  overflow: visible;
+}
+.c-manor .c-request-card {
+  --paper-tilt: -0.8deg;
+  transform: rotate(var(--paper-tilt));
+  border-radius: 2px;
+  border: 1px solid #c7ad87;
+  background: linear-gradient(115deg, #fff9e9, #f3e6cc 75%, #e9d6b4);
+  box-shadow:
+    2px 3px 0 #bca687,
+    4px 10px 13px #160b0b70;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+  animation: c-letter-arrive 230ms ease-out backwards;
+}
+.c-manor .c-request-card:nth-child(2) {
+  --paper-tilt: 0.6deg;
+  animation-delay: 45ms;
+}
+.c-manor .c-request-card:nth-child(3) {
+  --paper-tilt: -0.35deg;
+  animation-delay: 90ms;
+}
+.c-manor .c-request-card:hover,
+.c-manor .c-request-card:focus-within {
+  transform: translateY(-5px) rotate(0deg);
+  box-shadow:
+    2px 3px 0 #bca687,
+    4px 15px 17px #160b0b80;
+}
+.c-manor .c-slip-face {
+  border-radius: 1px;
+  padding: 15px 17px 10px;
+}
+.c-manor .c-slip-face:hover {
+  background: #fffaf021;
+}
+.c-manor .c-slip-head {
+  height: 30px;
+  min-height: 30px;
+}
+.c-manor .c-slip-kind {
+  border: 0;
+  border-bottom: 1px solid #967c584d;
+  border-radius: 0;
+  background: none;
+  padding: 2px 0 4px;
+  color: #816342;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+.c-manor .c-wax-person {
+  width: 34px;
+  height: 34px;
+  border-radius: 46% 54% 48% 50%;
+  background: radial-gradient(circle at 40% 35%, #a34e56, #6d2634 75%);
+  border: 2px solid #a05859;
+  box-shadow:
+    inset 0 0 0 2px #6b2936,
+    1px 3px 3px #4a231c40;
+  transform: rotate(9deg);
+}
+.c-wax-person img {
+  width: 23px;
+  height: 23px;
+  object-fit: contain;
+  opacity: 0.9;
+}
+.c-manor .c-wax-claire,
+.c-manor .c-wax-odette {
+  filter: hue-rotate(295deg) saturate(0.65);
+}
+.c-manor .c-slip-main {
+  margin: 9px 0 6px;
+}
+.c-manor .c-slip-main b {
+  font-size: 23px;
+  line-height: 1.5;
+}
+.c-manor .c-slip-main small {
+  color: #775f50;
+}
+.c-manor .c-slip-terms {
+  padding-top: 8px;
+}
+.c-manor .c-slip-costline {
+  min-height: 39px;
+  gap: 4px;
+}
+.c-manor .c-slip-costline .c-costs.c-free {
+  font-size: 12px;
+}
+.c-manor .c-slip-foot {
+  padding-top: 7px;
+  font-size: 10px;
+}
+.c-manor .c-slip-foot > span:last-child {
+  color: #764455;
+}
+.c-manor .c-shut {
+  opacity: 0.85;
+}
+.c-desk-actions {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  height: 48px;
+  flex: none;
+}
+.c-book {
+  position: relative;
+  width: 225px;
+  height: 48px;
+  flex: none;
+  border: 1px solid #a78c57;
+  border-left: 8px solid #493044;
+  border-radius: 2px 4px 4px 2px;
+  box-shadow:
+    0 3px 0 #d4c0a2,
+    2px 6px 8px #150c1266,
+    inset 0 0 0 4px #744f5e;
+  background: linear-gradient(110deg, #473443, #654450);
+  color: #e9d7aa;
+  font-family: var(--serif);
+  letter-spacing: 0.12em;
+  transition: transform 150ms ease;
+}
+.c-book:hover {
+  transform: translateY(-2px);
+}
+.c-book small {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  margin-top: 1px;
+}
+.c-manor .c-rest {
+  flex: 1;
+  height: 48px;
+  min-height: 48px;
+  background: #21182396;
+  color: #f1dfc4;
+  border: 1px solid #d2b38355;
+  border-radius: 3px;
+  box-shadow: 0 4px 6px #160d1640;
+}
+.c-manor .c-rest .c-slip-face {
+  padding: 7px 15px;
+}
+.c-manor .c-rest .c-slip-main b {
+  font-size: 16px;
+  color: #f1dfc4;
+}
+.c-manor .c-rest-day {
+  color: #dfc7ab;
+  font-size: 10px;
+}
+.c-manor .c-rest .c-slip-stamina {
+  color: #f2dfb8;
+}
+.c-manor .c-rest .c-slip-stamina .c-gauge {
+  background: #ffffff25;
+}
+.c-manor .c-reading-sheet,
+.c-manor.c-journal .c-main > .c-scroll {
+  position: absolute;
+  inset: 85px 26px 25px 28px;
+  width: auto;
+  height: auto;
+  border: 1px solid #c3ab85;
+  border-radius: 2px;
+  background: linear-gradient(112deg, #fff8e8, #eee0c5);
+  box-shadow:
+    3px 4px 0 #b6a183,
+    5px 12px 22px #170b0c80;
+  animation: c-paper-open 180ms ease-out;
+}
+.c-letter-story {
+  padding: 23px 31px 10px;
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #bda887 transparent;
+}
+.c-letter-address {
+  display: flex;
+  justify-content: space-between;
+  color: #8a6f50;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+.c-letter-address span {
+  color: #99604e;
+}
+.c-manor .c-letter-heading {
+  margin-bottom: 10px;
+  font-size: 26px;
+  font-family: var(--serif);
+}
+.c-letter-heading:focus {
+  outline: none;
+}
+.c-manor .c-letter-body {
+  font-family: var(--serif);
+  color: #5d4941;
+  font-size: 15px;
+  line-height: 1.85;
+}
+.c-manor .c-letter-signature {
+  text-align: right;
+  color: #78604b;
+  font-family: var(--serif);
+  font-size: 13px;
+}
+.c-letter-signature .sym-rings {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.c-letter-conditions {
+  flex: none;
+  margin: 0 31px;
+  padding: 12px 0 10px;
+  border-top: 1px solid #b29a724d;
+}
+.c-letter-terms {
+  display: grid;
+  grid-template-columns: 1.1fr 0.8fr 1.5fr;
+  gap: 16px;
+}
+.c-letter-terms > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.c-letter-terms > div + div {
+  border-left: 1px solid #b29a7240;
+  padding-left: 16px;
+}
+.c-letter-terms small {
+  color: #876f57;
+  font-size: 11px;
+}
+.c-letter-terms b {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 24px;
+  font-family: var(--serif);
+}
+.c-letter-terms b .mark {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+.c-letter-terms em {
+  font-size: 10px;
+  font-style: normal;
+  color: #8d6455;
+}
+.c-letter-terms .c-costs {
+  min-height: 29px;
+  gap: 16px;
+}
+.c-letter-terms .c-cost small {
+  font-size: 16px;
+  color: #8b4056;
+}
+.c-letter-terms .c-free {
+  font-size: 15px;
+}
+.c-letter-terms .c-cap-note {
+  background: none;
+  padding: 0;
+  font-weight: 600;
+  color: #973f4e;
+  font-size: 11px;
+}
+.c-letter-closing {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-top: 9px;
+  margin-top: 9px;
+  border-top: 1px solid #ad725338;
+  color: #963e4c;
+  font-size: 11px;
+}
+.c-letter-closing b {
+  flex: none;
+}
+.c-letter-closing span {
+  line-height: 1.6;
+}
+.c-manor .c-letter-footer {
+  background: #ccb38b22;
+  border-top: 1px solid #b29a724d;
+  padding: 12px 24px;
+  gap: 14px;
+  flex: none;
+  flex-direction: row;
+  align-items: center;
+}
+.c-letter-footer .c-button {
+  border-radius: 3px;
+  font-family: var(--serif);
+}
+.c-letter-footer > .c-button:first-child {
+  background: none;
+  border-color: #b39d7b;
+}
+.c-letter-footer > .c-primary {
+  margin-left: auto;
+  min-width: 212px;
+  border-color: #8b495a;
+  box-shadow: 0 2px 0 #4c2736;
+}
+.c-letter-footer .c-unavailable {
+  color: #963e4c;
+  font-size: 11px;
+}
+.c-journal-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.c-manor.c-journal .c-main > .c-scroll {
+  padding: 20px 28px;
+}
+.c-letter-ritual {
+  position: absolute;
+  z-index: 50;
+  left: calc(50% + var(--shift-x, 0px));
+  top: calc(50% + var(--shift-y, 0px));
+  width: 1200px;
+  height: 500px;
+  transform: translate(-50%, -50%) scale(var(--fit, 1));
+  background: #21132280;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  animation: c-ritual-appear 280ms ease-out both;
+}
+.c-letter-ritual > div {
+  width: 390px;
+  padding: 25px 32px;
+  background: #f6ead5;
+  box-shadow: 0 8px 35px #130d1590;
+  color: #71513e;
+  transform: rotate(-1deg);
+}
+.c-letter-ritual span {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.15em;
+}
+.c-letter-ritual b {
+  display: block;
+  text-align: right;
+  font-family: Georgia, var(--serif);
+  font-style: italic;
+  font-size: 31px;
+  margin-top: 17px;
+  color: #573144;
+}
+.c-ritual-rest {
+  background: #17101ded;
+}
+.c-audio-setting {
+  flex-wrap: wrap;
+}
+.c-audio-setting input {
+  flex: 1;
+  accent-color: #96546d;
+}
+@keyframes c-letter-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(8px) rotate(var(--paper-tilt));
+  }
+  to {
+    opacity: 1;
+    transform: rotate(var(--paper-tilt));
+  }
+}
+@keyframes c-paper-open {
+  from {
+    opacity: 0.5;
+    transform: translateY(7px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes c-ritual-appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+[data-motion="reduced"] .c-request-card,
+[data-motion="reduced"] .c-reading-sheet,
+[data-motion="reduced"] .c-book {
+  animation: none;
+  transition: none;
+}
+[data-motion="reduced"] .c-request-card:hover,
+[data-motion="reduced"] .c-request-card:focus-within {
+  transform: rotate(var(--paper-tilt));
+}
+@media (prefers-reduced-motion: reduce) {
+  .c-manor *,
+  .c-letter-ritual {
+    animation: none !important;
+    transition: none !important;
+  }
+  .c-manor .c-request-card:hover,
+  .c-manor .c-request-card:focus-within {
+    transform: rotate(var(--paper-tilt));
+  }
+}

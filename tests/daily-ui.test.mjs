@@ -152,7 +152,9 @@ try {
     const { app, cards, rest, ledger } = layout;
     assert.equal(cards.length, 3);
     assert(
-      cards.every((c) => Math.abs(c.top - cards[0].top) < 1),
+      cards.every(
+        (c) => Math.abs(c.top - cards[0].top) < (10 * app.width) / 1200,
+      ),
       "依頼状3枚が横一列",
     );
     assert(
@@ -182,16 +184,44 @@ try {
   }
   await page.setViewportSize({ width: 1366, height: 768 });
 
-  /* 1件選ぶ → 依頼状 → 確認 → 場面 → 結果 → 翌日 */
+  /* 手紙を戻しても同じ依頼。Escapeは元の手紙へフォーカスを戻す。 */
+  const offerIds = await page
+    .locator(".c-request-card")
+    .evaluateAll((es) => es.map((e) => e.dataset.job));
+  const portraitBox = await page.locator(".c-hero").boundingBox();
   await tap(page.locator(".c-slip .c-slip-face").first());
+  assert.deepEqual(
+    await page.locator(".c-hero").boundingBox(),
+    portraitBox,
+    "立ち絵が動かない",
+  );
+  await page.keyboard.press("Escape");
+  assert.deepEqual(
+    await page
+      .locator(".c-request-card")
+      .evaluateAll((es) => es.map((e) => e.dataset.job)),
+    offerIds,
+  );
+  assert(
+    await page
+      .locator(".c-request-card .c-slip-face")
+      .first()
+      .evaluate((e) => e === document.activeElement),
+  );
+  await tap(page.locator(".c-request-card .c-slip-face").first());
   await page.screenshot({ path: resolve(out, "sheet-1366.png") });
   assert(await button("この依頼を受ける").count());
-  await tap(button("この依頼を受ける"));
-  await tap(
-    page
-      .locator("dialog[open]")
-      .last()
-      .getByRole("button", { name: "確定する" }),
+  /* 同一イベントループ中の二重クリックでも、保存は1日だけ進む。 */
+  await button("この依頼を受ける").evaluate((e) => {
+    e.click();
+    e.click();
+  });
+  await page.locator(".scenario-dialog").waitFor();
+  assert.equal((await read()).day, 2, "受諾時点で保存、二重入力でも1行動");
+  assert.equal(
+    await button("確定する").count(),
+    0,
+    "受諾前の条件は手紙内に統合",
   );
   await playScene();
   await page.screenshot({ path: resolve(out, "result-1366.png") });
@@ -212,12 +242,13 @@ try {
 
   /* 休むと体力だけが戻り、1日を失う */
   await tap(page.locator(".c-slip.c-rest .c-slip-face"));
-  await tap(
-    page
-      .locator("dialog[open]")
-      .last()
-      .getByRole("button", { name: "確定する" }),
+  assert(await page.locator(".c-rest-sheet").isVisible());
+  assert.equal(
+    (await read()).day,
+    afterJob.day,
+    "休養の手紙を開くだけでは進まない",
   );
+  await tap(button("今日は休む"));
   await closeResult();
   const afterRest = await read();
   assert.equal(afterRest.day, 3);
@@ -240,7 +271,7 @@ try {
     "体力不足では受諾できない",
   );
   assert.equal((await read()).day, afterRest.day, "条件を読んでも日は進まない");
-  await tap(button("戻る"));
+  await tap(button("机に戻す"));
 
   /* 回想。目録は全53枚（依頼24・関係21・結末8）で、見たものだけ開ける。 */
   await tap(page.locator(".c-hud button").first());
@@ -267,10 +298,24 @@ try {
   assert(kept.length >= 1, "回想はプレイの保存とは別に貯まる");
   await tap(button("閉じる"));
 
-  /* 台帳はHUDの日付から開く */
-  await tap(page.locator(".c-hud button").first());
+  /* 台帳は机上の本からも開く */
+  await tap(button("机に戻る"));
+  await tap(button("返済帳・台帳"));
   await page.screenshot({ path: resolve(out, "journal-1366.png") });
   assert(await page.getByText("関係").count());
+
+  /* 旧UI保存の音量は30%。消音は再読込・新規開始後も維持する。 */
+  await tap(button("設定"));
+  const volume = page.getByRole("slider", { name: "紙の音量" });
+  assert.equal(await volume.inputValue(), "30");
+  await volume.fill("0");
+  await tap(button("閉じる").last());
+  assert.equal(
+    await page.evaluate(
+      () => JSON.parse(localStorage.getItem("ikusei-prototype-ui-v14")).volume,
+    ),
+    0,
+  );
 
   /* どの端末でも 1200×500 の比を保つ */
   await page.setViewportSize({ width: 844, height: 390 });

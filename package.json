@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "deploy": "bash scripts/deploy.sh",
     "test": "node scripts/run.mjs daily && node scripts/run.mjs scenes",
-    "test:ui": "node tests/daily-ui.test.mjs",
+    "test:ui": "node tests/daily-ui.test.mjs && node tests/manor-ui.test.mjs",
     "sim": "node scripts/run.mjs sim"
   },
   "dependencies": {
