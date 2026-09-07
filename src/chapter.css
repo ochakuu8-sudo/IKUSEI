@@ -695,13 +695,17 @@ body {
   margin-top: 0;
 }
 .c-home .c-portrait {
-  width: 470px;
+  width: 320px;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 12px 14px;
 }
 .c-home .c-hero {
-  width: 550px;
-  height: 580px;
-  left: -40px;
-  bottom: -120px;
+  width: 375px;
+  height: 420px;
+  left: -28px;
+  top: 0;
+  bottom: auto;
 }
 .c-home .c-axes {
   right: 42px;
@@ -1037,181 +1041,327 @@ body {
   margin: 0 0 0 auto;
 }
 
-/* ══ 1日1行動（v14）════════════════════════════════════════════
-   今日の3件と「今日は受けない」を1画面に並べ、その下に手元の一覧を置く。 */
+/* ══ 依頼状カード（v14.3）═════════════════════════════════════
+   1200×500の一面。左320pxに立ち絵と状態、右に3枚と独立した休養の札。 */
 .c-today {
-  padding: 11px 22px 9px;
+  padding: 16px 22px 14px 18px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   height: 100%;
   min-height: 0;
 }
-.c-today h2 {
-  background: #fcf2e5ef;
-  color: #503a4d;
-  padding: 7px 14px;
-  border-radius: 10px;
-  font-size: 17px;
+.c-today-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #f6ead8;
+  padding: 0 2px;
+  height: 30px;
+  flex: none;
+  text-shadow: 0 1px 4px #26152d;
+}
+.c-today-heading h2 {
+  font-family: var(--serif);
+  font-size: 21px;
+  letter-spacing: 3px;
   margin: 0;
 }
-.c-offers {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
+.c-today-heading > span {
+  font-size: 12px;
 }
-
-/* ── 依頼状。ボタンではなく紙にする ───────────────────────── */
+.c-offers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
 .c-slip {
   position: relative;
-  background:
-    linear-gradient(#fffdf7, #fbf3e4) padding-box,
-    #d9c7ae border-box;
-  border: 1px solid #d9c7ae;
-  border-left: 6px solid #bfae99;
-  border-radius: 4px 10px 10px 4px;
+  background: linear-gradient(135deg, #fffaf0, #f4e9d6);
+  border: 1px solid #ceb996;
+  border-radius: 3px;
   box-shadow:
-    0 1px 0 #ffffffcc inset,
-    0 2px 5px #3a2a3a1f;
-  overflow: hidden;
+    0 1px 0 #fff9 inset,
+    0 5px 13px #22102435;
+  min-width: 0;
 }
-.c-slip.c-clean {
-  border-left-color: #6f8a62;
-}
-.c-slip.c-paid {
-  border-left-color: #9e5470;
-}
-.c-slip.c-rest {
-  border-left-color: #8d8296;
-  background: linear-gradient(#f7f1e6, #efe6d7);
-}
-.c-slip.c-shut {
-  filter: saturate(0.55);
-  opacity: 0.7;
-}
-/* 地の紋。読む前に「何を差し出す依頼か」が絵で分かる。 */
-.c-slip-seal {
+.c-request-card::after {
+  content: "";
   position: absolute;
-  right: 128px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 74px;
-  height: 74px;
-  fill: #7a5f6c;
-  opacity: 0.1;
+  inset: 6px;
+  border: 1px solid #b59a702b;
   pointer-events: none;
-}
-.c-slip.c-clean .c-slip-seal {
-  fill: #4e6b45;
-  opacity: 0.08;
 }
 .c-slip-face {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 13px;
   width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
   border: 0;
+  border-radius: inherit;
   background: none;
+  color: #402f42;
   text-align: left;
-  padding: 9px 15px 9px 11px;
+  padding: 16px 19px 12px;
   font-size: 13px;
 }
-.c-slip-face:disabled {
-  cursor: default;
+.c-slip-face:hover {
+  background: #ffffff30;
 }
-/* 種別の札。紙に貼られた小さなラベル。 */
-.c-slip-kind {
+.c-slip-face:focus-visible {
+  outline: 3px solid #e1bb6f;
+  outline-offset: 3px;
+}
+.c-slip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 33px;
   flex: none;
-  width: 40px;
-  padding: 3px 0;
-  border-radius: 3px;
-  background: #efe3d0;
-  border: 1px solid #ddcbb2;
-  color: #6b5a63;
+}
+.c-slip-kind {
   font-family: var(--serif);
+  color: #80634c;
+  letter-spacing: 3px;
   font-size: 12px;
-  text-align: center;
-  letter-spacing: 1px;
 }
-.c-slip.c-paid .c-slip-kind {
-  background: #f4e0e6;
-  border-color: #e0bfc9;
-  color: #8b4a63;
+.c-wax {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #854964;
+  color: #f3d8d8;
+  box-shadow:
+    inset 0 0 0 3px #a3677866,
+    0 2px 3px #3d213233;
 }
-.c-slip.c-clean .c-slip-kind {
-  background: #e6eddf;
-  border-color: #c8d6bd;
-  color: #4e6b45;
+.c-wax-関係 {
+  background: #526c58;
+  color: #e1e8d6;
+}
+.c-wax-品位 {
+  background: #876b3e;
+  color: #f7e5ba;
+}
+.c-wax-威厳 {
+  background: #536580;
+  color: #e2e7f0;
+}
+.c-wax .mark {
+  width: 21px;
+  height: 21px;
+  fill: currentColor;
+}
+.c-slip-seal {
+  position: absolute;
+  right: 23px;
+  top: 93px;
+  width: 85px;
+  height: 85px;
+  fill: #715768;
+  opacity: 0.055;
+  pointer-events: none;
 }
 .c-slip-main {
-  flex: 1;
+  display: block;
   min-width: 0;
 }
-.c-slip-main b {
-  display: block;
-  font-family: var(--serif);
-  font-size: 17px;
-  line-height: 1.3;
-  color: #402f42;
+.c-request-card .c-slip-main {
+  margin: 12px 0 8px;
+  flex: 1;
 }
 .c-slip-main small {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 2px;
-  font-size: 11px;
-  color: #8b7366;
+  gap: 8px;
+  font-size: 12px;
+  color: #7a605d;
 }
-.c-slip-main small i {
-  font-style: normal;
-  opacity: 0.8;
-}
-.c-slip-main small i::before {
-  content: "・";
-}
-/* 受け取る額と、残りの体力をどれだけ食うか。 */
-.c-slip-pay {
+.c-slip-main .sym-rings {
   flex: none;
-  width: 104px;
-  text-align: right;
+  color: #936b73;
+}
+.c-slip-main b {
+  display: block;
+  font-family: var(--serif);
+  font-size: 23px;
+  line-height: 1.6;
+  color: #402f42;
+  font-weight: 600;
+}
+.c-request-card .c-slip-main b {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.c-slip-terms {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #c6b19399;
+  flex: none;
+}
+.c-slip-pay {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  color: #49384b;
 }
 .c-slip-pay > b {
   font-family: var(--serif);
-  font-size: 19px;
-  color: #402f42;
+  font-size: 26px;
+  font-weight: 600;
+}
+.c-slip-pay > b small {
+  font-size: 12px;
+  margin-left: 3px;
+}
+.c-slip-pay > .c-coin {
+  width: 11px;
+  height: 11px;
+  color: #987847;
+}
+.c-discount {
+  font-size: 10px;
+  color: #9c4f61;
 }
 .c-slip-stamina {
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 4px;
-  margin-top: 3px;
-  font-size: 11px;
-  color: #8b7366;
+  font-size: 14px;
+  color: #806849;
+}
+.c-slip-stamina > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 .c-slip-stamina .mark {
-  width: 11px;
-  height: 11px;
+  width: 15px;
+  height: 15px;
   fill: currentColor;
   flex: none;
 }
 .c-slip-stamina .c-gauge {
-  width: 34px;
-  height: 5px;
-  background: #00000018;
+  width: 51px;
+  height: 4px;
+  background: #48382d1c;
 }
 .c-slip-stamina .c-gauge > i {
-  background: #b99a6a;
+  background: #ad8f5c;
 }
 .c-slip-stamina .c-gauge > i.c-over {
-  background: #b4685c;
+  background: #ad4b56;
 }
-.c-slip > .sym-tag {
-  position: absolute;
-  right: 12px;
-  bottom: 7px;
+.c-slip-costline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-height: 41px;
+  padding: 5px 0;
 }
+.c-slip-costline .c-costs {
+  gap: 9px;
+}
+.c-slip-costline .c-costs.c-free {
+  color: #5c7155;
+  font-size: 12px;
+}
+.c-slip-costline .c-cost small {
+  font-size: 13px;
+  color: inherit;
+  margin: 0;
+}
+.c-cap-note {
+  font-size: 10px;
+  color: #914f3d;
+  white-space: nowrap;
+}
+.c-slip-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid #c6b19370;
+  padding-top: 9px;
+  font-size: 11px;
+  color: #796156;
+  flex: none;
+}
+.c-slip-foot > span:last-child {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.c-consequence {
+  color: #915668;
+}
+.c-unavailable {
+  color: #9e4354;
+  font-weight: 600;
+}
+.c-request-card.c-shut {
+  background: linear-gradient(135deg, #efe9df, #e3dbce);
+}
+.c-shut .c-slip-kind,
+.c-shut .c-slip-pay {
+  color: #7f706c;
+}
+.c-shut .c-wax {
+  filter: saturate(0.5);
+}
+.c-slip.c-rest {
+  flex: none;
+  height: 54px;
+  background: linear-gradient(100deg, #f6eddf, #e5d8c5);
+  border-color: #bfa98c;
+}
+.c-rest .c-slip-face {
+  flex-direction: row;
+  align-items: center;
+  gap: 18px;
+  padding: 9px 19px;
+}
+.c-rest .c-slip-main {
+  flex: 1;
+}
+.c-rest .c-slip-main b {
+  font-size: 17px;
+  letter-spacing: 1px;
+}
+.c-rest .c-slip-seal {
+  right: 180px;
+  top: 3px;
+  width: 46px;
+  height: 46px;
+}
+.c-rest-day {
+  color: #806d67;
+  font-size: 12px;
+}
+.c-rest .c-slip-stamina {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.c-rest .c-slip-stamina .c-gauge {
+  width: 48px;
+}
+.c-rest .c-slip-stamina .c-gauge > i {
+  background: #7c946c;
+}
+
 /* 差し出すもの。紋と、払ったあとの値。 */
 .c-costs {
   display: flex;
@@ -1258,22 +1408,29 @@ body {
   flex: none;
 }
 
-/* ── 手元。いま管理しているものを1枚に集める ───────────────── */
+/* ── 立ち絵の裾に重なる手元 ────────────────────────────── */
+.c-axis-label {
+  display: none;
+}
 .c-ledger {
-  margin-top: auto;
-  background: #2e2434d9;
+  position: relative;
+  width: 100%;
+  background: #2e2434ef;
   color: #f4e7d8;
-  border: 1px solid #6b5a6b;
-  border-radius: 11px;
-  padding: 6px 13px;
+  border: 1px solid #8f738269;
+  border-radius: 5px;
+  padding: 12px 12px 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 10px;
 }
 .c-ledger-row {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+}
+.c-ledger-top {
+  justify-content: space-between;
 }
 .c-ledger .mark {
   fill: currentColor;
@@ -1282,91 +1439,93 @@ body {
 .c-res {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   font-size: 11px;
+}
+.c-res small {
+  font-size: 11px;
+  color: #dec9d6;
 }
 .c-res .mark {
   width: 15px;
   height: 15px;
 }
 .c-res .c-gauge {
-  width: 78px;
-  height: 7px;
+  width: 30px;
+  height: 5px;
 }
 .c-res b {
   font-family: var(--serif);
-  font-size: 15px;
-}
-.c-res-money {
-  margin-left: 2px;
+  font-size: 16px;
 }
 .c-coin {
+  display: inline-block;
   width: 13px;
   height: 13px;
   border-radius: 50%;
   border: 2px solid currentColor;
-  opacity: 0.85;
   flex: none;
 }
-.c-res-quota {
-  margin-left: auto;
-}
-.c-res-quota small {
-  color: #cdb4c4;
-  font-size: 11px;
-}
-.c-res-quota .c-gauge > i.c-met {
-  background: linear-gradient(90deg, #86a877, #a9c79a);
-}
 .c-ledger-axes {
-  gap: 14px;
-  border-top: 1px solid #ffffff1f;
-  border-bottom: 1px solid #ffffff1f;
-  padding: 3px 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 9px;
+  border-top: 1px solid #ffffff20;
+  padding-top: 10px;
 }
 .c-ledger-axes .c-ax {
-  flex: 1;
   margin: 0;
   gap: 6px;
 }
+.c-ledger-axes .c-axis-label {
+  display: inline;
+  font-size: 11px;
+  color: #eed5df;
+}
 .c-ledger-axes .c-ax .c-gauge {
-  flex: none;
-  width: 62px;
+  height: 5px;
+  flex: 1;
 }
 .c-ledger-axes .c-ax em {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: #d6c2cf;
+  font-size: 10px;
+  color: #dbc6d3;
+  width: 104px;
+  text-align: right;
 }
-.c-ledger-bonds {
-  gap: 10px;
-  font-size: 10.5px;
+.c-ledger-axes .c-ax-貞操 > .mark {
+  color: #e2a8c3;
 }
-.c-ledger-bonds > .mark {
-  width: 14px;
-  height: 14px;
-  opacity: 0.8;
+.c-ledger-axes .c-ax-品位 > .mark {
+  color: #e2c58b;
 }
-.c-bond {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: #e6d5e0;
-  white-space: nowrap;
-}
-.c-bond .sym-rings {
-  color: #e0b6c8;
+.c-ledger-axes .c-ax-威厳 > .mark {
+  color: #adc5e4;
 }
 .c-trace-link {
-  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
   border: 0;
+  border-top: 1px solid #ffffff20;
   background: none;
-  color: #d6bccb;
+  color: #e9d6e2;
   font-size: 11px;
-  padding: 2px 0;
+  padding: 8px 0;
+}
+.c-trace-link > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.c-trace-link .mark {
+  width: 16px;
+  height: 16px;
+}
+.c-trace-link > span:last-child {
+  color: #d4bccc;
 }
 
 /* 依頼状。本文は内側でスクロールし、操作列は最終行に置く。 */

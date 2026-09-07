@@ -3,6 +3,7 @@ import { BookOpen, Moon, Settings } from "lucide-react";
 import {
   axes,
   axisStage,
+  capDropOf,
   CHAPTER_DAYS,
   jobs,
   personOf,
@@ -34,7 +35,7 @@ import { catalogCounts, routes, type Route, type SceneEntry } from "./scenes";
 import { clearGallery, loadGallery, recordScenes } from "./gallery";
 import { Art, Modal } from "./ui/shell";
 import { Mark } from "./marks";
-import { Rings, StateTag } from "./ui/symbols";
+import { Rings } from "./ui/symbols";
 import { Dialogue } from "./ui/scene";
 import { backgroundSrc, heroSrc } from "./art";
 import { fullscreenSupported, useFullscreen } from "./ui/fullscreen";
@@ -85,6 +86,7 @@ function Axis({ axis, s }: { axis: AxisName; s: DailyState }) {
   return (
     <div className={`c-ax c-ax-${axis}`}>
       <Mark name={axis} label={axis} />
+      <span className="c-axis-label">{axis}</span>
       <span className="c-gauge">
         <i style={{ width: `${s.axes[axis]}%` }} />
         {axis === "品位" && s.dignityCap < 100 && (
@@ -103,46 +105,31 @@ function Axis({ axis, s }: { axis: AxisName; s: DailyState }) {
 /**
  * 手元にあるもの一覧。**いま自分が管理している資源を1枚に集める。**
  * 散らばっていると「あと何日で何G、そのとき何が閉じているか」が繋がらない。
- * 体力・金・章の返済・三軸・相手との関係・失った依頼を、同じ枠の中で読ませる。
+ * 体力・金・三軸は立ち絵の裾へ。関係は依頼状と台帳、期限はHUDで読む。
  */
 function Ledger({
   s,
-  due,
   traces,
   onJournal,
 }: {
   s: DailyState;
-  due: number;
   traces: number;
   onJournal: () => void;
 }) {
-  const left = CHAPTER_DAYS - s.day + 1;
-  const known = [...new Set(jobs.map((j) => j.person))].filter(
-    (p) => !personOf(p).requiresUnlock || s.unlocked.includes(p),
-  );
   return (
     <section className="c-ledger" aria-label="手元">
       <div className="c-ledger-row c-ledger-top">
         <span className="c-res">
-          <Mark name="体力" label="体力" />
+          <Mark name="体力" decorative />
+          <small>体力</small>
           <span className="c-gauge">
             <i style={{ width: `${s.stamina}%` }} />
           </span>
           <b>{s.stamina}</b>
         </span>
         <span className="c-res c-res-money">
-          <i className="c-coin" aria-hidden="true" />
+          <i className="c-coin" aria-label="所持金" role="img" />
           <b>{gold(s.money)}</b>
-        </span>
-        <span className="c-res c-res-quota">
-          <small>章末まで {left}日</small>
-          <span className="c-gauge">
-            <i
-              className={s.money >= due ? "c-met" : ""}
-              style={{ width: `${Math.min(100, (s.money / due) * 100)}%` }}
-            />
-          </span>
-          <b>{gold(due)}</b>
         </span>
       </div>
       <div className="c-ledger-row c-ledger-axes">
@@ -150,21 +137,12 @@ function Ledger({
           <Axis key={a} axis={a} s={s} />
         ))}
       </div>
-      <div className="c-ledger-row c-ledger-bonds">
-        <Mark name="関係" label="関係" />
-        {known.map((p) => (
-          <span className="c-bond" key={p} title={personOf(p).name}>
-            {personOf(p).short}
-            <Rings
-              stage={s.relations[p]}
-              label={`${personOf(p).name} ${s.relations[p]}／3`}
-            />
-          </span>
-        ))}
-        <button className="c-trace-link" onClick={onJournal}>
-          {traces > 0 ? `失った依頼 ${traces}件` : "台帳"} ▸
-        </button>
-      </div>
+      <button className="c-trace-link" onClick={onJournal}>
+        <span>
+          <Mark name="関係" decorative /> 台帳
+        </span>
+        <span>{traces > 0 ? `紹介停止 ${traces}件` : "関係・記録"} →</span>
+      </button>
     </section>
   );
 }
@@ -263,19 +241,28 @@ function Gallery({
 }
 
 /** 何を差し出すか。紋と「払ったあとの値」を並べる（§5「隠して受けさせない」）。 */
-function Costs({ job, s }: { job: Job; s: DailyState }) {
+function Costs({
+  job,
+  s,
+  compact = false,
+}: {
+  job: Job;
+  s: DailyState;
+  compact?: boolean;
+}) {
   if (!job.costs.length)
     return (
       <span className="c-costs c-free">
         <Mark name="関係" decorative />
-        差し出すものはない
+        {compact ? "三値 −0" : "差し出すものはない"}
       </span>
     );
   return (
-    <span className="c-costs">
+    <span className={`c-costs ${compact ? "c-costs-compact" : ""}`}>
       {job.costs.map((c) => (
         <span key={c.axis} className={`c-cost c-cost-${c.axis}`}>
-          <Mark name={c.axis} label={c.axis} />−{c.amount}
+          <Mark name={c.axis} label={c.axis} />
+          {!compact && `−${c.amount}`}
           <small>
             {s.axes[c.axis]}→{Math.max(0, s.axes[c.axis] - c.amount)}
           </small>
@@ -295,7 +282,7 @@ const sealOf = (job: Job): "貞操" | "品位" | "威厳" | "関係" =>
  * 種別の札、地の紋（透かし）、相手と関係の輪、差し出すものの紋、
  * 受け取る額、そして「残りの体力のどれだけを食うか」を1枚に並べる。
  */
-function OfferRow({
+function OfferCard({
   job,
   s,
   onOpen,
@@ -307,63 +294,109 @@ function OfferRow({
   const reason = takeReason(job, s),
     tired = !!reason && reason.startsWith("体力"),
     cost = staminaOf(job),
-    bite = Math.min(100, (cost / Math.max(1, s.stamina)) * 100);
+    bite = Math.min(100, (cost / Math.max(1, s.stamina)) * 100),
+    closed = closingPreview(job, s).length,
+    cap = capDropOf(job),
+    discounted = fatigueRateOf(job.person, s) < 1;
   return (
     <article
-      className={`c-slip ${job.costs.length ? "c-paid" : "c-clean"} ${reason ? "c-shut" : ""}`}
+      className={`c-slip c-request-card ${job.costs.length ? "c-paid" : "c-clean"} ${reason ? "c-shut" : ""}`}
     >
-      <button className="c-slip-face" onClick={onOpen} disabled={!!reason}>
+      <button
+        type="button"
+        className="c-slip-face"
+        onClick={onOpen}
+        aria-label={`${job.title}の依頼状を読む。${personOf(job.person).name}、関係${s.relations[job.person]}／3。受け取る${gold(payOf(job, s))}、体力${cost}消費。${job.costs.length ? job.costs.map((c) => `${c.axis}${s.axes[c.axis]}から${Math.max(0, s.axes[c.axis] - c.amount)}`).join("、") : "三値の低下なし"}。${cap ? `品位上限−${cap}。` : ""}${discounted ? "値引きあり。" : ""}${closed ? `紹介停止${closed}件。` : ""}${reason ?? ""}`}
+      >
         <Mark name={sealOf(job)} className="c-slip-seal" decorative />
-        <span className="c-slip-kind">{job.kind}</span>
+        <span className="c-slip-head">
+          <span className="c-slip-kind">{job.kind}</span>
+          <span className={`c-wax c-wax-${sealOf(job)}`}>
+            <Mark name={sealOf(job)} decorative />
+          </span>
+        </span>
         <span className="c-slip-main">
-          <b>{job.title}</b>
           <small>
             {personOf(job.person).name}
-            {s.relations[job.person] > 0 && (
-              <Rings
-                stage={s.relations[job.person]}
-                label={`${personOf(job.person).name}との関係 ${s.relations[job.person]}／3`}
-              />
-            )}
-            <i>{placeOf(personOf(job.person).place).short}</i>
+            <Rings
+              stage={s.relations[job.person]}
+              label={`${personOf(job.person).name}との関係 ${s.relations[job.person]}／3`}
+            />
           </small>
+          <b>{job.title}</b>
         </span>
-        <Costs job={job} s={s} />
-        <span className="c-slip-pay">
-          <b>{gold(payOf(job, s))}</b>
-          <span className="c-slip-stamina" title={`体力 ${cost}`}>
-            <Mark name="体力" decorative />
+        <span className="c-slip-terms">
+          <span
+            className="c-slip-pay"
+            aria-label={`受け取る ${gold(payOf(job, s))}${discounted ? "、通い詰めによる値引きあり" : ""}`}
+          >
+            <i className="c-coin" aria-hidden="true" />
+            <b>
+              {payOf(job, s).toLocaleString()}
+              <small>G</small>
+            </b>
+            {discounted && (
+              <span className="c-discount" aria-hidden="true">
+                ▼
+              </span>
+            )}
+          </span>
+          <span
+            className="c-slip-stamina"
+            aria-label={`体力 ${cost}消費、${s.stamina}から${Math.max(0, s.stamina - cost)}${tired ? "、体力不足" : ""}`}
+          >
+            <span>
+              <Mark name="体力" label="体力" />−{cost}
+            </span>
             <span className="c-gauge">
               <i
                 className={tired ? "c-over" : ""}
                 style={{ width: `${bite}%` }}
               />
             </span>
-            {cost}
           </span>
         </span>
+        <span className="c-slip-costline">
+          <Costs job={job} s={s} compact />
+          {cap > 0 && (
+            <span
+              className="c-cap-note"
+              aria-label={`品位上限が${cap}下がる。戻らない`}
+            >
+              上限 −{cap}
+            </span>
+          )}
+        </span>
+        <span className="c-slip-foot">
+          <span className={reason ? "c-unavailable" : "c-consequence"}>
+            {reason
+              ? tired
+                ? "体力不足"
+                : reason
+              : closed > 0
+                ? `紹介停止 ${closed}件`
+                : ""}
+          </span>
+          <span>読む →</span>
+        </span>
       </button>
-      {reason && <StateTag kind={tired ? "brew" : "shut"}>{reason}</StateTag>}
     </article>
   );
 }
 
-/** 「今日は受けない」。同じ依頼状の形で並べ、選択肢の一つとして見せる（§6）。 */
+/** 3枚の下に置く休養の札。体力回復と1日の消費を短く並べる（§6）。 */
 function RestRow({ s, onPick }: { s: DailyState; onPick: () => void }) {
   return (
     <article className="c-slip c-rest">
-      <button className="c-slip-face" onClick={onPick}>
+      <button type="button" className="c-slip-face" onClick={onPick}>
         <Mark name="体力" className="c-slip-seal" decorative />
-        <span className="c-slip-kind">休む</span>
         <span className="c-slip-main">
           <b>今日は受けない</b>
-          <small>何も払わない。1日だけを使う</small>
         </span>
-        <span className="c-costs c-free">差し出すものはない</span>
+        <span className="c-rest-day">1日</span>
         <span className="c-slip-pay">
-          <b>±0G</b>
           <span className="c-slip-stamina">
-            <Mark name="体力" decorative />
+            <Mark name="体力" label="体力" />
             <span className="c-gauge">
               <i className="c-met" style={{ width: "100%" }} />
             </span>
@@ -509,6 +542,15 @@ export default function DailyApp() {
   const sheetJob = ui.sheet ? jobs.find((j) => j.id === ui.sheet) : undefined;
   const due = s ? quotaOf(s) : 0;
   const traces = s ? tracesOf(s) : [];
+  const showToday = !!(
+    started &&
+    s &&
+    ui.tab === "today" &&
+    !sheetJob &&
+    !gallery &&
+    !s.awaitingSettlement &&
+    !s.ended
+  );
 
   return (
     <>
@@ -516,13 +558,7 @@ export default function DailyApp() {
         /* c-title は `display:block` ＋ 全面の覆い（:before）なので、回想を出すあいだは外す。
            付けたままだと回想が縦に伸びて器からはみ出し、覆いが触りを全部吸ってしまう。 */
         className={`chapter-app ${
-          !started
-            ? gallery
-              ? ""
-              : "c-title"
-            : ui.tab === "today" && !sheetJob
-              ? "c-home"
-              : ""
+          !started ? (gallery ? "" : "c-title") : showToday ? "c-home" : ""
         }`}
         style={{
           backgroundImage: `url(${backgroundSrc(!started ? "title" : "home")})`,
@@ -571,7 +607,7 @@ export default function DailyApp() {
                 <small>第{s.chapter}章</small>
               </button>
               {/* 今日の画面は「手元」が持つので、HUDでは繰り返さない。 */}
-              {!(ui.tab === "today" && !sheetJob) && (
+              {!showToday && (
                 <>
                   <span className="c-stamina">
                     <Mark name="体力" label="体力" />
@@ -604,7 +640,13 @@ export default function DailyApp() {
                   alt="エレオノール・ラティエ"
                 />
                 {/* 今日の画面は「手元」パネルが軸を持つので、裾には重ねない。 */}
-                {!(ui.tab === "today" && !sheetJob) && (
+                {showToday ? (
+                  <Ledger
+                    s={s}
+                    traces={traces.length}
+                    onJournal={() => patch({ tab: "journal" })}
+                  />
+                ) : (
                   <div className="c-axes">
                     {axes.map((a) => (
                       <Axis key={a} axis={a} s={s} />
@@ -612,7 +654,7 @@ export default function DailyApp() {
                   </div>
                 )}
               </aside>
-              {!(ui.tab === "today" && !sheetJob) && (
+              {!showToday && (
                 <nav className="c-nav">
                   <button
                     className={ui.tab === "today" ? "selected" : ""}
@@ -797,10 +839,13 @@ export default function DailyApp() {
                   </div>
                 ) : (
                   <div className="c-today">
-                    <h2>今日は、何をしましょうか。</h2>
+                    <header className="c-today-heading">
+                      <h2>本日の依頼状</h2>
+                      <span>{offers.length}通</span>
+                    </header>
                     <div className="c-offers">
                       {offers.map((job) => (
-                        <OfferRow
+                        <OfferCard
                           key={job.id}
                           job={job}
                           s={s}
@@ -812,14 +857,8 @@ export default function DailyApp() {
                           今日は誰からも声がかからない。
                         </p>
                       )}
-                      <RestRow s={s} onPick={() => setPending("rest")} />
                     </div>
-                    <Ledger
-                      s={s}
-                      due={due}
-                      traces={traces.length}
-                      onJournal={() => patch({ tab: "journal" })}
-                    />
+                    <RestRow s={s} onPick={() => setPending("rest")} />
                   </div>
                 )}
               </main>

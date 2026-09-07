@@ -110,11 +110,77 @@ try {
   const ledger = page.locator(".c-ledger");
   assert.equal(await ledger.count(), 1);
   assert.equal(await ledger.locator(".c-ax").count(), 3, "三軸");
-  assert((await ledger.locator(".c-bond").count()) >= 6, "相手ごとの関係");
-  assert(
-    (await ledger.locator(".c-res").count()) >= 3,
-    "体力・所持金・章の返済",
+  assert.equal(
+    await page.locator(".c-request-card .sym-rings").count(),
+    3,
+    "関係は各依頼人の横に輪で表示",
   );
+  assert(
+    (await ledger.locator(".c-res").count()) === 2,
+    "体力・所持金。返済と期限はHUDへ集約",
+  );
+
+  /* 3枚が横一列で揃い、休養は下、状態は立ち絵側。全端末で主要操作が収まる。 */
+  for (const [width, height] of [
+    [1440, 900],
+    [1920, 1080],
+    [851, 337],
+    [800, 304],
+    [390, 844],
+  ]) {
+    await page.setViewportSize({ width, height });
+    await page.waitForTimeout(100);
+    const layout = await page.evaluate(() => {
+      const box = (e) => {
+        const r = e.getBoundingClientRect();
+        return {
+          left: r.left,
+          right: r.right,
+          top: r.top,
+          bottom: r.bottom,
+          width: r.width,
+          height: r.height,
+        };
+      };
+      return {
+        app: box(document.querySelector(".chapter-app")),
+        cards: [...document.querySelectorAll(".c-request-card")].map(box),
+        rest: box(document.querySelector(".c-rest")),
+        ledger: box(document.querySelector(".c-ledger")),
+      };
+    });
+    const { app, cards, rest, ledger } = layout;
+    assert.equal(cards.length, 3);
+    assert(
+      cards.every((c) => Math.abs(c.top - cards[0].top) < 1),
+      "依頼状3枚が横一列",
+    );
+    assert(
+      cards.every(
+        (c) => c.height / c.width > 0.85 && c.height / c.width < 1.25,
+      ),
+      "ほぼ正方形の依頼状",
+    );
+    assert(
+      cards[0].right < cards[1].left && cards[1].right < cards[2].left,
+      "カードが重ならない",
+    );
+    assert(
+      ledger.right < cards[0].left && rest.top > cards[0].bottom,
+      "状態は左、休養はカードの下",
+    );
+    assert(
+      [...cards, rest, ledger].every(
+        (r) =>
+          r.left >= app.left &&
+          r.right <= app.right + 1 &&
+          r.top >= app.top &&
+          r.bottom <= app.bottom + 1,
+      ),
+      `${width}×${height}で主要操作が器内`,
+    );
+  }
+  await page.setViewportSize({ width: 1366, height: 768 });
 
   /* 1件選ぶ → 依頼状 → 確認 → 場面 → 結果 → 翌日 */
   await tap(page.locator(".c-slip .c-slip-face").first());
@@ -157,6 +223,24 @@ try {
   assert.equal(afterRest.day, 3);
   assert.equal(afterRest.stamina, 100);
   assert.equal(afterRest.money, afterJob.money);
+
+  /* 体力不足でも条件は読める。受諾は止め、詳細を開いただけで日を進めない。 */
+  await page.evaluate(() => {
+    const key = "ikusei-prototype-save-v14";
+    const s = JSON.parse(localStorage.getItem(key));
+    s.stamina = 0;
+    localStorage.setItem(key, JSON.stringify(s));
+  });
+  await page.reload();
+  await tap(button("続きから"));
+  assert.equal(await page.locator(".c-request-card.c-shut").count(), 3);
+  await tap(page.locator(".c-request-card .c-slip-face").first());
+  assert(
+    await button("この依頼を受ける").isDisabled(),
+    "体力不足では受諾できない",
+  );
+  assert.equal((await read()).day, afterRest.day, "条件を読んでも日は進まない");
+  await tap(button("戻る"));
 
   /* 回想。目録は全53枚（依頼24・関係21・結末8）で、見たものだけ開ける。 */
   await tap(page.locator(".c-hud button").first());
