@@ -33,13 +33,17 @@ import { paperSound } from "./paperAudio";
 import type { ReadingSettings } from "./scene";
 
 export const reformArt = {
-  plaque: artAssetSrc("ui/reform/character-plaque.png"),
-  binding: artAssetSrc("ui/reform/journal-binding.png"),
-  window: artAssetSrc("ui/reform/ornate-window.png"),
-  room: artAssetSrc("ui/reform/study.png"),
-  paper: artAssetSrc("ui/reform/letter.png"),
-  book: artAssetSrc("ui/reform/open-book.png"),
-  closedBook: artAssetSrc("ui/reform/closed-book.png"),
+  plaque: artAssetSrc("ui/portrait/status-notebook.svg"),
+  binding: artAssetSrc("ui/portrait/header.svg"),
+  window: artAssetSrc("ui/portrait/header.svg"),
+  room: artAssetSrc("ui/portrait/study.png"),
+  paper: artAssetSrc("ui/portrait/letter.svg"),
+  book: artAssetSrc("ui/portrait/open-book.svg"),
+  closedBook: artAssetSrc("ui/portrait/closed-book.svg"),
+  mat: artAssetSrc("ui/portrait/writing-mat.svg"),
+  button: artAssetSrc("ui/portrait/button.svg"),
+  bookmark: artAssetSrc("ui/portrait/bookmark.svg"),
+  wax: artAssetSrc("ui/portrait/wax.svg"),
   hero: artAssetSrc("ui/reform/hero.png"),
 };
 const gold = (n: number) => `${n.toLocaleString()}G`;

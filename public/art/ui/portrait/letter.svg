@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="258" height="282" viewBox="0 0 258 282" preserveAspectRatio="none" fill="none"><defs>
+  <linearGradient id="cover" x2="0" y2="1"><stop stop-color="#453b46"/><stop offset="1" stop-color="#36323d"/></linearGradient>
+  <linearGradient id="paper" x2="0.7" y2="1"><stop stop-color="#fff8ed"/><stop offset="1" stop-color="#f4e9d9"/></linearGradient>
+  <linearGradient id="gutter"><stop stop-color="#b8a597" stop-opacity="0"/><stop offset=".5" stop-color="#a59485" stop-opacity=".4"/><stop offset="1" stop-color="#b8a597" stop-opacity="0"/></linearGradient>
+</defs>
+ <path d="M8 6H249Q254 6 254 12V273Q254 279 248 279H8Q3 279 3 273V12Q3 6 8 6Z" fill="#d0beaa" stroke="#66554f" stroke-width=".75"/>
+ <path d="M8 2H247Q252 2 252 8V247L229 275H8Q3 275 3 269V8Q3 2 8 2Z" fill="url(#paper)" stroke="#61514c" stroke-width=".8"/>
+ <path d="M8 4H246M5 10V268" stroke="#fffdf7" stroke-width="1.1"/>
+ <path d="M130 3L251 109" stroke="#cab9a6" stroke-width=".45" opacity=".58"/>
+ <path d="M4 154H251" stroke="#cfbfae" stroke-width=".65" opacity=".32"/>
+ <path d="M227 275Q239 264 252 247L231 257Z" fill="#dfd0bd"/>
+ <path d="M229 275Q234 265 231 254Q240 255 252 247" fill="#fffaf0" stroke="#ae9a86" stroke-width=".7"/>
+ <path d="M231 260L239 265L229 272Z" fill="#a76e88"/></svg>

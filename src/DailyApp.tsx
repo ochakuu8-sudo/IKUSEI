@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Settings } from "lucide-react";
+import { BookOpen, MoonStar, Settings } from "lucide-react";
 import {
   axes,
   axisStage,
@@ -507,7 +507,7 @@ function RestRow({ s, onPick }: { s: DailyState; onPick: () => void }) {
   return (
     <article className="c-slip c-rest">
       <button type="button" className="c-slip-face" onClick={onPick}>
-        <Mark name="体力" className="c-slip-seal" decorative />
+        <MoonStar className="c-slip-seal" aria-hidden="true" />
         <span className="c-slip-main">
           <b>今日は受けない</b>
         </span>
@@ -734,6 +734,10 @@ export default function DailyApp() {
       `url("${reformArt.binding}")`,
     );
     document.documentElement.style.setProperty(
+      "--stationery-button",
+      `url("${reformArt.button}")`,
+    );
+    document.documentElement.style.setProperty(
       "--reform-room",
       `url("${reformArt.room}")`,
     );
@@ -924,6 +928,10 @@ export default function DailyApp() {
             "--reform-window": `url("${reformArt.window}")`,
             "--character-plaque": `url("${reformArt.plaque}")`,
             "--journal-binding": `url("${reformArt.binding}")`,
+            "--writing-mat": `url("${reformArt.mat}")`,
+            "--stationery-button": `url("${reformArt.button}")`,
+            "--letter-bookmark": `url("${reformArt.bookmark}")`,
+            "--manor-wax": `url("${reformArt.wax}")`,
             backgroundImage: `url("${reformArt.room}")`,
           } as React.CSSProperties
         }
@@ -1018,7 +1026,7 @@ export default function DailyApp() {
                   className="r-gallery-shortcut"
                   onClick={() => setGallery(true)}
                 >
-                  回想
+                  <BookOpen size={22} aria-hidden="true" /> 回想
                 </Button>
                 <Button aria-label="設定" onClick={() => setSettings(true)}>
                   <Settings size={19} />
@@ -1104,12 +1112,13 @@ export default function DailyApp() {
                         type="button"
                         className="c-book"
                         onClick={openJournal}
+                        aria-label={`返済帳・台帳${traces.length ? `、紹介停止 ${traces.length}件` : ""}`}
                       >
                         <span className="c-book-pages" aria-hidden="true" />
                         <span className="c-book-spine" aria-hidden="true" />
                         <span className="c-book-cover">
                           <span className="c-book-ribbon" aria-hidden="true" />
-                          <span className="c-book-label">返済帳・台帳</span>
+                          <span className="c-book-label">台帳</span>
                           {traces.length > 0 && (
                             <small>紹介停止 {traces.length}件</small>
                           )}

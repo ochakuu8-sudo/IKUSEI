@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="850" height="92" viewBox="0 0 850 92" preserveAspectRatio="none" fill="none"><defs>
+  <linearGradient id="cover" x2="0" y2="1"><stop stop-color="#453b46"/><stop offset="1" stop-color="#36323d"/></linearGradient>
+  <linearGradient id="paper" x2="0.7" y2="1"><stop stop-color="#fff8ed"/><stop offset="1" stop-color="#f4e9d9"/></linearGradient>
+  <linearGradient id="gutter"><stop stop-color="#b8a597" stop-opacity="0"/><stop offset=".5" stop-color="#a59485" stop-opacity=".4"/><stop offset="1" stop-color="#b8a597" stop-opacity="0"/></linearGradient>
+</defs>
+ <path d="M23 5H827Q836 5 836 15Q848 27 848 46Q848 65 836 77Q836 87 827 87H23Q14 87 14 77Q2 65 2 46Q2 27 14 15Q14 5 23 5Z" fill="#241f2b"/>
+ <path d="M24 3H826Q835 3 835 13Q847 25 847 44Q847 63 835 75Q835 85 826 85H24Q15 85 15 75Q3 63 3 44Q3 25 15 13Q15 3 24 3Z" fill="url(#cover)" stroke="#c3ae89" stroke-width="1.5"/>
+ <path d="M25 8H825Q830 8 830 17Q841 29 841 44Q841 59 830 71Q830 80 825 80H25Q20 80 20 71Q9 59 9 44Q9 29 20 17Q20 8 25 8Z" stroke="#766673" stroke-width=".65"/>
+ <path d="M34 10H816" stroke="#dbc3a3" stroke-opacity=".18"/></svg>

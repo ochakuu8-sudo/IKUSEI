@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="58" viewBox="0 0 40 58" preserveAspectRatio="none" fill="none"><defs>
+  <linearGradient id="cover" x2="0" y2="1"><stop stop-color="#453b46"/><stop offset="1" stop-color="#36323d"/></linearGradient>
+  <linearGradient id="paper" x2="0.7" y2="1"><stop stop-color="#fff8ed"/><stop offset="1" stop-color="#f4e9d9"/></linearGradient>
+  <linearGradient id="gutter"><stop stop-color="#b8a597" stop-opacity="0"/><stop offset=".5" stop-color="#a59485" stop-opacity=".4"/><stop offset="1" stop-color="#b8a597" stop-opacity="0"/></linearGradient>
+</defs>
+ <path d="M3 3H37V56L20 48L3 56Z" fill="#342736" opacity=".2"/>
+ <path d="M2 1H36V53L19 46L2 53Z" fill="#9b647a" stroke="#694655" stroke-width=".8"/>
+ <path d="M5 3H33V48L19 42L5 48Z" stroke="#edc4c3" stroke-width=".7" opacity=".65"/>
+ <path d="M5 2H33" stroke="#ffe9d4" stroke-opacity=".5"/></svg>
