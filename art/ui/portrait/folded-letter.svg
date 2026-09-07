@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210" height="180" viewBox="0 0 210 180" preserveAspectRatio="none" fill="none"><defs>
+  <linearGradient id="cover" x2="0" y2="1"><stop stop-color="#453b46"/><stop offset="1" stop-color="#36323d"/></linearGradient>
+  <linearGradient id="paper" x2="0.7" y2="1"><stop stop-color="#fff8ed"/><stop offset="1" stop-color="#f4e9d9"/></linearGradient>
+  <linearGradient id="gutter"><stop stop-color="#b8a597" stop-opacity="0"/><stop offset=".5" stop-color="#a59485" stop-opacity=".4"/><stop offset="1" stop-color="#b8a597" stop-opacity="0"/></linearGradient>
+</defs>
+ <path d="M4 6H206V177H4Z" fill="#cbb6a5" stroke="#706064" stroke-width=".8"/>
+ <path d="M3 3H207V173H3Z" fill="url(#paper)" stroke="#8d7873" stroke-width=".8"/>
+ <path d="M4 4L105 44L206 4" fill="#ede0d1" stroke="#b6a092" stroke-width=".8"/>
+ <path d="M5 5L105 41L205 5" fill="#fff7ec"/>
+ <path d="M4 171L29 149M206 171L181 149" stroke="#c8b6a7" stroke-width=".7"/>
+ <path d="M5 175H205M6 7V169" stroke="#fffaf0" stroke-width=".8"/>
+ <g transform="translate(180 147) scale(0.34375)" fill="none" stroke="#c2a1a6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M32 14c5-4 10 0 10 5 7-1 10 5 6 10 6 5 3 12-4 13-1 7-9 9-13 4-6 4-12 0-12-6-7-2-8-10-2-14-3-6 2-12 8-10 1-4 5-5 7-2Z"/><path d="M32 22c8-2 14 6 10 12-2 6-10 9-15 4-6-2-7-11-1-14 5-3 12 1 10 6-1 5-7 5-9 1m4 10-1 10m-1-4c-5 0-8-3-8-6 5 0 8 2 8 6m2-1c5-1 8-4 8-7-5 1-7 3-8 7"/></g></svg>
