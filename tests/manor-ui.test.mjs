@@ -208,6 +208,13 @@ try {
   await page.reload();
   await button("続きから").click();
   await page.locator(".c-request-card .c-slip-face").first().click();
+  await page.keyboard.press("Escape");
+  await page.locator(".c-reading-sheet").waitFor({ state: "hidden" });
+  assert(
+    await page.locator(".c-request-card .c-slip-face").first().evaluate((e) => e === document.activeElement),
+    "通常モーションの復帰完了後も選んだ依頼にフォーカスする",
+  );
+  await page.locator(".c-request-card .c-slip-face").first().click();
   const accepted = await button("この依頼を受ける").evaluate(async (e) => {
     e.click();
     e.click();
@@ -216,9 +223,15 @@ try {
       inert: document.querySelector(".chapter-app").inert,
       ritual: !!document.querySelector(".c-ritual-sign"),
       day: JSON.parse(localStorage.getItem("ikusei-prototype-save-v14")).day,
+      displayedDay: document.querySelector(".c-hud button b").textContent,
+      displayedMoney: document.querySelector(".c-res-money b").textContent,
+      signingInsideLetter: !!document.querySelector(".c-reading-sheet .c-letter-response .c-response-stamp"),
     };
   });
-  assert.deepEqual(accepted, { inert: true, ritual: true, day: 2 });
+  assert.deepEqual(accepted, {
+    inert: true, ritual: true, day: 2, displayedDay: "1日目",
+    displayedMoney: `${samples[0].state.money.toLocaleString()}G`, signingInsideLetter: true,
+  });
   await page.reload();
   await button("続きから").click();
   assert.equal((await read()).day, 2);

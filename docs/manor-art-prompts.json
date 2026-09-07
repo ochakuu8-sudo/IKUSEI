@@ -1,0 +1,70 @@
+{
+  "date": "2026-09-07",
+  "tool": "built-in image_gen",
+  "direction": "ユーザー指定により、写実的な古紙・革から、輪郭と形を強調したデフォルメ寄りのゲーム用美術へ修正。",
+  "promptSets": {
+    "stylizedBase": [
+      [
+        "letter-noble-v2",
+        "exec-bfab8091-2115-4162-b122-dae8d4537841.png",
+        "Use case: style-transfer. Redesign this blank letter-paper asset in a CLEARLY STYLIZED, charming premium Japanese fantasy GAME UI art style. The user dislikes realistic old paper. Strong confident warm-brown outlines, simplified sculpted cartoon forms, clean cel-painted shading, saturated but elegant honey gold, ivory and muted lavender accents. Exaggerate thickness of the rounded paper edge. Replace tiny realistic rococo filigree with larger simplified gold leaf curls and small stylized rose corner ornaments, crisp hand-drawn 2D game inventory art. Gold has just three bold light/mid/shadow tones with an intentional cream highlight, NOT realistic metal texture. Paper center almost smooth warm cream, NO grunge, no photo fibers. Ornament confined to the OUTERMOST 6 percent rim, empty spacious center for interface text. Almost square portrait proportions 265:278, paper fills the entire image edge to edge, front-facing orthographic. Keep all text areas empty. NO text, numbers, lettering, seals, objects, checkerboard, drop shadows outside the paper, or background scenery. A delightful polished game asset with a visible hand-drawn silhouette, not a certificate, not a photo."
+      ],
+      [
+        "ledger-book-v2",
+        "exec-c9694c30-0726-4dcc-8adb-5ab48408d75c.png",
+        "Use case: style-transfer. Redesign this ledger as a clearly STYLIZED premium 2D Japanese fantasy GAME UI prop. User wants deformed game-like design, not realistic antique leather. A charming thick closed plum-purple book with rounded chunky corners, hand-drawn dark-plum outline, clean soft cel-shaded lavender highlights, bright buttery GOLD corner fittings and a small simple gold ROSE medallion on the left. Simplify the decorative leaves into confident bold gold curls, keep center cover empty for a game text label. Exaggerate cream paper thickness with only 3 or 4 page lines. No cracks or photo grain. Shallow top-down viewpoint, long horizontal book, approximately 4:1 overall silhouette, same broad horizontal composition as reference. The whole prop visible with narrow clear padding. Genuinely TRANSPARENT alpha background, no table, floor, scenery or external cast shadow. No text, letters, numbers, watermark, or checkered backdrop. Crisp painterly cartoon inventory asset, attractive at small size; beautiful intentional shape language, not a generic flat vector icon."
+      ]
+    ],
+    "variantsAndProps": [
+      [
+        "letter-academy-v2",
+        "exec-ca4e3898-35ae-44f1-9341-4f6b3903fe98.png",
+        "Use case: precise-object-edit. Make the academy variant of this STYLIZED fantasy-game blank stationery. Keep EXACT same silhouette, composition, border widths, smooth blank ivory center, cel-painted rendering, strong clean outlines and chunky playful forms. Change the gold border into softly blue-gray and SILVER with pearl-cream highlights, and the corner roses / small insets into muted TEAL. Add only a few simplified geometric engravings inside existing border shapes, not new objects. This is learned elegant academy stationery in the same game's art set. Paper center stays warm neutral ivory and completely blank. NO words, lettering, numbers, symbols in the center, paper texture, grunge, extra background. Keep the front-facing entire paper filling canvas edge to edge."
+      ],
+      [
+        "letter-commerce-v2",
+        "exec-ca4e3898-35ae-44f1-9341-4f6b3903fe98.png",
+        "Use case: precise-object-edit. Make the merchant-guild variant of this STYLIZED fantasy-game blank stationery. Keep EXACT same silhouette, composition, border widths, smooth blank cream center, clean cel-painted shading, bold brown outlines. Change gold to warm COPPER and amber with buttery golden highlights, make the small corner flowers into cream-colored simple rosettes, remove lavender accents and use deep rust accents instead. Existing leaf curls become slightly simpler broad curled leaves, equally polished. This is practical but lovely guild stationery in the same game's art set, not rarity borders. Center remains clean luminous cream and completely EMPTY. No words, numbers, letters, seals, added objects, photo textures, grunge or scenery. Entire front-facing paper fills canvas edge to edge."
+      ],
+      [
+        "wax-seal-v2",
+        null,
+        "Use case: stylized-concept. ONE game inventory art asset, thick plump cranberry-red sealing wax stamp, empty depressed round center for a crest added later. Premium hand-painted 2D Japanese fantasy game style: confident dark-burgundy outline, chunky softly scalloped rim, three clear cel-shaded crimson/pink tones, a playful broad warm cream specular mark on upper left, dark red self-shadow bottom right. Simplified and charming, smooth surface, not realistic, no noise or wear. Front-facing orthographic, entire one circular object centered with narrow padding. Genuinely transparent alpha background. NO checkerboard backdrop, words, numbers, logo, crest, icon, rose, paper or other objects. Empty center occupies 60% of the seal. High polish and bold silhouette readable at only 42 pixels."
+      ],
+      [
+        "desk-leather-v2",
+        null,
+        "Use case: stylized-concept. Production background asset, ONE stylized grape-purple leather desk writing mat, wide landscape around 2.6:1, front-facing, filling entire rectangular image edge to edge. Japanese fantasy game art: confident dark plum outline, soft clean cel-painted broad highlights, rounded padded edge, simplified gold stitching and small curled gold leaf fittings only at corners. Three or four clear shading tones, warm light upper left, clean smooth dark purple center, no visible photo texture, no grunge. The central 94% is empty dark matte purple for separate paper cards to cover. One very small simple gold rose embossed at bottom right edge. Only the flat leather mat itself, no outside margin, paper, book, wax, pen, text, letters, words, numbers, surroundings or shadows outside mat. Rich but restrained dark purple with buttery antique gold, deliberately stylized and charming game UI."
+      ]
+    ],
+    "readableCorners": "Use case: precise-object-edit. Production layout correction for this exact stylized game UI frame. Keep the clean cel-painted cartoon style, exact color scheme, thickness of the outside border, smooth cream paper, all scalloped edge shapes and small central insets. Change ONLY the FOUR CORNER ROSE-AND-LEAF CLUSTERS: make each ENTIRE cluster HALF its current width and HALF its current height, tucked tightly into the extreme corner. Every rose PLUS its surrounding leaves must fit inside a small square no more than 13% of the image width and 13% of the image height. Long leaves must NOT stretch into the reading area. The straight edges between corners stay simple and narrow. The rest of the inside is uninterrupted blank warm cream paper. We need a broad clear rectangular text area extending close to the edges. Do not add writing, seals, objects, extra ornaments or texture. Preserve portrait/square canvas and front-facing orientation. Crisp beautiful game art, strong outlines, no realism.",
+    "bookBackground": "Use case: background-extraction. EDIT ONLY THE BACKGROUND of this exact illustrated purple-and-gold game ledger. Preserve the entire book illustration unchanged: same silhouette, exact colors, golden rose, gold corners, blank center, thick cream pages, outlines, proportions. Remove EVERY gray/white checkerboard tile outside the book and return genuine transparent alpha there. The checkerboard in the input is unwanted image content; erase it, do NOT paint another checkerboard. Tight crop around the full book with 1% transparent padding. Do not cut off corners or spine. Transparent PNG cutout asset, not a mockup. No color alterations, no new objects, no new text, no cast shadow outside the book. Keep ALL book pixels, replace ONLY the checkerboard background with transparency."
+  },
+  "adopted": [
+    {
+      "asset": "public/art/ui/stylized/paper-noble-v3.webp",
+      "source": "exec-456cf422-147a-4941-be8d-4cc1847281ba.png"
+    },
+    {
+      "asset": "public/art/ui/stylized/paper-academy-v3.webp",
+      "source": "exec-86c8aafe-fd90-4398-a307-8fadbdb04fe4.png"
+    },
+    {
+      "asset": "public/art/ui/stylized/paper-commerce-v3.webp",
+      "source": "exec-062e059c-4750-4ac1-9e60-31e3916b8087.png"
+    },
+    {
+      "asset": "public/art/ui/stylized/wax-seal-v2.webp",
+      "source": "exec-6c30f0e1-eae3-4312-bb40-258d1c6e3638.png"
+    },
+    {
+      "asset": "public/art/ui/stylized/desk-leather-v2.webp",
+      "source": "exec-228b9f94-22bc-4674-bc3a-b84cd3e907f4.png"
+    },
+    {
+      "asset": "public/art/ui/stylized/ledger-book-v2.webp",
+      "source": "exec-6581df43-677d-4843-9db6-7c56686c5bd5.png"
+    }
+  ],
+  "finishing": "生成原画を作業フォルダへ保存。WebPへ縮小・圧縮。封蝋のalphaを保持。台帳は透過指定の生成結果に残った外側のチェック柄を、キャンバス外周から連続する無彩色領域に限定して除去し、切り抜きとalphaを確認。人物紋章・状態紋・文字は別レイヤー。"
+}

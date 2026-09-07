@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BookOpen, Moon, Settings } from "lucide-react";
 import {
   axes,
@@ -38,11 +38,13 @@ import { Mark } from "./marks";
 import { Rings } from "./ui/symbols";
 import { Dialogue } from "./ui/scene";
 import { preloadScene } from "./ui/sceneVisuals";
-import { backgroundSrc, heroSrc, personSrc } from "./art";
+import { backgroundSrc, heroSrc, personSrc, manorMaterialStyle } from "./art";
 import { paperSound } from "./ui/paperAudio";
+import { animatePaper, capturePaper, type PaperMotion, type PaperOrigin } from "./ui/letterMotion";
 import { fullscreenSupported, useFullscreen } from "./ui/fullscreen";
 import "./chapter.css";
 import "./manor.css";
+import "./manor-art.css";
 
 const gold = (n: number) => `${n.toLocaleString()}G`;
 
@@ -281,6 +283,25 @@ const sealOf = (job: Job): "貞操" | "品位" | "威厳" | "関係" =>
   axes.find((a) => job.costs.some((c) => c.axis === a && c.amount > 0)) ??
   "関係";
 
+const stationeryOf = (job: Job) =>
+  job.person === "count" || job.person === "guillaume"
+    ? "noble"
+    : job.person === "claire" || job.person === "herbalist"
+      ? "academy"
+      : "commerce";
+
+/** The family's rose is separate from the three resource emblems. */
+function FamilyStamp() {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <circle cx="32" cy="32" r="27" />
+      <circle cx="32" cy="32" r="23" />
+      <path d="M32 14c5-4 10 0 10 5 7-1 10 5 6 10 6 5 3 12-4 13-1 7-9 9-13 4-6 4-12 0-12-6-7-2-8-10-2-14-3-6 2-12 8-10 1-4 5-5 7-2Z" />
+      <path d="M32 22c8-2 14 6 10 12-2 6-10 9-15 4-6-2-7-11-1-14 5-3 12 1 10 6-1 5-7 5-9 1m4 10-1 10m-1-4c-5 0-8-3-8-6 5 0 8 2 8 6m2-1c5-1 8-4 8-7-5 1-7 3-8 7" />
+    </svg>
+  );
+}
+
 /**
  * 今日の1件。ボタンではなく**依頼状**として出す。
  * 種別の札、地の紋（透かし）、相手と関係の輪、差し出すものの紋、
@@ -306,6 +327,7 @@ function OfferCard({
     <article
       className={`c-slip c-request-card ${job.costs.length ? "c-paid" : "c-clean"} ${reason ? "c-shut" : ""}`}
       data-job={job.id}
+      data-stationery={stationeryOf(job)}
     >
       <button
         type="button"
@@ -373,14 +395,9 @@ function OfferCard({
           )}
         </span>
         <span className="c-slip-foot">
-          <span className={reason ? "c-unavailable" : "c-consequence"}>
-            {reason
-              ? tired
-                ? "体力不足"
-                : reason
-              : closed > 0
-                ? `紹介停止 ${closed}件`
-                : ""}
+          <span className="c-slip-warnings">
+            {reason && <span className="c-unavailable">{tired ? "体力不足" : reason}</span>}
+            {closed > 0 && <span className="c-consequence">紹介停止 {closed}件</span>}
           </span>
           <span>手に取る →</span>
         </span>
@@ -395,21 +412,28 @@ function LetterSheet({
   s,
   onAccept,
   onBack,
+  signing = false,
 }: {
   job: Job;
   s: DailyState;
   onAccept: () => void;
   onBack: () => void;
+  signing?: boolean;
 }) {
   const reason = takeReason(job, s);
   const closing = closingPreview(job, s);
   const cap = capDropOf(job);
   return (
     <section
-      className="c-screen c-sheet c-reading-sheet"
+      className={`c-screen c-sheet c-reading-sheet ${signing ? "c-ritual-sign" : ""}`}
+      data-stationery={stationeryOf(job)}
+      data-paper-state={signing ? "signing" : "reading"}
       aria-label={`${job.title}の依頼状`}
     >
       <div className="c-letter-story">
+        <span className={`c-wax c-wax-person c-wax-${job.person} c-letter-sender-seal`} aria-hidden="true">
+          <img src={personSrc(job.person)} alt="" />
+        </span>
         <div className="c-letter-address">
           エレオノール・ラティエ様 <span>{job.kind}</span>
         </div>
@@ -421,6 +445,13 @@ function LetterSheet({
           {personOf(job.person).name} <Rings stage={s.relations[job.person]} />
         </p>
       </div>
+      {signing && (
+        <div className="c-letter-response" aria-hidden="true">
+          <span className="c-response-caption">承りました</span>
+          <span className="c-response-signature">Éléonore</span>
+          <span className="c-response-stamp"><FamilyStamp /></span>
+        </div>
+      )}
       <div className="c-letter-conditions">
         <div className="c-letter-terms">
           <div>
@@ -550,7 +581,8 @@ function RestRow({ s, onPick }: { s: DailyState; onPick: () => void }) {
 
 export default function DailyApp() {
   const [loaded] = useState(() => loadDaily(localStorage)),
-    [s, setS] = useState<DailyState | null>(loaded.state),
+    [savedState, setS] = useState<DailyState | null>(loaded.state),
+    [deskSnapshot, setDeskSnapshot] = useState<DailyState | null>(null),
     [ui, setUI] = useState<UI>(loadUI),
     [started, setStarted] = useState(false),
     [notice, setNotice] = useState(loaded.notice),
@@ -567,6 +599,8 @@ export default function DailyApp() {
     ),
     [gallery, setGallery] = useState(false),
     [replay, setReplay] = useState<SceneEntry | null>(null);
+  /* The action is saved before animation; its new day stays hidden until the result. */
+  const s = deskSnapshot ?? savedState;
   /* 場面を閉じた指が、そのまま下の札を押して次の場面を開いてしまわないようにする。
      最終行のタップは「閉じる」であって「次を選ぶ」ではない。 */
   const sceneClosedAt = useRef(0);
@@ -579,17 +613,21 @@ export default function DailyApp() {
     setReplay(null);
   };
   const lock = useRef(false),
-    stateRef = useRef(s);
+    stateRef = useRef(savedState);
   const transitionTimer = useRef<number | undefined>(undefined);
   const mounted = useRef(true);
   const lastLetter = useRef<string | null>(null);
   const returnToDesk = useRef(false);
-  stateRef.current = s;
+  const returnFromResult = useRef(false);
+  const paperOrigin = useRef<PaperOrigin | null>(null);
+  const paperMotion = useRef<PaperMotion | null>(null);
+  const paperReturning = useRef(false);
+  stateRef.current = savedState;
   const fullscreen = useFullscreen(),
     patch = (p: Partial<UI>) => setUI((u) => ({ ...u, ...p }));
 
   function openLetter(id: string) {
-    if (lock.current) return;
+    if (lock.current || paperReturning.current) return;
     const job = jobs.find((j) => j.id === id);
     if (job)
       void preloadScene(
@@ -597,52 +635,91 @@ export default function DailyApp() {
         personOf(job.person).place,
       );
     lastLetter.current = id;
+    const card = document.querySelector<HTMLElement>(`[data-job="${CSS.escape(id)}"]`);
+    const stage = document.querySelector<HTMLElement>(".c-manor");
+    paperOrigin.current = card && stage ? capturePaper(card, stage) : null;
     paperSound(ui.volume);
     patch({ sheet: id });
   }
   function closeLetter() {
-    if (lock.current) return;
-    returnToDesk.current = true;
-    setPending(null);
-    patch({ sheet: null });
+    if (lock.current || paperReturning.current) return;
+    const finish = () => {
+      paperReturning.current = false;
+      if (!mounted.current) return;
+      returnToDesk.current = true;
+      setPending(null);
+      patch({ sheet: null });
+    };
+    const sheet = document.querySelector<HTMLElement>(".c-manor .c-reading-sheet");
+    const stage = document.querySelector<HTMLElement>(".c-manor");
+    const currentTransform = sheet ? getComputedStyle(sheet).transform : undefined;
+    paperMotion.current?.cancel();
+    if (ui.sheet && sheet && stage) {
+      paperReturning.current = true;
+      paperMotion.current = animatePaper(
+        sheet, stage, paperOrigin.current, "close", reduceMotion(), finish, currentTransform,
+      );
+    } else finish();
     paperSound(ui.volume, "place");
   }
   function openJournal() {
-    if (lock.current) return;
+    if (lock.current || paperReturning.current) return;
+    paperMotion.current?.cancel();
     setPending(null);
     patch({ tab: "journal", sheet: null });
-    paperSound(ui.volume);
+    paperSound(ui.volume, "book");
   }
+  function reduceMotion() {
+    return ui.motion || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+  useLayoutEffect(() => {
+    if (!ui.sheet) return;
+    const sheet = document.querySelector<HTMLElement>(".c-manor .c-reading-sheet");
+    const stage = document.querySelector<HTMLElement>(".c-manor");
+    if (sheet && stage)
+      paperMotion.current = animatePaper(sheet, stage, paperOrigin.current, "open", reduceMotion());
+    return () => { paperMotion.current?.cancel(); };
+  }, [ui.sheet]);
   useEffect(() => {
     if (ui.sheet || pending) {
       document
         .querySelector<HTMLElement>(".c-manor .c-letter-heading")
-        ?.focus();
+        ?.focus({ preventScroll: true });
     } else if (returnToDesk.current) {
       returnToDesk.current = false;
       const selector = lastLetter.current
         ? `[data-job="${CSS.escape(lastLetter.current)}"] .c-slip-face`
         : ".c-rest .c-slip-face";
-      document.querySelector<HTMLElement>(selector)?.focus();
+      document.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
     }
   }, [ui.sheet, pending]);
+  useEffect(() => {
+    if (result || !returnFromResult.current) return;
+    returnFromResult.current = false;
+    document.querySelector<HTMLElement>(
+      ".c-main .c-request-card .c-slip-face, .c-main .c-footer .c-primary, .c-main .c-empty button",
+    )?.focus({ preventScroll: true });
+  }, [result]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (
         event.key === "Escape" &&
         (ui.sheet || pending) &&
         !document.querySelector("dialog[open]")
-      )
+      ) {
+        event.preventDefault();
         closeLetter();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [ui.sheet, pending, ui.volume]);
+  }, [ui.sheet, pending, ui.volume, ui.motion]);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
       window.clearTimeout(transitionTimer.current);
+      paperMotion.current?.cancel();
     };
   }, []);
 
@@ -703,13 +780,19 @@ export default function DailyApp() {
     }
   }
 
-  /* 提示された依頼は「見た」ことにする。閉じたあと跡として残すため（§5）。 */
+  /* 裏に描かれた翌日の札は、結果などを閉じて実際に提示されるまでは未見。 */
+  const offersVisible = !!(
+    s && started && !s.awaitingSettlement && !s.ended &&
+    ui.tab === "today" && !ui.sheet && !pending && !deskSnapshot &&
+    !ritual && !scene && !result && !gallery && !replay &&
+    !settings && !reset && !notice
+  );
   useEffect(() => {
-    if (!s || !started || s.awaitingSettlement || s.ended) return;
+    if (!s || !offersVisible) return;
     const ids = offersOf(s).map((j) => j.id);
     const next = markSeen(s, ids);
     if (next !== s) persist(next);
-  }, [s?.revision, s?.day, s?.chapter, started]);
+  }, [s?.revision, s?.day, s?.chapter, offersVisible]);
 
   function commit(action: Parameters<typeof dailyAction>[1]) {
     if (
@@ -717,19 +800,20 @@ export default function DailyApp() {
       ritual ||
       scene ||
       result ||
+      paperReturning.current ||
       saveError ||
       !stateRef.current
     )
       return;
     lock.current = true;
-    setPending(null);
+    paperMotion.current?.finish();
     const out = dailyAction(stateRef.current, action);
     if (out.error) {
       setNotice(out.error);
       lock.current = false;
     } else {
+      if (action.type !== "settle") setDeskSnapshot(stateRef.current);
       persist(out.state);
-      patch({ sheet: null });
       if (out.outcome?.sceneIds.length)
         setSeenScenes((seen) =>
           recordScenes(localStorage, seen, out.outcome!.sceneIds),
@@ -737,15 +821,19 @@ export default function DailyApp() {
       const reveal = () => {
         if (!mounted.current) return;
         setRitual(null);
+        setPending(null);
+        patch({ sheet: null });
         if (out.outcome?.scene.length) setScene(out.outcome);
-        else setResult(out.outcome ?? null);
+        else {
+          setDeskSnapshot(null);
+          setResult(out.outcome ?? null);
+          if (!out.outcome) lock.current = false;
+        }
       };
       if (action.type === "settle") reveal();
       else {
-        const reduce =
-          ui.motion ||
-          window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        paperSound(ui.volume, action.type === "take" ? "sign" : "place");
+        const reduce = reduceMotion();
+        paperSound(ui.volume, action.type === "take" ? "sign" : "rest");
         setRitual(action.type === "take" ? "sign" : "rest");
         const ready = out.outcome?.scene.length
           ? preloadScene(
@@ -758,13 +846,17 @@ export default function DailyApp() {
           () => {
             void ready.then(reveal, reveal);
           },
-          reduce ? 0 : 300,
+          reduce ? 0 : action.type === "take" ? 520 : 380,
         );
       }
     }
   }
 
   function begin() {
+    paperMotion.current?.cancel();
+    paperReturning.current = false;
+    setDeskSnapshot(null);
+    setPending(null);
     patch({ tab: "today", sheet: null });
     setNotice("");
     setSaveError("");
@@ -772,6 +864,13 @@ export default function DailyApp() {
     setStarted(true);
     setReset(null);
     lock.current = false;
+    paperSound(ui.volume, "place");
+  }
+
+  function closeResult() {
+    lock.current = false;
+    returnFromResult.current = true;
+    setResult(null);
     paperSound(ui.volume, "place");
   }
 
@@ -800,8 +899,10 @@ export default function DailyApp() {
               ? `c-home c-manor ${sheetJob || pending ? "c-reading" : ""} ${ui.tab === "journal" ? "c-journal" : ""} ${ritual ? "c-ritual" : ""}`
               : ""
         }`}
-        inert={!!ritual || undefined}
+        inert={!!ritual || !!scene || !!result || undefined}
+        aria-busy={!!ritual || undefined}
         style={{
+          ...manorMaterialStyle,
           backgroundImage: `url(${backgroundSrc(showDesk ? "study-v1" : !started ? "title" : "home")})`,
         }}
       >
@@ -973,6 +1074,7 @@ export default function DailyApp() {
                     s={s}
                     onBack={closeLetter}
                     onAccept={() => commit({ type: "take", job: sheetJob.id })}
+                    signing={ritual === "sign"}
                   />
                 ) : ui.tab === "journal" ? (
                   <div className="c-scroll">
@@ -1044,10 +1146,15 @@ export default function DailyApp() {
                         className="c-book"
                         onClick={openJournal}
                       >
-                        返済帳・台帳
-                        {traces.length > 0 && (
-                          <small>紹介停止 {traces.length}件</small>
-                        )}
+                        <span className="c-book-pages" aria-hidden="true" />
+                        <span className="c-book-spine" aria-hidden="true" />
+                        <span className="c-book-cover">
+                          <span className="c-book-ribbon" aria-hidden="true" />
+                          <span className="c-book-label">返済帳・台帳</span>
+                          {traces.length > 0 && (
+                            <small>紹介停止 {traces.length}件</small>
+                          )}
+                        </span>
                       </button>
                       <RestRow
                         s={s}
@@ -1073,7 +1180,7 @@ export default function DailyApp() {
         )}
       </div>
 
-      {ritual && (
+      {ritual === "rest" && (
         <div
           className={`c-letter-ritual c-ritual-${ritual}`}
           role="status"
@@ -1081,14 +1188,15 @@ export default function DailyApp() {
         >
           <div>
             <span>
-              {ritual === "sign"
-                ? "返事をしたためる"
-                : "手紙を置いて、ひと休み"}
+              手紙を置いて、ひと休み
             </span>
-            <b>{ritual === "sign" ? "Éléonore" : "夜が過ぎる"}</b>
+            <b>夜が過ぎる</b>
           </div>
         </div>
       )}
+      <span className="c-sr-only" role="status" aria-live="polite">
+        {ritual === "sign" ? "返事をしたためる" : ""}
+      </span>
 
       {replay && (
         <Dialogue
@@ -1117,6 +1225,7 @@ export default function DailyApp() {
           motion={ui.motion}
           onSettingsChange={patch}
           onDone={() => {
+            setDeskSnapshot(null);
             setResult(scene);
             setScene(null);
           }}
@@ -1127,19 +1236,11 @@ export default function DailyApp() {
         <Modal
           variant="result"
           title={result.title}
-          onClose={() => {
-            lock.current = false;
-            setResult(null);
-            paperSound(ui.volume, "place");
-          }}
+          onClose={closeResult}
           footer={
             <Button
               primary
-              onClick={() => {
-                lock.current = false;
-                setResult(null);
-                paperSound(ui.volume, "place");
-              }}
+              onClick={closeResult}
             >
               確認
             </Button>

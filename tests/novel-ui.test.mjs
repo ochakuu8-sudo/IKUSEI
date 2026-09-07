@@ -334,6 +334,20 @@ try {
     ),
     saved,
   );
+  await button("確認").click();
+  await page.waitForFunction(() => {
+    const state = JSON.parse(localStorage.getItem("ikusei-prototype-save-v14"));
+    const cards = [...document.querySelectorAll(".c-request-card")];
+    return cards.length > 0 && cards.every((card) => state.seen.includes(card.dataset.job));
+  });
+  const afterResult = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("ikusei-prototype-save-v14")),
+  );
+  assert.deepEqual(
+    { ...afterResult, seen: JSON.parse(saved).seen },
+    JSON.parse(saved),
+    "結果を閉じる操作は新たに見えた依頼の記録だけを更新する",
+  );
   await page.reload();
   await button("続きから").click();
   await button("設定").click();

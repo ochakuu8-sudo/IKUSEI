@@ -218,12 +218,15 @@ try {
   });
   await page.locator(".scenario-dialog").waitFor();
   assert.equal((await read()).day, 2, "受諾時点で保存、二重入力でも1行動");
+  assert.equal(await page.locator(".c-hud button b").innerText(), "1日目", "ノベル中の机は受諾前の日付を保つ");
+  assert.equal(await page.locator(".c-res-money b").innerText(), `${start.money.toLocaleString()}G`, "ノベル中に報酬を先に表示しない");
   assert.equal(
     await button("確定する").count(),
     0,
     "受諾前の条件は手紙内に統合",
   );
   await playScene();
+  assert.equal(await page.locator(".c-hud button b").innerText(), "2日目", "結果で保存済みの翌日を表示する");
   await page.screenshot({ path: resolve(out, "result-1366.png") });
   await closeResult();
   const afterJob = await read();
