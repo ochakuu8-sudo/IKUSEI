@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="52" viewBox="0 0 240 52" preserveAspectRatio="none" fill="none"><defs>
+  <linearGradient id="cover" x2="0" y2="1"><stop stop-color="#453b46"/><stop offset="1" stop-color="#36323d"/></linearGradient>
+  <linearGradient id="paper" x2="0.7" y2="1"><stop stop-color="#fff8ed"/><stop offset="1" stop-color="#f4e9d9"/></linearGradient>
+  <linearGradient id="gutter"><stop stop-color="#b8a597" stop-opacity="0"/><stop offset=".5" stop-color="#a59485" stop-opacity=".4"/><stop offset="1" stop-color="#b8a597" stop-opacity="0"/></linearGradient>
+</defs>
+ <path d="M24 4H216Q224 4 227 16L238 27L227 38Q224 50 216 50H24Q16 50 13 38L2 27L13 16Q16 4 24 4Z" fill="#241f2b"/>
+ <path d="M24 2H216Q224 2 227 14L238 25L227 36Q224 48 216 48H24Q16 48 13 36L2 25L13 14Q16 2 24 2Z" fill="url(#cover)" stroke="#c3ae89" stroke-width="1.4"/>
+ <path d="M26 6H214Q220 6 223 16L232 25L223 34Q220 44 214 44H26Q20 44 17 34L8 25L17 16Q20 6 26 6Z" stroke="#8c7583" stroke-width=".7"/></svg>
