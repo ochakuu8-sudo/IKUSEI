@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { transition, persistTransition, scenarioFor, sessionError } from "@game/adv/engine";
 import { evaluateCondition, validateCondition, validateEffects, validateScenario, validateJob } from "@game/adv/conditions";
+import { changeDignity, dignityRank } from "@game/dignity";
 import { growthDefinitions, rankOf } from "@game/adv/growth";
 import { scenarios } from "@game/content/scenarios";
 import { freshDaily, offersOf, isOpen, dailyAction, payOf } from "@game/daily";
 import { jobs } from "@game/game";
-import { parseDaily, migrateFromV14, loadDaily, SAVE_KEY, clearDaily } from "@game/saveV14";
+import { parseDaily, migrateFromV15, migrateFromV14, loadDaily, SAVE_KEY, clearDaily } from "@game/saveV14";
 import { syncArchive, loadArchive, ADV_ARCHIVE_KEY } from "@game/adv/archive";
 let count = 0;
 const check = (name, fn) => { fn(); count++; console.log("PASS " + name); };
@@ -57,19 +58,19 @@ check("A01-A03: registered parameters, all boundary directions, AND and OR", () 
   const s = fresh(); s.growthXP.negotiation = 2; s.axes.威厳 = 60; s.relations.marc = 1;
   for (const [c, ok] of [
     [range("skill", "negotiation", 1), true], [range("skill", "negotiation", 2), false],
-    [range("axis", "威厳", 60, 60), true], [range("axis", "威厳", 61), false],
-    [range("axis", "威厳", undefined, 59), false], [range("axis", "威厳", 30, 70), true],
+    [range("axis", "威厳", 3, 3), true], [range("axis", "威厳", 4), false],
+    [range("axis", "威厳", undefined, 2), false], [range("axis", "威厳", 2, 4), true],
     [range("relation", "marc", 1), true], [range("relation", "claire", 1), false],
   ]) assert.equal(evaluateCondition(c, s).ok, ok);
   assert.equal(evaluateCondition({ kind: "all", items: [range("skill", "negotiation", 1), range("relation", "marc", 1)] }, s).ok, true);
   assert.equal(evaluateCondition({ kind: "any", items: [range("skill", "charm", 3), range("relation", "marc", 1)] }, s).ok, true);
-  assert.equal(evaluateCondition(range("axis", "威厳", undefined, 30), s).text.includes("上限を超過"), true);
+  assert.equal(evaluateCondition(range("axis", "威厳", undefined, 2), s).text.includes("上限を超過"), true);
 });
 check("A04: malformed conditions and effects never become unlocked", () => {
   for (const c of [
     { kind: "all", items: [] }, { kind: "any", items: [] },
     range("skill", "typo", 1), range("axis", "威厳", NaN),
-    range("axis", "威厳"), range("axis", "威厳", 80, 20),
+    range("axis", "威厳"), range("axis", "威厳", 4, 2),
     range("relation", "unknown", 1), range("axis", "威厳", -1),
   ]) { assert(validateCondition(c).length); assert.equal(evaluateCondition(c, fresh()).ok, false); }
   assert(validateEffects({ growthXP: { typo: 1 } }).length);
@@ -123,25 +124,26 @@ check("A07: same-session changes affect later conditions, never earlier eligibil
   s = step(s, { type: "choose", choiceId: "prestige" });
   assert.equal(s.activeSession.working.axes.威厳, 60);
   assert.equal(s.axes.威厳, 100);
-  assert.equal(evaluateCondition(range("axis", "威厳", 76), s.activeSession.working).ok, false);
-  assert.equal(evaluateCondition(range("axis", "威厳", 31, 75), s.activeSession.working).ok, true);
+  assert.equal(evaluateCondition(range("axis", "威厳", 5), s.activeSession.working).ok, false);
+  assert.equal(evaluateCondition(range("axis", "威厳", 3, 4), s.activeSession.working).ok, true);
   s = choose(s, "band");
   assert.equal(s.axes.威厳, 60, "no prestige recovery on the day it was reduced");
 });
-check("dignity changes clamp once; cap loss is explicit and recovery uses the new cap", () => {
+check("dignity recovery never raises rank, and independent caps are removed", () => {
   let s = throughText(begin(fresh(), "debug-axes"));
   s = step(s, { type: "choose", choiceId: "dignity" });
   assert.equal(s.activeSession.working.axes.品位, 60);
-  assert.equal(s.activeSession.working.dignityCap, 90);
+  assert.equal("dignityCap" in s.activeSession.working, false);
   s = choose(s, "normal");
-  assert.equal(s.axes.品位, 66);
-  assert.equal(s.dignityCap, 90);
-  assert.equal(s.activeSession.outcome.capDrop, 10);
+  assert.equal(s.axes.品位, 60);
+  assert.equal("capDrop" in s.activeSession.outcome, false);
   assert.deepEqual(s.activeSession.outcome.choiceAxisMoves, [{ axis: "品位", before: 100, after: 60, amount: 40 }]);
   s = ack(s);
+  s.axes.品位 = 45;
   s = choose(choose(begin(s, "debug-axes"), "recover"), "normal");
-  assert.deepEqual(s.activeSession.outcome.choiceAxisMoves, [{ axis: "品位", before: 66, after: 86, amount: 20 }]);
-  assert.equal(s.axes.品位, 90);
+  assert.deepEqual(s.activeSession.outcome.choiceAxisMoves, [{ axis: "品位", before: 45, after: 60, amount: 15 }]);
+  assert.equal(s.axes.品位, 60);
+  assert(validateEffects({ dignityCapDrop: 10 }).length, "removed effect is rejected, never silently applied");
 });
 check("A09: repeated choice, stale revision, finalization and acknowledgement cannot duplicate rewards", () => {
   let s = throughText(begin(fresh(), "debug-training"));
@@ -233,7 +235,7 @@ check("A14: linear legacy jobs end with the same core state as the previous engi
     const before = freshDaily(seed), job = offersOf(before)[0];
     const expected = dailyAction(before, { type: "take", job: job.id }).state;
     const actual = ack(throughText(begin(before, job.id)));
-    for (const key of ["money", "day", "chapter", "axes", "dignityCap", "stamina", "relations", "unlocked", "doneOnce", "doneChapter", "recent", "awaitingSettlement", "debt"]) assert.deepEqual(actual[key], expected[key], key);
+    for (const key of ["money", "day", "chapter", "axes", "stamina", "relations", "unlocked", "doneOnce", "doneChapter", "recent", "awaitingSettlement", "debt"]) assert.deepEqual(actual[key], expected[key], key);
   }
 });
 check("A15: final-day job settles only after ADV completion and cannot settle twice", () => {
@@ -288,9 +290,98 @@ check("capability gate is active and entry flags are not replaced by replay reco
 check("delete save does not revive earlier formats on reload", () => {
   const store = new MemoryStore();
   store.setItem(SAVE_KEY, JSON.stringify(fresh()));
+  store.setItem("ikusei-prototype-save-v15", "{}");
   store.setItem("ikusei-prototype-save-v14", "{}");
   store.setItem("ikusei-prototype-save-v13", "{}");
   clearDaily(store);
   assert.equal(loadDaily(store).state, null);
+  assert.equal(store.getItem("ikusei-prototype-save-v15"), null);
+});
+check("six dignity ranks include every boundary and rank zero starts below one", () => {
+  for (const [value, rank] of [[100,5],[81,5],[80,4],[61,4],[60,3],[41,3],[40,2],[21,2],[20,1],[1,1],[0.99,0],[0,0]])
+    assert.equal(dignityRank(value), rank, String(value));
+  assert.throws(() => dignityRank(NaN));
+  for (let value = 0; value <= 100; value++) for (let delta = -100; delta <= 100; delta++) {
+    const after = changeDignity(value, delta);
+    assert(after >= 0 && after <= 100);
+    assert(dignityRank(after) <= dignityRank(value), `${value} + ${delta}`);
+    if (delta >= 0) assert(after >= value);
+  }
+});
+check("daily recovery and ADV rewards cannot escape any of the six bands", () => {
+  for (const value of [0,1,19,20,21,39,40,41,59,60,61,79,80,81,99,100]) {
+    const before = fresh(); before.axes = { 貞操: value, 品位: value, 威厳: value };
+    const rested = dailyAction(before, { type: "rest" }).state;
+    assert.equal(rested.axes.貞操, value, "chastity has no automatic daily recovery");
+    assert.equal(rested.axes.品位, changeDignity(value, 6));
+    assert.equal(rested.axes.威厳, changeDignity(value, 2));
+    const done = choose(choose(begin(before, "debug-axes"), "recover"), "normal");
+    for (const axis of ["貞操", "品位", "威厳"]) assert.equal(done.axes[axis], dignityRank(value) * 20);
+    assert.deepEqual(parseDaily(JSON.stringify(done)), done);
+  }
+});
+check("request and ADV gates use ranks, never hidden point thresholds inside a rank", () => {
+  const s = freshDaily();
+  const job = { ...jobs.find(j => j.id === "ledger"), needs: { 品位: 3 }, opensBelow: undefined };
+  for (const value of [41,45,60]) {
+    s.axes.品位 = value;
+    assert.equal(isOpen(job, s), true);
+    assert.equal(evaluateCondition(range("axis", "品位", 3, 3), s).ok, true);
+  }
+  s.axes.品位 = 40;
+  assert.equal(isOpen(job, s), false);
+  assert.equal(evaluateCondition(range("axis", "品位", 3), s).ok, false);
+  assert(validateCondition(range("axis", "品位", 6)).length);
+  assert(validateCondition(range("axis", "品位", 2.5)).length);
+  const zeroJob = { ...job, needs: {}, opensBelow: { 品位: 0 } };
+  s.axes.品位 = 1; assert.equal(isOpen(zeroJob, s), false);
+  s.axes.品位 = 0; assert.equal(isOpen(zeroJob, s), true);
+});
+function oldV15(current) {
+  const old = structuredClone(current);
+  old.saveVersion = 15; old.dignityCap = 90;
+  if (old.activeSession) {
+    for (const name of ["entrySnapshot", "working"]) {
+      old.activeSession[name].saveVersion = 15;
+      old.activeSession[name].dignityCap = 90;
+    }
+    if (old.activeSession.outcome) old.activeSession.outcome.capDrop = 10;
+  }
+  return old;
+}
+check("v15 mid-choice migration removes caps, preserves applied effects and resumes once", () => {
+  const before = step(throughText(begin(fresh(), "debug-axes")), { type: "choose", choiceId: "dignity" });
+  const old = oldV15(before);
+  old.activeSession.job.needs = { 品位: 45 };
+  old.activeSession.scenario.nodes.change.choices.find(c => c.id === "dignity").effects.dignityCapDrop = 10;
+  old.activeSession.scenario.nodes.check.choices.find(c => c.id === "high").condition = range("axis", "威厳", 76);
+  const raw = JSON.stringify(old), store = new MemoryStore();
+  store.setItem("ikusei-prototype-save-v15", raw);
+  let s = loadDaily(store).state;
+  assert(s); assert.equal(s.saveVersion, 16);
+  assert.equal(sessionError(s.activeSession), undefined);
+  assert.equal(JSON.stringify(s).includes("dignityCap"), false);
+  assert.equal(s.activeSession.working.axes.品位, 60);
+  assert.equal(s.activeSession.choices.length, 1);
+  assert.equal(s.activeSession.job.needs.品位, 3);
+  assert.equal(s.activeSession.scenario.nodes.check.choices.find(c => c.id === "high").condition.min, 4);
+  const quote = s.activeSession.quote.pay;
+  s = choose(s, "normal");
+  assert.equal(s.day, old.day + 1);
+  assert.equal(s.money, old.money + quote);
+  assert.equal(s.axes.品位, 60, "old chosen drop is not repeated; recovery stays in rank 3");
+  assert.equal(store.getItem("ikusei-prototype-save-v15"), raw);
+  store.setItem(SAVE_KEY, "{}");
+  assert.equal(loadDaily(store).state, null, "broken v16 never falls back to v15");
+});
+check("completed v15 results migrate without replaying payouts or historical recovery", () => {
+  const old = oldV15(choose(begin(fresh(), "debug-training"), "charm"));
+  old.axes.品位 = 86; // already settled by the previous rules
+  const migrated = migrateFromV15(JSON.stringify(old));
+  assert(migrated); assert.equal(migrated.axes.品位, 86);
+  assert.equal(migrated.activeSession.phase, "result");
+  assert.equal("capDrop" in migrated.activeSession.outcome, false);
+  const after = ack(migrated);
+  for (const k of ["money", "axes", "day", "growthXP", "relations", "recordings"]) assert.deepEqual(after[k], old[k]);
 });
 console.log(count + " ADV engine checks passed");

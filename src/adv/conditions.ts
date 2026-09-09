@@ -1,4 +1,5 @@
 import { axes, people, type Job } from "../game";
+import { dignityRank } from "../dignity";
 import { growthOf, rankOf } from "./growth";
 import type { Condition, Effects, Scenario, Snapshot } from "./types";
 
@@ -18,11 +19,11 @@ export function validateCondition(c: Condition, depth = 0): string[] {
     const d = growthOf(v.id);
     if (!d) return ["未登録の成長項目"];
     max = d.thresholds.length - 1;
-  } else if (v.kind === "axis" && axes.includes(v.id)) max = 100;
+  } else if (v.kind === "axis" && axes.includes(v.id)) max = 5;
   else if (v.kind === "relation" && people.some(p => p.id === v.personId)) max = 3;
   else return ["不正な参照先"];
   if (c.min === undefined && c.max === undefined) return ["境界のない条件"];
-  if ([c.min, c.max].some(n => n !== undefined && (!finite(n) || n < 0 || n > max))) return ["不正な境界"];
+  if ([c.min, c.max].some(n => n !== undefined && (!finite(n) || !Number.isInteger(n) || n < 0 || n > max))) return ["不正な境界"];
   return c.min !== undefined && c.max !== undefined && c.min > c.max ? ["逆転した範囲"] : [];
 }
 export function evaluateCondition(c: Condition | undefined, s: Snapshot): Evaluation {
@@ -38,9 +39,9 @@ export function evaluateCondition(c: Condition | undefined, s: Snapshot): Evalua
   if (c.kind !== "range") return { ok: false, text: "不正な条件" };
   try {
     const v = c.value;
-    const value = v.kind === "skill" ? rankOf(v.id, s.growthXP[v.id]) : v.kind === "axis" ? s.axes[v.id] : s.relations[v.personId];
+    const value = v.kind === "skill" ? rankOf(v.id, s.growthXP[v.id]) : v.kind === "axis" ? dignityRank(s.axes[v.id]) : s.relations[v.personId];
     if (!finite(value)) throw new Error("現在値がありません");
-    const label = v.kind === "skill" ? growthOf(v.id)!.label : v.kind === "axis" ? v.id : people.find(p => p.id === v.personId)!.name + "との関係";
+    const label = v.kind === "skill" ? growthOf(v.id)!.label : v.kind === "axis" ? v.id + "ランク" : people.find(p => p.id === v.personId)!.name + "との関係";
     const bounds = (c.min !== undefined ? c.min + "以上" : "") + (c.min !== undefined && c.max !== undefined ? "・" : "") + (c.max !== undefined ? c.max + "以下" : "");
     const ok = (c.min === undefined || value >= c.min) && (c.max === undefined || value <= c.max);
     return { ok, text: label + " " + bounds + " ／ 現在 " + value + (ok ? "（達成）" : c.max !== undefined && value > c.max ? "（上限を超過）" : "（不足）") };
@@ -52,10 +53,10 @@ export function validateEffects(e?: Effects): string[] {
   if (e === undefined) return [];
   if (!e || typeof e !== "object" || Array.isArray(e)) return ["不正な効果"];
   const errors: string[] = [];
-  const fields = ["bonusMoney", "growthXP", "axisDelta", "dignityCapDrop", "relationDelta", "storyFlags", "grantCapabilities"];
+  const fields = ["bonusMoney", "growthXP", "axisDelta", "relationDelta", "storyFlags", "grantCapabilities"];
   if (Object.keys(e).some(k => !fields.includes(k))) errors.push("未知の効果");
-  for (const k of ["bonusMoney", "dignityCapDrop"] as const)
-    if (e[k] !== undefined && (!finite(e[k]) || !Number.isInteger(e[k]) || e[k]! < 0 || (k === "dignityCapDrop" && e[k]! > 100))) errors.push("不正な効果量");
+  for (const k of ["bonusMoney"] as const)
+    if (e[k] !== undefined && (!finite(e[k]) || !Number.isInteger(e[k]) || e[k]! < 0)) errors.push("不正な効果量");
   for (const k of ["growthXP", "axisDelta", "relationDelta", "storyFlags"] as const) {
     const map = e[k];
     if (map === undefined) continue;
@@ -82,7 +83,7 @@ export function validateJob(job: Job): string[] {
     if (field !== undefined && (!Array.isArray(field) || !field.every(idOK))) errors.push("不正な依頼フラグ");
   if (job.requiresCapability !== undefined && !idOK(job.requiresCapability)) errors.push("不正な資格");
   for (const map of [job.needs, job.opensBelow]) {
-    if (map !== undefined && (!map || typeof map !== "object" || Object.entries(map).some(([id, n]) => !axes.includes(id as never) || !finite(n) || n < 0 || n > 100))) errors.push("不正な依頼条件");
+    if (map !== undefined && (!map || typeof map !== "object" || Object.entries(map).some(([id, n]) => !axes.includes(id as never) || !finite(n) || !Number.isInteger(n) || n < 0 || n > 5))) errors.push("不正な依頼条件");
   }
   return errors;
 }

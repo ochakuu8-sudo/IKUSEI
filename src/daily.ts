@@ -20,7 +20,6 @@ import {
   materialOf,
   CHAPTER_DAYS,
   CHAPTERS,
-  capDropOf,
   jobs,
   LATE_INTEREST,
   LATE_PENALTY,
@@ -39,11 +38,12 @@ import {
   type SceneLine,
 } from "./game";
 
+import { changeDignity, dignityRank } from "./dignity";
 import { initialGrowth } from "./adv/growth";
 import { evaluateCondition } from "./adv/conditions";
 import type { ActiveSession, ReplayRecord, Quote } from "./adv/types";
-export const SAVE_VERSION = 15;
-/** 休んだ翌朝の回復。品位は上限まで、威厳はその日に削っていなければ。 */
+export const SAVE_VERSION = 16;
+/** 休んだ翌朝の回復。尊厳は同ランク内のみ。威厳はその日に削っていなければ。 */
 export const DAILY_DIGNITY_RECOVERY = 6;
 export const DAILY_PRESTIGE_RECOVERY = 2;
 const FATIGUE_RATE = [1, 0.82, 0.68, 0.58];
@@ -69,8 +69,6 @@ export type DailyState = {
   debt: number;
   /** 日をまたいで持ち越す。休んだ日にだけ満タンに戻る。 */
   stamina: number;
-  /** 品位の上限。下がったまま戻らない（§1-4）。 */
-  dignityCap: number;
   axes: Record<Axis, number>;
   relations: Record<PersonId, number>;
   unlocked: PersonId[];
@@ -106,7 +104,6 @@ export type DayOutcome = {
   pay: number;
   fatigueRate: number;
   drops: AxisMove[];
-  capDrop: number;
   gains: AxisMove[];
   staminaDelta: number;
   relationUp?: { name: string; stage: string };
@@ -129,14 +126,14 @@ export type DailyResult = {
 /* ================= 依頼が開いているか ================= */
 
 const meetsNeeds = (job: Job, s: DailyState) =>
-  axes.every((a) => s.axes[a] >= (job.needs[a] ?? 0));
+  axes.every((a) => dignityRank(s.axes[a]) >= (job.needs[a] ?? 0));
 
 /** まだ落ちきっておらず、回ってこない依頼か（裏の仕事）。 */
 const notYetFallen = (job: Job, s: DailyState) =>
   !!job.opensBelow &&
   axes.some((a) => {
     const line = job.opensBelow?.[a];
-    return line !== undefined && s.axes[a] > line;
+    return line !== undefined && dignityRank(s.axes[a]) > line;
   });
 
 const personReady = (job: Job, s: DailyState) =>
@@ -168,7 +165,7 @@ export function isOpen(job: Job, s: DailyState): boolean {
 
 /** 尊厳が足りずに閉じた軸。跡の表示に使う。 */
 export function closedBy(job: Job, s: DailyState): Axis[] {
-  return axes.filter((a) => s.axes[a] < (job.needs[a] ?? 0));
+  return axes.filter((a) => dignityRank(s.axes[a]) < (job.needs[a] ?? 0));
 }
 
 /**
@@ -311,7 +308,6 @@ export function freshDaily(runId = `run-${Date.now()}`): DailyState {
     money: 120,
     debt: QUOTAS.reduce((a, b) => a + b, 0),
     stamina: MAX_STAMINA,
-    dignityCap: 100,
     axes: { 貞操: 100, 品位: 100, 威厳: 100 },
     relations: Object.fromEntries(people.map((p) => [p.id, 0])) as Record<
       PersonId,
@@ -327,10 +323,10 @@ export function freshDaily(runId = `run-${Date.now()}`): DailyState {
   };
 }
 
-/** 翌朝の回復。品位は上限まで、威厳はその日に削っていなければ戻る（§1-4）。 */
+/** 翌朝の回復。品位・威厳は同ランク内だけ戻る。威厳を削った日は威厳回復なし。 */
 function recover(s: DailyState, lostPrestige: boolean): AxisMove[] {
   const moves: AxisMove[] = [];
-  const dignity = Math.min(s.dignityCap, s.axes.品位 + DAILY_DIGNITY_RECOVERY);
+  const dignity = changeDignity(s.axes.品位, DAILY_DIGNITY_RECOVERY);
   if (dignity > s.axes.品位) {
     moves.push({
       axis: "品位",
@@ -341,7 +337,7 @@ function recover(s: DailyState, lostPrestige: boolean): AxisMove[] {
     s.axes.品位 = dignity;
   }
   if (!lostPrestige) {
-    const prestige = Math.min(100, s.axes.威厳 + DAILY_PRESTIGE_RECOVERY);
+    const prestige = changeDignity(s.axes.威厳, DAILY_PRESTIGE_RECOVERY);
     if (prestige > s.axes.威厳) {
       moves.push({
         axis: "威厳",
@@ -391,7 +387,6 @@ export function dailyAction(
           after: s.axes[p.axis],
         });
       }
-    s.axes.品位 = Math.min(s.axes.品位, s.dignityCap);
     s.awaitingSettlement = false;
     const finished = s.chapter >= CHAPTERS;
     if (finished) s.ended = true;
@@ -419,7 +414,6 @@ export function dailyAction(
         pay: -paid,
         fatigueRate: 1,
         drops,
-        capDrop: 0,
         gains: [],
         staminaDelta: 0,
         closedNow: closedSince(openBefore, s),
@@ -458,7 +452,6 @@ export function dailyAction(
         pay: 0,
         fatigueRate: 1,
         drops: [],
-        capDrop: 0,
         gains,
         staminaDelta: s.stamina - staminaBefore,
         closedNow: closedSince(openBefore, s),
@@ -495,11 +488,6 @@ export function settleJob(state: DailyState, job: Job, quote?: Quote, lostPresti
       before,
       after: s.axes[c.axis],
     });
-  }
-  const capDrop = capDropOf(job);
-  if (capDrop) {
-    s.dignityCap = Math.max(0, s.dignityCap - capDrop);
-    s.axes.品位 = Math.min(s.axes.品位, s.dignityCap);
   }
   s.money += pay;
   s.stamina -= staminaOf(job);
@@ -562,7 +550,6 @@ export function settleJob(state: DailyState, job: Job, quote?: Quote, lostPresti
       pay,
       fatigueRate: rate,
       drops,
-      capDrop,
       gains,
       staminaDelta: -staminaOf(job),
       relationUp,
@@ -577,11 +564,6 @@ export function closingPreview(job: Job, s: DailyState) {
   const after = structuredClone(s);
   for (const c of job.costs)
     after.axes[c.axis] = Math.max(0, after.axes[c.axis] - c.amount);
-  const cap = capDropOf(job);
-  if (cap) {
-    after.dignityCap = Math.max(0, after.dignityCap - cap);
-    after.axes.品位 = Math.min(after.axes.品位, after.dignityCap);
-  }
   return jobs
     .filter((j) => j.id !== job.id && isOpen(j, s) && !isOpen(j, after))
     .map((j) => j.title);

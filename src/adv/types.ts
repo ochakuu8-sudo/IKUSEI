@@ -13,7 +13,6 @@ export type Effects = {
   bonusMoney?: number;
   growthXP?: Record<string, number>;
   axisDelta?: Partial<Record<Axis, number>>;
-  dignityCapDrop?: number;
   relationDelta?: Partial<Record<PersonId, number>>;
   storyFlags?: Record<string, boolean>;
   grantCapabilities?: string[];

@@ -14,7 +14,7 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 const read = () =>
   page.evaluate(() =>
-    JSON.parse(localStorage.getItem("ikusei-prototype-save-v14")),
+    JSON.parse(localStorage.getItem("ikusei-prototype-save-v16")),
   );
 const button = (name) => page.getByRole("button", { name, exact: true });
 try {
@@ -30,7 +30,8 @@ try {
       staminaOf,
       takeReason,
     } = await import("/IKUSEI/src/daily.ts");
-    const { jobs, capDropOf } = await import("/IKUSEI/src/game.ts");
+    const { jobs: allJobs } = await import("/IKUSEI/src/game.ts");
+    const jobs = allJobs.filter(j => !j.debugOnly);
     const states = [],
       seen = new Set();
     let hasClosing = false;
@@ -38,12 +39,12 @@ try {
       for (let i = 0; i < 500; i++) {
         const s = freshDaily("manor-qa-" + i);
         s.unlocked.push("herbalist");
+        s.capabilities = ["garden-orders"];
         s.money = 999999;
         s.relations = Object.fromEntries(
           Object.keys(s.relations).map((k) => [k, 3]),
         );
         s.axes = { 貞操: level, 品位: level, 威厳: level === 40 ? 24 : level };
-        s.dignityCap = level === 40 ? 57 : 100;
         s.stamina = level === 40 ? 15 : 100;
         if (i % 2 === 0) s.recent = ["vernet", "vernet", "vernet"];
         const offers = offersOf(s);
@@ -57,7 +58,6 @@ try {
               pay: payOf(j, s),
               stamina: staminaOf(j),
               costs: j.costs,
-              cap: capDropOf(j),
               closing: closingPreview(j, s),
               blocked: !!takeReason(j, s),
             })),
@@ -78,7 +78,7 @@ try {
   for (const [i, { state, offers }] of samples.entries()) {
     await page.evaluate(
       (s) =>
-        localStorage.setItem("ikusei-prototype-save-v14", JSON.stringify(s)),
+        localStorage.setItem("ikusei-prototype-save-v16", JSON.stringify(s)),
       state,
     );
     await page.reload();
@@ -102,14 +102,21 @@ try {
             )
               bad.push(walker.currentNode.textContent);
         }
-        if (
-          card.querySelector(".c-slip-main b").getBoundingClientRect().bottom >
-          card.querySelector(".c-slip-terms").getBoundingClientRect().top
-        )
+        // Rotated bounding rectangles overlap even when the actual rows do not.
+        // Compare layout coordinates inside the paper; the checks above cover outer bounds.
+        const layoutTop = el => {
+          let top = 0;
+          for (let node = el; node; node = node.offsetParent) top += node.offsetTop;
+          return top;
+        };
+        const title = card.querySelector(".c-slip-main b");
+        const terms = card.querySelector(".c-slip-terms");
+        if (layoutTop(title) + title.offsetHeight > layoutTop(terms))
           bad.push("題名と条件が重なる");
       }
       return bad;
     });
+    if (overflow.length) await page.screenshot({ path: resolve(out, "manor-failure.png") });
     assert.deepEqual(overflow, [], `提示${i}の文字がはみ出す`);
     if (i === 0 || i === samples.length - 1)
       await page.screenshot({
@@ -133,16 +140,11 @@ try {
           ),
         );
       if (!offer.costs.length) assert(text.includes("代償なし"));
-      if (offer.cap)
-        assert(
-          text.includes(
-            `品位上限 ${state.dignityCap} → ${Math.max(0, state.dignityCap - offer.cap)}（戻らない）`,
-          ),
-        );
+      assert(!text.includes("品位上限"));
       for (const closed of offer.closing)
         assert(text.includes(closed), "閉じる依頼を受諾前にすべて表示");
       assert.equal(
-        await button("この依頼を受ける").isDisabled(),
+        await button(/^この依頼を受ける/).isDisabled(),
         offer.blocked,
       );
       const fit = await letter.evaluate((e) => {
@@ -160,10 +162,10 @@ try {
         );
       });
       assert(fit, `${offer.id}の本文・条件・操作の領域が重なる`);
-      if (offer.closing.length && offer.cap)
+      if (offer.closing.length)
         await page.screenshot({ path: resolve(out, "manor-consequences.png") });
       assert.equal((await read()).day, state.day, "閲覧で日は進まない");
-      await button("机に戻す").click();
+      await button("← 机に戻す").click();
       checked.add(offer.id);
     }
   }
@@ -175,8 +177,11 @@ try {
     [800, 304],
     [390, 844],
   ]) {
+    await page.mouse.move(0, 0);
     await page.setViewportSize({ width, height });
-    await page.locator(".c-request-card .c-slip-face").first().click();
+    await page.locator(".c-request-card .c-slip-face").first().focus();
+    await page.keyboard.press("Enter");
+    await page.locator(".c-reading-sheet").waitFor({ state: "visible" });
     const inside = await page.evaluate(() => {
       const app = document
         .querySelector(".chapter-app")
@@ -193,13 +198,14 @@ try {
     });
     assert(inside, `${width}×${height}で条件と操作が枠内`);
     await page.keyboard.press("Escape");
+    await page.locator(".c-reading-sheet").waitFor({ state: "hidden" });
     if (width === 800)
       await page.screenshot({ path: resolve(out, "manor-mobile.png") });
   }
-  /* 動きを有効にして受諾直後に再読込。演出中にも確定した1日が残る。 */
+  /* 受諾直後は報酬未確定。再読込して本文を終えたときだけ日が進む。 */
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.evaluate((s) => {
-    localStorage.setItem("ikusei-prototype-save-v14", JSON.stringify(s));
+    localStorage.setItem("ikusei-prototype-save-v16", JSON.stringify(s));
     localStorage.setItem(
       "ikusei-prototype-ui-v14",
       JSON.stringify({ tab: "today", speed: 0, motion: false, volume: 0 }),
@@ -215,28 +221,32 @@ try {
     "通常モーションの復帰完了後も選んだ依頼にフォーカスする",
   );
   await page.locator(".c-request-card .c-slip-face").first().click();
-  const accepted = await button("この依頼を受ける").evaluate(async (e) => {
+  const accepted = await button(/^この依頼を受ける/).evaluate(async (e) => {
     e.click();
     e.click();
     await new Promise(requestAnimationFrame);
+    const s = JSON.parse(localStorage.getItem("ikusei-prototype-save-v16"));
     return {
       inert: document.querySelector(".chapter-app").inert,
-      ritual: !!document.querySelector(".c-ritual-sign"),
-      day: JSON.parse(localStorage.getItem("ikusei-prototype-save-v14")).day,
-      displayedDay: document.querySelector(".c-hud button b").textContent,
-      displayedMoney: document.querySelector(".c-res-money b").textContent,
-      signingInsideLetter: !!document.querySelector(".c-reading-sheet .c-letter-response .c-response-stamp"),
+      day: s.day, money: s.money, phase: s.activeSession?.phase,
     };
   });
   assert.deepEqual(accepted, {
-    inert: true, ritual: true, day: 2, displayedDay: "1日目",
-    displayedMoney: `${samples[0].state.money.toLocaleString()}G`, signingInsideLetter: true,
+    inert: true, day: 1, money: samples[0].state.money, phase: "playing",
   });
   await page.reload();
   await button("続きから").click();
+  assert.equal((await read()).day, 1);
+  for (let i = 0; i < 10 && (await read()).activeSession.phase === "playing"; i++) {
+    await page.waitForSelector(".scenario-stage[data-ready=true]");
+    await button("シナリオメニュー").click();
+    await button("この場面をとばす").click();
+  }
   assert.equal((await read()).day, 2);
+  await button("翌日へ").click();
   assert.equal(await page.locator(".c-request-card").count(), 3);
   await button("設定").click();
+  await button("音").click();
   assert.equal(
     await page.getByRole("slider", { name: "紙の音量" }).inputValue(),
     "0",
@@ -244,14 +254,14 @@ try {
   );
   await button("閉じる").last().click();
   await page.evaluate(() => {
-    const s = JSON.parse(localStorage.getItem("ikusei-prototype-save-v14"));
+    const s = JSON.parse(localStorage.getItem("ikusei-prototype-save-v16"));
     s.awaitingSettlement = true;
     s.day = 14;
-    localStorage.setItem("ikusei-prototype-save-v14", JSON.stringify(s));
+    localStorage.setItem("ikusei-prototype-save-v16", JSON.stringify(s));
   });
   await page.reload();
   await button("続きから").click();
-  assert(await button("返済を確定する").isVisible());
+  assert(await button("この内容で納める").isVisible());
   await page.reload();
   await button("はじめから").click();
   await button("確定する").click();
@@ -266,8 +276,12 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    `PASS manor: 全24依頼/${samples.length}組、報酬・複数代償・上限・紹介停止、5サイズ、演出中保存と二重入力、消音、章末`,
+    `PASS manor: 全24依頼/${samples.length}組、報酬・複数代償・ランク・紹介停止、5サイズ、途中保存と二重入力、消音、章末`,
   );
+} catch (error) {
+  await page.screenshot({ path: resolve(out, "manor-failure.png") });
+  console.error("viewport", page.viewportSize());
+  throw error;
 } finally {
   await browser.close();
 }

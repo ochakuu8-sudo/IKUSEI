@@ -1,5 +1,5 @@
 import type { Job } from "../game";
-import type { Scenario, Effects, Condition, AdvNode } from "../adv/types";
+import type { Scenario, Condition, AdvNode } from "../adv/types";
 import { growthDefinitions } from "../adv/growth";
 
 const range = (kind: "skill" | "axis", id: string, min?: number, max?: number): Condition =>
@@ -8,7 +8,7 @@ const text = (id: string, body: string, next = "end"): AdvNode =>
   ({ id, kind: "text", lines: [{ speaker: "案内人", text: body }], next });
 const end: AdvNode = { id: "end", kind: "end" };
 const training: Scenario = {
-  id: "debug.training", version: 1, entry: "intro",
+  id: "debug.training", version: 2, entry: "intro",
   nodes: {
     intro: text("intro", "検証用の共同作業です。今日はどの役割を担当しますか。選んだ経験は、次の依頼で使えます。", "role"),
     role: { id: "role", kind: "choice", prompt: "今日の担当を選ぶ", choices: growthDefinitions.map(d => ({
@@ -41,9 +41,9 @@ for (const d of growthDefinitions) challengeNodes[d.id] = text(d.id,
   d.id === "knowledge"
     ? "調べた結果、古い資料と新しい資料では前提が違うと分かりました。後日、整理の続きを頼まれます。"
     : d.label + "を使って、通常とは違う役割を担いました。この決定を受けて、後日あなただけの依頼が届きます。");
-const challenge: Scenario = { id: "debug.challenge", version: 1, entry: "intro", nodes: challengeNodes };
+const challenge: Scenario = { id: "debug.challenge", version: 2, entry: "intro", nodes: challengeNodes };
 const axesScenario: Scenario = {
-  id: "debug.axes", version: 1, entry: "intro",
+  id: "debug.axes", version: 2, entry: "intro",
   nodes: {
     intro: text("intro", "状態変化と、変化直後の条件を確認する場面です。値は検証用です。", "change"),
     change: { id: "change", kind: "choice", prompt: "今回起こす変化を選ぶ", choices: [
@@ -51,21 +51,21 @@ const axesScenario: Scenario = {
       ...(["貞操", "品位", "威厳"] as const).map(axis => ({
         id: ({ 貞操: "chastity", 品位: "dignity", 威厳: "prestige" })[axis],
         text: axis + "が変わる出来事を経験する",
-        effects: { axisDelta: { [axis]: -40 }, ...(axis === "品位" ? { dignityCapDrop: 10 } : {}) } as Effects,
+        effects: { axisDelta: { [axis]: -40 } },
         next: "check",
       })),
       { id: "bond", text: "依頼主との約束を果たす", effects: { relationDelta: { marc: 1 } }, next: "check" },
-      { id: "recover", text: "状態を立て直す機会を得る", effects: { axisDelta: { 貞操: 20, 品位: 20, 威厳: 20 } }, next: "check" },
+      { id: "recover", text: "同じランクの範囲内で状態を立て直す", effects: { axisDelta: { 貞操: 20, 品位: 20, 威厳: 20 } }, next: "check" },
     ] },
     check: { id: "check", kind: "choice", prompt: "変化後の条件を確認する", choices: [
       { id: "normal", text: "通常の報告をして終える", next: "end" },
-      { id: "high", text: "家名を添えて挨拶する", condition: range("axis", "威厳", 76), next: "high" },
-      { id: "low", text: "変化した立場で協力を申し出る", condition: range("axis", "威厳", undefined, 30), next: "low" },
-      { id: "band", text: "今の評判について相談する", condition: range("axis", "威厳", 31, 75), next: "band" },
+      { id: "high", text: "家名を添えて挨拶する", condition: range("axis", "威厳", 5), next: "high" },
+      { id: "low", text: "変化した立場で協力を申し出る", condition: range("axis", "威厳", undefined, 2), next: "low" },
+      { id: "band", text: "今の評判について相談する", condition: range("axis", "威厳", 3, 4), next: "band" },
       { id: "all", text: "経験と信頼をもとに話を任せてもらう", condition: { kind: "all", items: [range("skill", "negotiation", 1), { kind: "range", value: { kind: "relation", personId: "marc" }, min: 1 }] }, next: "all" },
-      { id: "any", text: "経験か家名を頼りに紹介を求める", condition: { kind: "any", items: [range("skill", "charm", 1), range("axis", "威厳", 76)] }, effects: { grantCapabilities: ["garden-orders"] }, next: "any" },
-      { id: "chastityBand", text: "現在の自身の変化を振り返る", condition: range("axis", "貞操", undefined, 60), next: "band" },
-      { id: "dignityBand", text: "今の扱いについて伝える", condition: range("axis", "品位", undefined, 60), next: "band" },
+      { id: "any", text: "経験か家名を頼りに紹介を求める", condition: { kind: "any", items: [range("skill", "charm", 1), range("axis", "威厳", 5)] }, effects: { grantCapabilities: ["garden-orders"] }, next: "any" },
+      { id: "chastityBand", text: "現在の自身の変化を振り返る", condition: range("axis", "貞操", undefined, 3), next: "band" },
+      { id: "dignityBand", text: "今の扱いについて伝える", condition: range("axis", "品位", undefined, 3), next: "band" },
     ] },
     high: text("high", "家名が通用する状態での応対を記録しました。"),
     low: text("low", "名声を失った状態での応対を記録しました。経験は失われていません。"),
@@ -76,7 +76,7 @@ const axesScenario: Scenario = {
   },
 };
 export const debugScenarios: Scenario[] = [training, challenge, axesScenario, ...growthDefinitions.map(d => ({
-  id: "debug.followup." + d.id, version: 1, entry: "intro",
+  id: "debug.followup." + d.id, version: 2, entry: "intro",
   nodes: {
     intro: text("intro", "先日の" + d.label + "を使った決定を受けて届いた依頼です。主人公の現在の名声だけで過去の約束は消えません。", "role"),
     role: { id: "role", kind: "choice" as const, prompt: "続きの仕事を選ぶ", choices: [

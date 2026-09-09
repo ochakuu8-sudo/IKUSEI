@@ -69,16 +69,16 @@ check("代償は受ける前に確定し、受けたぶんだけ軸が減る", (
   );
 });
 
-check("品位を払うと上限も下がり、上限は戻らない", () => {
+check("品位は同ランク内だけ回復し、低下したランクには戻らない", () => {
   let s = freshDaily("t5");
-  const job = jobs.find((j) => j.id === "banquet"); // 商家の晩餐で給仕（品位−14）
-  const out = dailyAction(s, { type: "take", job: job.id });
-  assert(out.outcome.capDrop > 0);
-  assert.equal(out.state.dignityCap, 100 - out.outcome.capDrop);
+  s.axes.品位 = 90;
+  const out = dailyAction(s, { type: "take", job: "banquet" });
+  assert.equal(out.state.axes.品位, 80, "90から14低下して76、その日の回復で80まで");
+  assert.equal("dignityCap" in out.state, false);
+  assert.equal("capDrop" in out.outcome, false);
   s = out.state;
   for (let i = 0; i < 10; i++) s = dailyAction(s, { type: "rest" }).state;
-  assert.equal(s.dignityCap, out.state.dignityCap, "上限は休んでも戻らない");
-  assert.equal(s.axes.品位, s.dignityCap, "現在値は上限まで戻る");
+  assert.equal(s.axes.品位, 80, "何日休んでもランク4の範囲を越えない");
 });
 
 check("軸が下がると上の依頼が閉じ、落ちきると裏が開く", () => {
@@ -190,7 +190,7 @@ check("v13の保存からは、返済と評判だけを引き継ぐ", () => {
   const s = migrateFromV13(JSON.stringify(v13));
   assert.equal(s.chapter, 2);
   assert.equal(s.money, 800);
-  assert.equal(s.dignityCap, 95);
+  assert.equal("dignityCap" in s, false);
   assert.equal(s.axes.貞操, 88);
   assert.equal(s.relations.vernet, 2);
   assert.equal(s.relations.claire, 1);

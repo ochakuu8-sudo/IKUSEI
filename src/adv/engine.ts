@@ -1,6 +1,7 @@
 import { jobs, axes, people, personOf, type Job } from "../game";
 import { dailyAction, closedSince, isOpen, fatigueRateOf, listPriceOf, offersOf, payOf, settleJob, takeReason, type DailyState } from "../daily";
 import { scenarios } from "../content/scenarios";
+import { changeDignity } from "../dignity";
 import { growthDefinitions, growthOf, rankOf } from "./growth";
 import { evaluateCondition, validateEffects, validateScenario, validateJob } from "./conditions";
 import type { ActiveSession, Effects, ReplayRecord, Scenario, Snapshot } from "./types";
@@ -44,9 +45,7 @@ export function applyEffects(s: Snapshot, effects?: Effects): Snapshot {
   for (const [id, xp] of Object.entries(effects.growthXP ?? {}))
     n.growthXP[id] = Math.min(growthOf(id)!.thresholds.at(-1)!, n.growthXP[id] + xp);
   for (const axis of axes)
-    n.axes[axis] = Math.min(100, Math.max(0, n.axes[axis] + (effects.axisDelta?.[axis] ?? 0)));
-  n.dignityCap = Math.max(0, n.dignityCap - (effects.dignityCapDrop ?? 0));
-  n.axes.品位 = Math.min(n.axes.品位, n.dignityCap);
+    n.axes[axis] = changeDignity(n.axes[axis], effects.axisDelta?.[axis] ?? 0);
   for (const p of people)
     n.relations[p.id] = Math.min(3, Math.max(0, n.relations[p.id] + (effects.relationDelta?.[p.id] ?? 0)));
   Object.assign(n.storyFlags, effects.storyFlags);
@@ -82,7 +81,6 @@ function complete(state: DailyState, session: ActiveSession): DailyState {
   }));
   outcome.closedNow = closedSince(jobs.filter(j => isOpen(j, session.entrySnapshot)), result);
   result.log[0] = `${session.entrySnapshot.day}日目。${session.job.title}（${outcome.pay.toLocaleString()}G）。`;
-  outcome.capDrop += session.entrySnapshot.dignityCap - session.working.dignityCap;
   const changedRelations = people.filter(p => session.working.relations[p.id] !== session.entrySnapshot.relations[p.id]);
   outcome.notices.push(...changedRelations.map(p => p.name + "との関係 " + session.entrySnapshot.relations[p.id] + " → " + session.working.relations[p.id] + "（選択による変化）"));
   const record: ReplayRecord = {

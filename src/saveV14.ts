@@ -1,6 +1,6 @@
 /**
- * v15 の保存。成長・物語フラグ・ADVの途中状態を一括保存する。
- * ファイル名は既存の参照との互換のため維持。v14は報酬を再実行せず移行する。
+ * v16 の保存。独立した品位上限を廃止し、尊厳条件をランクへ移行する。
+ * ファイル名は既存の参照との互換のため維持。旧保存の報酬は再実行しない。
  *
  * v13（生産ラインの版）からは、続けられるぶんだけを引き継ぐ。素材・在庫・処方・
  * 品質・契約は新しい仕組みに対応する概念が無いので捨てる。**元の保存は消さない**ので、
@@ -10,9 +10,11 @@ import { axes, people, type Axis, type PersonId } from "./game";
 import { freshDaily, SAVE_VERSION, type DailyState } from "./daily";
 import { growthDefinitions, initialGrowth, rankOf } from "./adv/growth";
 import type { ActiveSession, ReplayRecord, Snapshot } from "./adv/types";
+import { dignityRank } from "./dignity";
 
-export const SAVE_KEY = "ikusei-prototype-save-v15";
+export const SAVE_KEY = "ikusei-prototype-save-v16";
 export const UI_KEY = "ikusei-prototype-ui-v14";
+const V15_KEY = "ikusei-prototype-save-v15";
 const V14_KEY = "ikusei-prototype-save-v14";
 const V13_KEY = "ikusei-prototype-save-v13";
 
@@ -44,13 +46,11 @@ function parseBase(text: string): DailyState | null {
     money: int(raw.money, 0, 9_999_999, base.money),
     debt: int(raw.debt, 0, 9_999_999, base.debt),
     stamina: int(raw.stamina, 0, 100, 100),
-    dignityCap: int(raw.dignityCap, 0, 100, 100),
     revision: int(raw.revision, 0, 9_999_999, 0),
   };
   const a = raw.axes as Record<string, unknown> | undefined;
   for (const axis of axes)
     state.axes[axis] = int(a?.[axis], 0, 100, base.axes[axis]);
-  state.axes.品位 = Math.min(state.axes.品位, state.dignityCap);
   const r = raw.relations as Record<string, unknown> | undefined;
   for (const p of people) state.relations[p.id] = int(r?.[p.id], 0, 3, 0);
   const ids = new Set(people.map((p) => p.id as string));
@@ -124,6 +124,62 @@ export function parseDaily(text: string): DailyState | null {
     return state;
   } catch { return null; }
 }
+
+/** Convert only known content fields; malformed definitions remain recoverable or invalid. */
+function upgradeCondition(value: unknown): unknown {
+  if (!object(value)) return value;
+  if ((value.kind === "all" || value.kind === "any") && Array.isArray(value.items))
+    return { ...value, items: value.items.map(upgradeCondition) };
+  if (value.kind !== "range" || !object(value.value) || value.value.kind !== "axis") return value;
+  const result = { ...value };
+  for (const key of ["min", "max"])
+    if (result[key] !== undefined) {
+      if (typeof result[key] !== "number" || !Number.isFinite(result[key]) || result[key] < 0 || result[key] > 100) throw new Error("旧尊厳条件が不正です");
+      result[key] = dignityRank(result[key]);
+    }
+  return result;
+}
+function upgradeEffects(value: unknown): unknown {
+  if (!object(value)) return value;
+  const { dignityCapDrop: _removed, ...effects } = value;
+  return effects;
+}
+function upgradeSnapshot(value: unknown): Record<string, unknown> {
+  if (!object(value) || value.saveVersion !== 15) throw new Error("旧保存の形式が不正です");
+  const { dignityCap: _removed, ...snapshot } = value;
+  return { ...snapshot, saveVersion: SAVE_VERSION };
+}
+export function migrateFromV15(text: string): DailyState | null {
+  try {
+    const raw: unknown = JSON.parse(text);
+    const upgraded = upgradeSnapshot(raw);
+    if (object(upgraded.activeSession)) {
+      const session = upgraded.activeSession;
+      session.entrySnapshot = upgradeSnapshot(session.entrySnapshot);
+      session.working = upgradeSnapshot(session.working);
+      if (object(session.job)) {
+        for (const key of ["needs", "opensBelow"])
+          if (object(session.job[key])) session.job[key] = Object.fromEntries(Object.entries(session.job[key]).map(([axis, n]) => {
+            if (typeof n !== "number" || !Number.isFinite(n) || n < 0 || n > 100) throw new Error("旧依頼条件が不正です");
+            return [axis, dignityRank(n)];
+          }));
+        if (session.job.entryCondition !== undefined) session.job.entryCondition = upgradeCondition(session.job.entryCondition);
+      }
+      if (object(session.scenario) && object(session.scenario.nodes))
+        for (const node of Object.values(session.scenario.nodes)) {
+          if (!object(node)) continue;
+          if (node.effects !== undefined) node.effects = upgradeEffects(node.effects);
+          if (Array.isArray(node.choices)) for (const choice of node.choices) {
+            if (!object(choice)) continue;
+            if (choice.effects !== undefined) choice.effects = upgradeEffects(choice.effects);
+            if (choice.condition !== undefined) choice.condition = upgradeCondition(choice.condition);
+          }
+        }
+      if (object(session.outcome)) delete session.outcome.capDrop;
+    }
+    return parseDaily(JSON.stringify(upgraded));
+  } catch { return null; }
+}
 export function migrateFromV14(text: string): DailyState | null {
   try {
     const raw = JSON.parse(text);
@@ -147,11 +203,9 @@ export function migrateFromV13(text: string): DailyState | null {
   s.money = int(raw.money, 0, 9_999_999, s.money);
   s.debt = int(raw.debt, 0, 9_999_999, s.debt);
   s.carryOver = int(raw.carryOver, 0, 9_999_999, 0);
-  s.dignityCap = int(raw.dignityCap, 0, 100, 100);
   const a = raw.axes as Record<string, unknown> | undefined;
   for (const axis of axes as Axis[])
     s.axes[axis] = int(a?.[axis], 0, 100, s.axes[axis]);
-  s.axes.品位 = Math.min(s.axes.品位, s.dignityCap);
   /* v13の関係は0〜10000点。段階（0〜3）へ落として引き継ぐ。 */
   const points = raw.relationPoints as Record<string, unknown> | undefined;
   for (const p of people) {
@@ -174,6 +228,13 @@ export function loadDaily(store: Storage): LoadResult {
           state: null,
           notice: "保存が読めませんでした。新しく始めてください。",
         };
+  }
+  const v15 = store.getItem(V15_KEY);
+  if (v15) {
+    const state = migrateFromV15(v15);
+    return state
+      ? { state, notice: "尊厳をランク制へ移行しました。数値・成長・進行中の依頼を引き継ぎ、品位上限を廃止しました。回復は同ランク内だけです。" }
+      : { state: null, notice: "以前の保存を移行できませんでした。元の記録は保持しています。" };
   }
   const v14 = store.getItem(V14_KEY);
   if (v14) {
@@ -201,6 +262,7 @@ export function saveDaily(store: Storage, state: DailyState) {
 
 export function clearDaily(store: Storage) {
   store.removeItem(SAVE_KEY);
+  store.removeItem(V15_KEY);
   store.removeItem(V14_KEY);
   store.removeItem(V13_KEY);
 }

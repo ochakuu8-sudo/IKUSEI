@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { DailyState } from "../daily";
 import { personOf } from "../game";
+import { dignityLabel } from "../dignity";
 import { evaluateCondition, type Evaluation } from "../adv/conditions";
 import { growthDefinitions, growthLabel, growthOf } from "../adv/growth";
 import { sceneKey, sessionError, type Command } from "../adv/engine";
@@ -30,8 +31,7 @@ function effectText(e?: Effects): string {
   return [
     e.bonusMoney ? "追加報酬 " + e.bonusMoney + "G" : "",
     ...Object.entries(e.growthXP ?? {}).map(([id, n]) => growthOf(id)!.label + "経験 +" + n),
-    ...Object.entries(e.axisDelta ?? {}).map(([id, n]) => id + " " + (n >= 0 ? "+" : "") + n),
-    e.dignityCapDrop ? "品位上限 −" + e.dignityCapDrop : "",
+    ...Object.entries(e.axisDelta ?? {}).map(([id, n]) => id + "数値 " + (n >= 0 ? "+" : "") + n + (n > 0 ? "（同ランク内）" : "")),
     ...Object.entries(e.relationDelta ?? {}).map(([id, n]) => personOf(id as never).name + "との関係 " + (n >= 0 ? "+" : "") + n),
   ].filter(Boolean).join(" ／ ");
 }
@@ -82,7 +82,7 @@ export function AdvSession({ state, send, error, retry, onTitle, settings, onSet
       </header>
       {error && <div role="alert">{error}<button onClick={retry}>保存を再試行</button></div>}
       <div className="adv-content">
-        <aside><GrowthPanel state={session.working} /><p>貞操 {session.working.axes.貞操} ／ 品位 {session.working.axes.品位} ／ 威厳 {session.working.axes.威厳}</p></aside>
+        <aside><GrowthPanel state={session.working} /><p>貞操 {dignityLabel(session.working.axes.貞操)}<br />品位 {dignityLabel(session.working.axes.品位)}<br />威厳 {dignityLabel(session.working.axes.威厳)}</p></aside>
         <section className="adv-options" aria-label={view === "choices" ? "選択肢" : view}>
           {view === "choices" ? node.choices.map(choice => {
             const condition = evaluateCondition(choice.condition, session.working);

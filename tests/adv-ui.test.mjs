@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
 const url = process.env.IKUSEI_TEST_URL ?? "http://127.0.0.1:5174/IKUSEI/";
-const key = "ikusei-prototype-save-v15";
+const key = "ikusei-prototype-save-v16";
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 800 }, reducedMotion: "reduce" });
 const errors = [];
@@ -32,6 +32,13 @@ try {
   await page.goto(url);
   await page.getByRole("button", { name: "検証シナリオで始める", exact: true }).click();
   await page.waitForSelector('[data-job="debug-training"]');
+  for (const axis of ["貞操", "品位", "威厳"]) {
+    const row = page.locator(`[data-axis="${axis}"]`);
+    assert((await row.innerText()).includes("ランク5"));
+    const label = await row.locator(".r-status-axis-title b").boundingBox();
+    const meter = await row.locator(".r-status-meter").boundingBox();
+    assert(meter.x + meter.width <= label.x, "rank label does not overlap the meter");
+  }
   await screenshot("desk");
   assert.equal((await saved()).day, 1);
   await accept("debug-challenge");
@@ -140,8 +147,30 @@ try {
   await skipText();
   assert.equal((await saved()).axes.威厳, 60);
   assert.equal((await saved()).activeSession.choices.length, 2);
+  await page.evaluate(async k => {
+    const { freshDaily } = await import("/IKUSEI/src/daily.ts");
+    const s = freshDaily("ui-rank-recovery"); s.debugMode = true;
+    s.axes = { 貞操: 0, 品位: 45, 威厳: 61 };
+    localStorage.setItem(k, JSON.stringify(s));
+  }, key);
+  await resume();
+  assert((await page.locator('[data-axis="貞操"]').innerText()).includes("ランク0"));
+  await accept("debug-axes"); await skipText();
+  await page.locator('[data-choice="recover"]').click();
+  await page.waitForSelector('[data-choice="band"]');
+  assert.deepEqual((await saved()).activeSession.working.axes, { 貞操: 0, 品位: 60, 威厳: 80 });
+  assert.equal(await page.locator('[data-choice="high"]').getAttribute("aria-disabled"), "true");
+  await page.locator('[data-choice="normal"]').click();
+  await page.getByRole("button", { name: "翌日へ", exact: true }).waitFor();
+  const recovered = await saved();
+  assert.deepEqual(recovered.axes, { 貞操: 0, 品位: 60, 威厳: 80 });
+  assert(!JSON.stringify(recovered).includes("dignityCap"));
+  assert(!(await page.locator("body").innerText()).includes("品位上限"));
+  await resume();
+  assert.deepEqual((await saved()).axes, recovered.axes);
+  await screenshot("rank-recovery");
   assert.deepEqual(errors, []);
-  console.log("PASS ADV UI: growth, locks, branches, resume, cursor, exactly-once, archive, complex conditions, 1200x500 at two viewports, storage retry");
+  console.log("PASS ADV UI: growth, locks, branches, resume, cursor, exactly-once, archive, complex conditions, 1200x500, storage retry, irreversible ranks and recovery");
 } catch (error) {
   await screenshot("failure");
   console.error("PAGE", (await page.locator("body").innerText()).slice(-5000), errors);

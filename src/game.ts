@@ -1,6 +1,7 @@
 // ゲームのルールとデータ。画面(App.tsx)からは、ここが返す値を表示するだけにする。
 // 数値の根拠は GAME_DESIGN.md。変更するときは企画書側と必ず揃える。
 
+import { dignityRank } from "./dignity";
 import { debugJobs } from "./content/debug";
 import type { Condition } from "./adv/types";
 export type Axis = "貞操" | "品位" | "威厳";
@@ -509,9 +510,9 @@ export type Job = {
   pay: number;
   stamina: number;
   description: string;
-  /** これを下回ると紹介されなくなる尊厳の下限。軸ごとに持つ。 */
+  /** 紹介に必要な尊厳ランクの下限（0〜5）。軸ごとに持つ。 */
   needs: Partial<Record<Axis, number>>;
-  /** これ以下まで落ちて、初めて回ってくる依頼。 */
+  /** この尊厳ランク以下で初めて届く（0〜5）。 */
   opensBelow?: Partial<Record<Axis, number>>;
   /** 関係の進み方。親交の席は普通の仕事より速い。 */
   bond?: number;
@@ -628,7 +629,7 @@ export const jobs: Job[] = [
     "vernet",
     360,
     12,
-    { 品位: 22 },
+    { 品位: 2 },
     [],
     "荷役が絶えず怪我をする。効けばいい、と番頭は言った。",
     { recipe: "balm", count: 2 },
@@ -640,7 +641,7 @@ export const jobs: Job[] = [
     "claire",
     330,
     12,
-    { 品位: 45 },
+    { 品位: 3 },
     [],
     "徹夜の続く季節。教授たちが飲むものが要る。",
     { recipe: "tisane", count: 2 },
@@ -652,7 +653,7 @@ export const jobs: Job[] = [
     "claire",
     430,
     12,
-    { 品位: 35 },
+    { 品位: 2 },
     [],
     "眠れない人がいる。それだけの話だと、まだ思える。",
     { recipe: "sleeper", count: 2 },
@@ -664,7 +665,7 @@ export const jobs: Job[] = [
     "guillaume",
     340,
     14,
-    { 品位: 55, 威厳: 48 },
+    { 品位: 3, 威厳: 3 },
     [],
     "家令は香りで値踏みをする。ラティエ家の名で通る、最後の品。",
     { recipe: "perfume", count: 1 },
@@ -676,7 +677,7 @@ export const jobs: Job[] = [
     "count",
     400,
     14,
-    { 品位: 58, 威厳: 58 },
+    { 品位: 3, 威厳: 3 },
     [],
     "夜会で倒れる貴婦人のために。銀砂が要る、高い薬。",
     { recipe: "tonic", count: 1 },
@@ -717,7 +718,7 @@ export const jobs: Job[] = [
     "claire",
     120,
     16,
-    { 品位: 72, 貞操: 65 },
+    { 品位: 4, 貞操: 4 },
     [],
     "仕事ではない。ただ、招かれるうちは、まだ令嬢として扱われている。",
     { bond: 2 },
@@ -729,7 +730,7 @@ export const jobs: Job[] = [
     "count",
     155,
     20,
-    { 品位: 66, 威厳: 68, 貞操: 40 },
+    { 品位: 4, 威厳: 4, 貞操: 2 },
     [],
     "かつては主催する側だった席に、呼ばれる側として座る。",
     { bond: 2 },
@@ -743,7 +744,7 @@ export const jobs: Job[] = [
     "guillaume",
     340,
     34,
-    { 品位: 48, 威厳: 46, 貞操: 20 },
+    { 品位: 3, 威厳: 3, 貞操: 1 },
     [{ axis: "貞操", amount: 16 }],
     "手紙と来客を捌く。夜まで屋敷に留め置かれる日もある。",
   ),
@@ -754,7 +755,7 @@ export const jobs: Job[] = [
     "claire",
     225,
     26,
-    { 品位: 62, 貞操: 50 },
+    { 品位: 4, 貞操: 3 },
     [{ axis: "品位", amount: 6 }],
     "教える相手は、かつて挨拶にも来られなかった家の娘。",
   ),
@@ -765,7 +766,7 @@ export const jobs: Job[] = [
     "count",
     265,
     24,
-    { 威厳: 34, 貞操: 12 },
+    { 威厳: 2, 貞操: 1 },
     [
       { axis: "威厳", amount: 12 },
       { axis: "貞操", amount: 8 },
@@ -781,7 +782,7 @@ export const jobs: Job[] = [
     "claire",
     120,
     20,
-    { 品位: 70, 貞操: 60 },
+    { 品位: 4, 貞操: 3 },
     [],
     "筆写するだけの静かな仕事。写している束は、古い処方集だった。",
     { teaches: "perfume" },
@@ -793,7 +794,7 @@ export const jobs: Job[] = [
     "vernet",
     90,
     24,
-    { 品位: 40, 貞操: 25 },
+    { 品位: 2, 貞操: 2 },
     [],
     "数字は多いが、日が暮れるまでに終えれば約束の額になる。",
   ),
@@ -806,7 +807,7 @@ export const jobs: Job[] = [
     "marc",
     245,
     28,
-    { 品位: 28 },
+    { 品位: 2 },
     [{ axis: "威厳", amount: 9 }],
     "往来で声を張って値を争う。見物人は貴族の令嬢を面白がる。",
   ),
@@ -817,7 +818,7 @@ export const jobs: Job[] = [
     "jean",
     215,
     30,
-    { 品位: 18 },
+    { 品位: 1 },
     [{ axis: "品位", amount: 14 }],
     "客の中に、かつて彼女に頭を下げた者が混じっている。",
   ),
@@ -828,7 +829,7 @@ export const jobs: Job[] = [
     "marc",
     165,
     22,
-    { 威厳: 14 },
+    { 威厳: 1 },
     [{ axis: "威厳", amount: 8 }],
     "誰かの家財に値をつける。明日は自分の番かもしれない。",
   ),
@@ -857,7 +858,7 @@ export const jobs: Job[] = [
     {},
     [{ axis: "貞操", amount: 18 }],
     "そういう話が来るようになった、ということだった。",
-    { opensBelow: { 貞操: 45 } },
+    { opensBelow: { 貞操: 3 } },
   ),
   makeJob(
     "show",
@@ -872,7 +873,7 @@ export const jobs: Job[] = [
       { axis: "品位", amount: 6 },
     ],
     "「元・貴族の令嬢」と書いた札が、彼女の横に立てられる。",
-    { opensBelow: { 威厳: 28 } },
+    { opensBelow: { 威厳: 2 } },
   ),
 ];
 
@@ -885,38 +886,8 @@ export const RECENT_WINDOW = 3;
 
 /* ---------------- 章末精算 ---------------- */
 
-export function axisStage(axis: Axis, value: number): string {
-  const stages: Record<Axis, [string, string, string, string]> = {
-    貞操: [
-      "守られている",
-      "応じはじめている",
-      "数えられなくなった",
-      "拒む理由がない",
-    ],
-    品位: [
-      "令嬢として扱われる",
-      "軽んじられている",
-      "見下されている",
-      "人として扱われない",
-    ],
-    威厳: [
-      "家名は保たれている",
-      "噂されている",
-      "見世物になっている",
-      "街の晒し者",
-    ],
-  };
-  const [high, mid, low, bottom] = stages[axis];
-  if (value >= 76) return high;
-  if (value >= 51) return mid;
-  if (value >= 26) return low;
-  return bottom;
-}
-
-/** その依頼で下がる品位の上限。品位を払う依頼だけ発生する。 */
-export function capDropOf(job: Job): number {
-  const dignity = job.costs.find((c) => c.axis === "品位");
-  return dignity ? Math.ceil(dignity.amount / 2) : 0;
+export function axisStage(_axis: Axis, value: number): string {
+  return `ランク${dignityRank(value)}`;
 }
 
 /** 買い叩きの内訳。「なぜ安くなったか」を画面で言うために使う ──

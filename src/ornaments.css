@@ -83,7 +83,7 @@
 .r-status-axis-title > span { font: 500 14px/1.2 var(--serif); letter-spacing: .06em; }
 .r-status-axis-title > b { font: 500 18px/1.2 var(--serif); }
 .r-status-meter { height: 4px; border-radius: 2px; background: #24212c; box-shadow: 0 0 0 .7px #a991855e; overflow: hidden; }
-.r-status-axis .r-status-meter { position: absolute; top: 7px; left: 55px; right: 35px; margin: 0; }
+.r-status-axis .r-status-meter { position: absolute; top: 7px; left: 55px; right: 85px; margin: 0; }
 .r-status-meter > i { display: block; height: 100%; background: var(--axis-ink, #d69ab3); border-radius: 2px; transition: width .25s ease-out; }
 .r-status-cap-track { position: absolute; inset-block: 0; right: 0; border-left: 1px solid #efd4a1; background: #554450; }
 .r-status-axis-note { display: flex; justify-content: space-between; gap: 5px; color: #e0cfc0; white-space: nowrap; }

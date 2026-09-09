@@ -3,7 +3,6 @@ import { BookOpen, MoonStar, Settings } from "lucide-react";
 import {
   axes,
   axisStage,
-  capDropOf,
   CHAPTER_DAYS,
   jobs,
   personOf,
@@ -29,6 +28,7 @@ import {
   type DayOutcome,
 } from "./daily";
 import { clearDaily, loadDaily, saveDaily, UI_KEY, SAVE_KEY } from "./saveV14";
+import { dignityRank, dignityLabel } from "./dignity";
 import { persistTransition, type Command } from "./adv/engine";
 import { AdvSession, GrowthPanel } from "./ui/AdvSession";
 import { ADV_ARCHIVE_KEY, loadArchive, syncArchive } from "./adv/archive";
@@ -121,15 +121,14 @@ function Button({
 
 /** Emblems lead each row; the state describes the number beside it. */
 function StatusAxis({ axis, s }: { axis: AxisName; s: DailyState }) {
-  const value = s.axes[axis],
-    cap = axis === "品位" ? s.dignityCap : 100;
+  const value = s.axes[axis];
   return (
     <div className="r-status-axis" data-axis={axis}>
       <Mark name={axis} decorative />
       <div className="r-status-copy">
         <div className="r-status-axis-title">
           <span>{axis}</span>
-          <b>{value}</b>
+          <b>{axisStage(axis, value)}</b>
         </div>
         <div
           className="r-status-meter"
@@ -138,16 +137,13 @@ function StatusAxis({ axis, s }: { axis: AxisName; s: DailyState }) {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={value}
-          aria-valuetext={`${value}、${axisStage(axis, value)}${axis === "品位" ? `、上限${cap}` : ""}`}
+          aria-valuetext={dignityLabel(value)}
         >
           <i style={{ width: `${value}%` }} />
-          {cap < 100 && (
-            <span className="r-status-cap-track" style={{ left: `${cap}%` }} />
-          )}
         </div>
         <div className="r-status-axis-note">
-          <span>{axisStage(axis, value)}</span>
-          {axis === "品位" && <small>上限 {cap}</small>}
+          <span>数値 {value}</span>
+          <small>回復は同ランク内</small>
         </div>
       </div>
     </div>
@@ -209,6 +205,7 @@ function Costs({
           {!compact && `−${c.amount}`}
           <small>
             {s.axes[c.axis]}→{Math.max(0, s.axes[c.axis] - c.amount)}
+            {dignityRank(s.axes[c.axis]) !== dignityRank(Math.max(0, s.axes[c.axis] - c.amount)) && `（ランク${dignityRank(s.axes[c.axis])}→${dignityRank(Math.max(0, s.axes[c.axis] - c.amount))}）`}
           </small>
         </span>
       ))}
@@ -259,7 +256,6 @@ function OfferCard({
     cost = staminaOf(job),
     bite = Math.min(100, (cost / Math.max(1, s.stamina)) * 100),
     closed = closingPreview(job, s).length,
-    cap = capDropOf(job),
     discounted = fatigueRateOf(job.person, s) < 1;
   return (
     <article
@@ -271,7 +267,7 @@ function OfferCard({
         type="button"
         className="c-slip-face"
         onClick={onOpen}
-        aria-label={`${job.title}の依頼状を読む。${personOf(job.person).name}、関係${s.relations[job.person]}／3。受け取る${gold(payOf(job, s))}、体力${cost}消費。${job.costs.length ? job.costs.map((c) => `${c.axis}${s.axes[c.axis]}から${Math.max(0, s.axes[c.axis] - c.amount)}`).join("、") : "三値の低下なし"}。${cap ? `品位上限−${cap}。` : ""}${discounted ? "値引きあり。" : ""}${closed ? `紹介停止${closed}件。` : ""}${reason ?? ""}`}
+        aria-label={`${job.title}の依頼状を読む。${personOf(job.person).name}、関係${s.relations[job.person]}／3。受け取る${gold(payOf(job, s))}、体力${cost}消費。${job.costs.length ? job.costs.map((c) => `${c.axis}${s.axes[c.axis]}から${Math.max(0, s.axes[c.axis] - c.amount)}`).join("、") : "三値の低下なし"}。${discounted ? "値引きあり。" : ""}${closed ? `紹介停止${closed}件。` : ""}${reason ?? ""}`}
       >
         <Mark name={sealOf(job)} className="c-slip-seal" decorative />
         <span className="c-slip-head">
@@ -319,14 +315,6 @@ function OfferCard({
         </span>
         <span className="c-slip-costline">
           <Costs job={job} s={s} compact />
-          {cap > 0 && (
-            <span
-              className="c-cap-note"
-              aria-label={`品位上限が${cap}下がる。戻らない`}
-            >
-              上限 −{cap}
-            </span>
-          )}
         </span>
         <span className="c-slip-foot">
           {job.growthHint && <span className="adv-card-growth">成長・選択の機会あり</span>}
@@ -363,7 +351,6 @@ function LetterSheet({
 }) {
   const reason = takeReason(job, s);
   const closing = closingPreview(job, s);
-  const cap = capDropOf(job);
   return (
     <section
       className={`c-screen c-sheet c-reading-sheet r-unfolded-letter ${signing ? "c-ritual-sign" : ""}`}
@@ -429,12 +416,6 @@ function LetterSheet({
           <div>
             <small>差し出すもの</small>
             <Costs job={job} s={s} compact />
-            {cap > 0 && (
-              <em className="c-cap-note">
-                品位上限 {s.dignityCap} → {Math.max(0, s.dignityCap - cap)}
-                （戻らない）
-              </em>
-            )}
           </div>
         </div>
         {closing.length > 0 && (

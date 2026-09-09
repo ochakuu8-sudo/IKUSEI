@@ -6,10 +6,12 @@ export async function checkReform(page, setViewport, base) {
   const button = (name) => page.getByRole("button", { name, exact: true });
   const stats = { offers: 0, jobs: new Set(), blocked: 0, viewports: [] };
   await setViewport({ width: 1280, height: 720 });
-  for (let i = 0; i < 15; i++) {
+  let offerCaseCount = 1;
+  for (let i = 0; i < offerCaseCount; i++) {
     await page.goto(`${base}tests/fixtures/reform.html?case=${i}`);
     await button("続きから").click();
     const q = JSON.parse(await page.locator("#qa-expected").textContent());
+    offerCaseCount = q.offerCaseCount;
     must(q.covered === q.jobCount, "Fixture must cover the whole job catalog");
     for (let j = 0; j < q.offers.length; j++) {
       const offer = q.offers[j],
@@ -30,8 +32,7 @@ export async function checkReform(page, setViewport, base) {
         (await button(/^この依頼を受ける/).isEnabled()) !== offer.blocked,
         `${offer.title}: availability`,
       );
-      if (offer.cap)
-        must(detail.includes("戻らない"), `${offer.title}: permanent cost`);
+      must(!detail.includes("品位上限"), "Removed cap must not be displayed");
       if (offer.closing.length)
         must(label.includes("紹介停止"), `${offer.title}: closing warning`);
       stats.offers++;
@@ -41,8 +42,8 @@ export async function checkReform(page, setViewport, base) {
     }
   }
   for (const [index, short, money, debt] of [
-    [15, "205G", "0G", "11,057G"],
-    [16, "0G", "240G", "10,800G"],
+    [offerCaseCount, "205G", "0G", "11,057G"],
+    [offerCaseCount + 1, "0G", "240G", "10,800G"],
   ]) {
     await page.goto(`${base}tests/fixtures/reform.html?case=${index}`);
     await button("続きから").click();

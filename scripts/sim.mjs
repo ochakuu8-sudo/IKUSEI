@@ -89,7 +89,7 @@ for (const [name, pick] of Object.entries(strategies)) {
   );
   console.log(
     `  最終 残債 ${Math.round(runs.reduce((a, r) => a + r.final.debt, 0) / runs.length)}G` +
-      ` ／ ${axesOf(runs[0].final.axes)}（品位上限 ${runs[0].final.dignityCap}）\n`,
+      ` ／ ${axesOf(runs[0].final.axes)}\n`,
   );
 }
 console.log(

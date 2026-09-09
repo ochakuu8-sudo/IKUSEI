@@ -27,6 +27,7 @@ import { catalogCounts, type SceneEntry, type SceneKind } from "../scenes";
 import { artAssetSrc, personSrc } from "../art";
 import { Art } from "./shell";
 import { Mark } from "../marks";
+import { dignityLabel } from "../dignity";
 import { growthLabel } from "../adv/growth";
 import { Rings } from "./symbols";
 import { visualFor } from "./sceneVisuals";
@@ -272,7 +273,7 @@ export function Journal({
           <div className="r-book-reading">
             <h3>いま、届かなくなった依頼</h3>
             <p className="r-help">
-              現在の条件による記録です。品位上限の低下とは異なり、条件が戻れば再び届く場合があります。
+              現在の条件による記録です。一度下がった尊厳ランクは戻らないため、必要ランクを失った依頼は再び届きません。
             </p>
             {traces.length ? (
               traces.map((t) => (
@@ -385,7 +386,7 @@ export function Settlement({
             />
             {preview.outcome?.drops.map((d) => (
               <p className="r-warning" key={d.axis}>
-                {d.axis} {d.before} → {d.after}
+                {d.axis} {dignityLabel(d.before)} → {dignityLabel(d.after)}
               </p>
             ))}
             <p className="r-help">
@@ -449,25 +450,19 @@ export function DayRecord({
           />
           <Amount label="体力" value={`${before.stamina} → ${after.stamina}`} />
           {result.choiceAxisMoves?.map(d => (
-            <p key={d.axis}>選択による{d.axis} {d.before} → {d.after}</p>
+            <p key={d.axis}>選択による{d.axis} {dignityLabel(d.before)} → {dignityLabel(d.after)}</p>
           ))}
           {result.drops.map((d, i) => (
             <p className="r-warning" key={d.axis + i}>
-              <Mark name={d.axis} decorative /> {d.axis} {d.before} → {d.after}
+              <Mark name={d.axis} decorative /> {d.axis} {dignityLabel(d.before)} → {dignityLabel(d.after)}
             </p>
           ))}
-          {result.capDrop > 0 && (
-            <p className="r-warning r-cap-warning">
-              品位の上限 {before.dignityCap} → {after.dignityCap}
-              <small>この上限低下は戻りません。</small>
-            </p>
-          )}
           {result.gains.length > 0 && (
             <div className="r-daily-recovery">
               <small>一日の終わりの回復</small>
               {result.gains.map((g) => (
                 <p key={g.axis}>
-                  {g.axis} {g.before} → {g.after}
+                  {g.axis} {dignityLabel(g.before)} → {dignityLabel(g.after)}
                 </p>
               ))}
             </div>
@@ -547,9 +542,8 @@ export function Ending({
             <Amount label="残債" value={gold(s.debt)} />
             <Amount label="手元" value={gold(s.money)} />
             {axes.map((a) => (
-              <Amount key={a} label={a} value={s.axes[a]} />
+              <Amount key={a} label={a} value={dignityLabel(s.axes[a])} />
             ))}
-            <small>品位上限 {s.dignityCap}</small>
           </div>
         )}
         <div className="r-ending-actions">
