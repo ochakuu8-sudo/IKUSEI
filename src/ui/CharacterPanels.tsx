@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { BookOpen, Compass, Heart, MessagesSquare, Shield, Sparkles } from "lucide-react";
+import { Compass, Heart } from "lucide-react";
 import { axes } from "../game";
 import { dignityRank } from "../dignity";
 import { growthDefinitions, rankOf } from "../adv/growth";
 import type { Snapshot } from "../adv/types";
-import { Mark } from "../marks";
+import { GameGlyph } from "./GameGlyph";
 
-const growthIcons = [MessagesSquare, BookOpen, Shield, Sparkles];
 export function GrowthPanel({ state, compact = false }: { state: Snapshot; compact?: boolean }) {
   const [selected, setSelected] = useState(0);
   return <div className={`adv-growth ${compact ? "adv-growth-compact" : ""}`} aria-label="成長の記録">
@@ -14,8 +13,7 @@ export function GrowthPanel({ state, compact = false }: { state: Snapshot; compa
       const xp = state.growthXP[d.id], rank = rankOf(d.id, xp);
       const floor = d.thresholds[rank], next = d.thresholds[rank + 1];
       const progress = next === undefined ? 100 : (xp - floor) / (next - floor) * 100;
-      const Icon = growthIcons[i % growthIcons.length];
-      const content = <><span className="growth-name"><Icon aria-hidden="true" /><b>{d.label}</b></span>
+      const content = <><span className="growth-name"><GameGlyph name={d.id} /><b>{d.label}</b></span>
         <span className="growth-rank"><b>{rank}</b> 段階</span>
         {!compact && <><span className="growth-pips" aria-hidden="true">{d.thresholds.slice(1).map((_, n) => <i key={n} data-filled={n < rank} />)}</span>
           <span className="growth-progress" role="progressbar" aria-label={`${d.label}の経験`} aria-valuemin={floor} aria-valuemax={next ?? xp} aria-valuenow={xp}><i style={{ width: `${progress}%` }} /></span>
@@ -36,7 +34,7 @@ export function DignityPanel({ state }: { state: Snapshot }) {
   return <div className="dignity-panel"><div className="dignity-cards">{axes.map(axis => {
     const value = state.axes[axis], rank = dignityRank(value);
     return <article className="dignity-card" key={axis} data-axis={axis}>
-      <Mark name={axis} decorative /><h3>{axis}</h3><p>{dignityDescriptions[axis].title}</p>
+      <GameGlyph name={axis} /><h3>{axis}</h3><p>{dignityDescriptions[axis].title}</p>
       <div className="dignity-rank">ランク <b>{rank}</b><span>数値 {value}</span></div>
       <div className="dignity-steps" aria-hidden="true">{[1, 2, 3, 4, 5].map(n => <i key={n} data-filled={n <= rank} />)}</div>
       <p className="dignity-meaning">{dignityDescriptions[axis].text}</p>

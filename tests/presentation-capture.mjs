@@ -13,7 +13,7 @@ try {
     await page.goto(base + 'tests/fixtures/presentation.html?view=' + view);
     if (!['title','portrait'].includes(view)) await page.getByRole('button',{name:'続きから',exact:true}).click();
     if (view === 'letter') await page.locator('[data-job="debug-training"] button').click();
-    if (view === 'growth') await page.getByRole('button',{name:'成長',exact:true}).click();
+    if (view === 'growth') await page.getByRole('button',{name:'交渉の成長について',exact:true}).click();
     if (view === 'settings') await page.getByRole('button',{name:'設定',exact:true}).click();
     if (view === 'dignity') await page.getByRole('button',{name:'貞操のランクと回復について'}).click();
     if (['gallery','archive'].includes(view)) await page.getByRole('button',{name:'回想',exact:true}).click();

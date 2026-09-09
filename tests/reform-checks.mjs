@@ -15,16 +15,16 @@ export async function checkReform(page, setViewport, base) {
     must(q.covered === q.jobCount, "Fixture must cover the whole job catalog");
     for (let j = 0; j < q.offers.length; j++) {
       const offer = q.offers[j],
-        card = page.locator(".c-request-card .c-slip-face").nth(j);
+        card = page.locator(".a-offer .a-envelope").nth(j);
       const label = await card.getAttribute("aria-label");
       must(
         label.includes(`${offer.pay.toLocaleString()}G`),
         `${offer.title}: card pay`,
       );
       await card.click();
-      const detail = await page.locator(".c-reading-sheet").innerText();
+      const detail = await page.locator(".a-open-letter").innerText();
       must(
-        detail.includes(`${offer.pay.toLocaleString()}G`),
+        detail.replace(/\s/g, "").includes(`${offer.pay.toLocaleString()}G`),
         `${offer.title}: detail pay`,
       );
       must(detail.includes(`−${offer.stamina}`), `${offer.title}: stamina`);
@@ -38,7 +38,7 @@ export async function checkReform(page, setViewport, base) {
       stats.offers++;
       stats.jobs.add(offer.id);
       if (offer.blocked) stats.blocked++;
-      await button("← 机に戻す").click();
+      await button("机に戻す").click();
     }
   }
   for (const [index, short, money, debt] of [

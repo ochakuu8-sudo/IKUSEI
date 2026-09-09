@@ -35,8 +35,8 @@ try {
   for (const axis of ["貞操", "品位", "威厳"]) {
     const row = page.locator(`[data-axis="${axis}"]`);
     assert((await row.innerText()).includes("ランク5"));
-    const label = await row.locator(".r-status-axis-title b").boundingBox();
-    const meter = await row.locator(".r-status-meter").boundingBox();
+    const label = await row.locator(".a-axis-title b").boundingBox();
+    const meter = await row.locator(".a-meter").boundingBox();
     assert(meter.y >= label.y + label.height, "rank label sits above the meter");
   }
   await screenshot("desk");
@@ -92,7 +92,7 @@ try {
   assert.equal((await saved()).growthXP.negotiation, 2);
   await screenshot("growth-result");
   await page.getByRole("button", { name: "翌日へ", exact: true }).click();
-  await page.getByRole("button", { name: "成長", exact: true }).click();
+  await page.getByRole("button", { name: "交渉の成長について", exact: true }).click();
   assert.equal(await page.locator('.growth-card').first().locator('.growth-rank b').innerText(), '1');
   await page.getByRole("dialog", { name: "主人公の成長" }).getByRole("button", { name: "閉じる", exact: true }).click();
   await accept("debug-challenge");

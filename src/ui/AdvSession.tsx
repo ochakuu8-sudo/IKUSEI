@@ -1,16 +1,15 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { DailyState } from "../daily";
-import { axes, personOf } from "../game";
-import { dignityLabel, dignityRank } from "../dignity";
-import { evaluateCondition, type Evaluation } from "../adv/conditions";
-import { growthOf } from "../adv/growth";
+import { personOf } from "../game";
+import { evaluateCondition } from "../adv/conditions";
 import { sceneKey, sessionError, type Command } from "../adv/engine";
-import type { Effects, ActiveSession } from "../adv/types";
+import type { ActiveSession } from "../adv/types";
 import { Dialogue, type ReadingSettings } from "./scene";
 import { Modal, Art, GameButton as Button } from "./shell";
-import { GrowthPanel } from "./CharacterPanels";
+import { ChoiceCondition, ChoiceEffects } from "./ChoiceDetails";
+import { GameGlyph } from "./GameGlyph";
 import { prepareVisual, visualFor, type SceneVisual } from "./sceneVisuals";
-import { Check, LockKeyhole, Feather } from "lucide-react";
+import { Check, LockKeyhole } from "lucide-react";
 import { DayRecord, GameSettings } from "./ReformScreens";
 import "./adv.css";
 
@@ -27,23 +26,7 @@ function ChoiceScenery({ session }: { session: ActiveSession }) {
     void prepareVisual(visual).then(value => { if (alive) setArt(value); });
     return () => { alive = false; };
   }, [session.id, session.nodeId]);
-  return <div className="adv-scenery" aria-hidden="true">{art && <><Art src={art.image ?? art.background} className="adv-background" />{!art.image && <Art src={art.portrait} className="adv-portrait" />}</>}</div>;
-}
-function ConditionView({ value }: { value: Evaluation }) {
-  return <div className={value.ok ? "adv-met" : "adv-unmet"}>
-    <span>{value.text}</span>
-    {value.error && <span role="alert">{value.error}</span>}
-    {value.children?.map((v, i) => <ConditionView key={i} value={v} />)}
-  </div>;
-}
-function effectText(e?: Effects): string {
-  if (!e) return "";
-  return [
-    e.bonusMoney ? "追加報酬 " + e.bonusMoney + "G" : "",
-    ...Object.entries(e.growthXP ?? {}).map(([id, n]) => growthOf(id)!.label + "経験 +" + n),
-    ...Object.entries(e.axisDelta ?? {}).map(([id, n]) => id + "数値 " + (n >= 0 ? "+" : "") + n + (n > 0 ? "（同ランク内）" : "")),
-    ...Object.entries(e.relationDelta ?? {}).map(([id, n]) => personOf(id as never).name + "との関係 " + (n >= 0 ? "+" : "") + n),
-  ].filter(Boolean).join(" ／ ");
+  return <div className="adv-scenery" data-anchor={art?.anchor} aria-hidden="true" style={{"--scene-fit":art?.image?art.fit:"cover","--scene-focus":art?.image?art.focus:"center"} as CSSProperties}>{art && <><Art src={art.image ?? art.background} className="adv-background" />{!art.image && <Art src={art.portrait} className={"scenario-portrait scenario-anchor-"+art.anchor} />}</>}</div>;
 }
 export function AdvSession({ state, send, error, retry, onTitle, settings, onSettingsChange }: {
   state: DailyState;
@@ -57,8 +40,9 @@ export function AdvSession({ state, send, error, retry, onTitle, settings, onSet
   const session = state.activeSession!;
   const node = session.scenario.nodes?.[session.nodeId];
   const [view, setView] = useState<"choices" | "log" | "settings">("choices");
+  const [explanation, setExplanation] = useState("");
   const nodeRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { setView("choices"); }, [session.nodeId]);
+  useEffect(() => { setView("choices"); setExplanation(""); }, [session.nodeId]);
   useEffect(() => { nodeRef.current?.focus(); }, [session.nodeId, view]);
   const stamp = { sessionId: session.id, revision: session.revision };
   const issue = sessionError(session);
@@ -85,30 +69,25 @@ export function AdvSession({ state, send, error, retry, onTitle, settings, onSet
     {error && <Modal title="保存できませんでした" onClose={() => {}}><p role="alert">{error}</p><Button onClick={retry}>保存を再試行</Button></Modal>}
   </>;
   if (node.kind !== "choice") return null;
+  const previous=session.transcript.at(-1);
   return <Modal variant="scenario" title="対応を選ぶ" onClose={() => setView("choices")}>
-    <div className="adv-stage" style={{ "--choice-font": `${Math.max(23, settings.textSize)}px` } as CSSProperties} ref={nodeRef} tabIndex={-1}>
+    <div className={`adv-stage a-novel-choices ${settings.strongText?"scenario-strong":""}`} style={{ "--choice-font": `${settings.textSize}px` } as CSSProperties} ref={nodeRef} tabIndex={-1} data-view={view}>
       <ChoiceScenery session={session} />
-      <header><div><small>{session.job.title}</small><h2>{view === "choices" ? node.prompt : view === "log" ? "今回の会話ログ" : "読書設定"}</h2></div>
-        <nav><Button onClick={() => setView(view === "log" ? "choices" : "log")}>会話ログ</Button><Button onClick={() => setView(view === "settings" ? "choices" : "settings")}>設定</Button><Button onClick={onTitle} disabled={!!error}>保存してタイトルへ</Button></nav>
-      </header>
-      {error && <div role="alert">{error}<Button onClick={retry}>保存を再試行</Button></div>}
-      <div className="adv-content">
-        <aside className="adv-context"><div className="adv-context-title"><Feather aria-hidden="true" />いまのあなた</div><GrowthPanel state={session.working} compact /><div className="adv-axis-summary">{axes.map(axis => <span key={axis} title={dignityLabel(session.working.axes[axis])}>{axis}<b>{dignityRank(session.working.axes[axis])}<small>ランク</small></b></span>)}</div></aside>
-        <section className={`adv-choice-paper ${view !== "choices" ? "adv-reading-panel" : ""}`}><div className="adv-choice-caption"><span>{view === "choices" ? "あなたの返事" : view === "log" ? "交わした言葉" : "読み心地を整える"}</span>{view === "choices" && <small>{node.choices.length}つの対応 · 一覧をスクロールして確認</small>}</div><div className="adv-options" aria-label={view === "choices" ? "選択肢" : view}>
-          {view === "choices" ? node.choices.map(choice => {
-            const condition = evaluateCondition(choice.condition, session.working);
-            return <Button key={choice.id} data-choice={choice.id} aria-disabled={!condition.ok || !!error}
-              onKeyDown={e => { if (e.repeat && (e.key === "Enter" || e.key === " ")) e.preventDefault(); }}
-              onClick={e => e.detail <= 1 && condition.ok && !error && send({ type: "choose", ...stamp, nodeId: node.id, choiceId: choice.id })}>
-              <span className="adv-choice-title"><span className="adv-choice-state">{condition.ok ? <Check aria-hidden="true" /> : <LockKeyhole aria-hidden="true" />}<span className="c-sr-only">{condition.ok ? "選択可能：" : "条件未達："}</span></span><strong>{choice.text}</strong></span>
-              <ConditionView value={condition} />
-              {effectText(choice.effects) && <small>選択した場合：{effectText(choice.effects)}</small>}
-              {choice.hint && <small className="adv-choice-hint">{choice.hint}</small>}
-            </Button>;
-          }) : view === "log" ? <><Button onClick={() => setView("choices")}>選択に戻る</Button>{session.transcript.map((l, i) => <p key={i}>{l.speaker && <b>{l.speaker}：</b>}{l.text}</p>)}</>
-            : <><Button onClick={() => setView("choices")}>選択に戻る</Button><GameSettings value={settings} onChange={onSettingsChange} /></>}
-        </div></section>
-      </div>
+      <nav className="a-novel-tools" aria-label="選択中の会話操作"><Button onClick={() => setView(view === "log" ? "choices" : "log")}><GameGlyph name="book"/>会話ログ</Button><Button onClick={() => setView(view === "settings" ? "choices" : "settings")}><GameGlyph name="gear"/>設定</Button><Button onClick={onTitle} disabled={!!error}>保存してタイトルへ</Button></nav>
+      {error && <div className="a-novel-error" role="alert">{error}<Button onClick={retry}>保存を再試行</Button></div>}
+      {view==='choices' ? <>
+        <section className="a-replies" aria-label="選択肢"><h2>{node.prompt}</h2><div className="adv-options">{node.choices.map(choice => {
+          const condition=evaluateCondition(choice.condition, session.working);
+          return <Button key={choice.id} data-choice={choice.id} aria-disabled={!condition.ok || !!error} title={choice.hint}
+            onKeyDown={e => { if (e.repeat && (e.key === "Enter" || e.key === " ")) e.preventDefault(); }}
+            onClick={e => {if(e.detail>1)return;if(!condition.ok){setExplanation(condition.text+(condition.children?'：'+condition.children.filter(c=>!c.ok).map(c=>c.text).join(' ／ '):''));return}if(!error)send({type:"choose",...stamp,nodeId:node.id,choiceId:choice.id})}}>
+              <span className="a-reply-main"><GameGlyph name="arrow"/><strong>{choice.text}</strong><span className="a-reply-state">{condition.ok?<Check aria-hidden="true"/>:<LockKeyhole aria-hidden="true"/>}<span className="c-sr-only">{condition.ok?'選択可能':'条件未達'}</span></span></span>
+              <span className="a-reply-meta"><ChoiceCondition condition={choice.condition} state={session.working}/><ChoiceEffects effects={choice.effects}/></span>
+              {choice.hint&&<span className="c-sr-only">{choice.hint}</span>}
+          </Button>;
+        })}</div></section>
+        <section className="a-choice-message" aria-label="選択直前の会話"><span className="a-novel-speaker">{previous?.speaker??"あなたの返事"}</span><p>{previous?.text??node.prompt}</p>{explanation&&<small className="a-choice-explanation" role="status">{explanation}</small>}</section>
+      </> : <section className="a-novel-reading"><header><h2>{view==='log'?'今回の会話ログ':'読書設定'}</h2><Button onClick={() => setView("choices")}>選択に戻る</Button></header><div className="a-reading-scroll">{view==='log'?session.transcript.map((l,i)=><p key={i}>{l.speaker&&<b>{l.speaker}：</b>}{l.text}</p>):<GameSettings value={settings} onChange={onSettingsChange}/>}</div></section>}
     </div>
   </Modal>;
 }

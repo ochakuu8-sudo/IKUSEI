@@ -1,34 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { BookOpen, MoonStar, Settings } from "lucide-react";
+import { BookOpen, Settings } from "lucide-react";
 import {
-  axes,
-  axisStage,
-  CHAPTER_DAYS,
   jobs,
   personOf,
-  type Axis as AxisName,
-  type Job,
 } from "./game";
 import {
-  closingPreview,
   dailyAction,
-  fatigueCount,
-  fatigueRateOf,
   freshDaily,
-  listPriceOf,
   markSeen,
-  materialCostOf,
   offersOf,
-  payOf,
-  quotaOf,
-  staminaOf,
-  takeReason,
-  tracesOf,
   type DailyState,
   type DayOutcome,
 } from "./daily";
 import { clearDaily, loadDaily, saveDaily, UI_KEY, SAVE_KEY } from "./saveV14";
-import { dignityRank, dignityLabel } from "./dignity";
 import { persistTransition, type Command } from "./adv/engine";
 import { AdvSession } from "./ui/AdvSession";
 import { GrowthPanel, DignityPanel } from "./ui/CharacterPanels";
@@ -37,10 +21,9 @@ import type { ReplayRecord } from "./adv/types";
 import { type SceneEntry } from "./scenes";
 import { clearGallery, loadGallery, recordScenes } from "./gallery";
 import { Art, Modal, GameButton as Button } from "./ui/shell";
-import { Mark } from "./marks";
 import { Dialogue } from "./ui/scene";
 import { preloadScene } from "./ui/sceneVisuals";
-import { personSrc, manorMaterialStyle } from "./art";
+import { manorMaterialStyle } from "./art";
 import { paperSound } from "./ui/paperAudio";
 import {
   animatePaper,
@@ -64,8 +47,10 @@ import { READ_SCENES_KEY } from "./ui/readScenes";
 import "./reform.css";
 import "./ornaments.css";
 import "./ui/presentation.css";
+import "./ui/atelier.css";
+import { DeskHeader, StatusRibbon, EnvelopeOffer as OfferCard, OpenLetter as LetterSheet, DeskRest as RestSheet } from "./ui/DeskPresentation";
+import { GameGlyph } from "./ui/GameGlyph";
 
-const gold = (n: number) => `${n.toLocaleString()}G`;
 
 type Tab = "today" | "journal";
 type UI = {
@@ -104,113 +89,6 @@ function loadUI(): UI {
   }
 }
 
-/** Emblems lead each row; the state describes the number beside it. */
-function StatusAxis({ axis, s, onDetails }: { axis: AxisName; s: DailyState; onDetails: () => void }) {
-  const value = s.axes[axis];
-  return (
-    <button type="button" className="r-status-axis" data-axis={axis} onClick={onDetails} aria-label={`${axis}のランクと回復について`}>
-      <Mark name={axis} decorative />
-      <div className="r-status-copy">
-        <div className="r-status-axis-title">
-          <span>{axis}</span>
-          <b>{axisStage(axis, value)}</b>
-        </div>
-        <div
-          className="r-status-meter"
-          role="progressbar"
-          aria-label={axis}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={value}
-          aria-valuetext={dignityLabel(value)}
-        >
-          <i style={{ width: `${value}%` }} />
-        </div>
-        <div className="r-status-axis-note">
-          <span>数値 {value}</span>
-          <small>帯の詳細 ›</small>
-        </div>
-      </div>
-    </button>
-  );
-}
-function Ledger({ s, onDetails }: { s: DailyState; onDetails: () => void }) {
-  return (
-    <section className="r-status-window" aria-label="エレオノールの状態">
-      <header className="r-character-name">
-        <b>エレオノール</b>
-      </header>
-      <div className="r-status-stamina">
-        <Mark name="体力" decorative />
-        <span>体力</span>
-        <div
-          className="r-status-meter"
-          role="progressbar"
-          aria-label="体力"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={s.stamina}
-        >
-          <i style={{ width: `${s.stamina}%` }} />
-        </div>
-        <b>{s.stamina}</b>
-        <small>/100</small>
-      </div>
-      <div className="r-status-axes">
-        {axes.map((axis) => (
-          <StatusAxis key={axis} axis={axis} s={s} onDetails={onDetails} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/** 何を差し出すか。紋と「払ったあとの値」を並べる（§5「隠して受けさせない」）。 */
-function Costs({
-  job,
-  s,
-  compact = false,
-}: {
-  job: Job;
-  s: DailyState;
-  compact?: boolean;
-}) {
-  if (!job.costs.length)
-    return (
-      <span className="c-costs c-free">
-        <Mark name="関係" decorative />
-        {compact ? "代償なし" : "差し出すものはない"}
-      </span>
-    );
-  return (
-    <span className={`c-costs ${compact ? "c-costs-compact" : ""}`}>
-      {job.costs.map((c) => (
-        <span key={c.axis} className={`c-cost c-cost-${c.axis}`}>
-          <Mark name={c.axis} label={c.axis} />
-          <span className="cost-name">{c.axis}</span>
-          {compact && <span>−{c.amount}</span>}
-          <small className={compact ? "cost-detail" : ""}>
-            {s.axes[c.axis]}→{Math.max(0, s.axes[c.axis] - c.amount)}
-            {dignityRank(s.axes[c.axis]) !== dignityRank(Math.max(0, s.axes[c.axis] - c.amount)) && `（ランク${dignityRank(s.axes[c.axis])}→${dignityRank(Math.max(0, s.axes[c.axis] - c.amount))}）`}
-          </small>
-        </span>
-      ))}
-    </span>
-  );
-}
-
-/** 依頼の地に押される紋。何を差し出す依頼かが、読む前に絵で分かる。 */
-const sealOf = (job: Job): "貞操" | "品位" | "威厳" | "関係" =>
-  axes.find((a) => job.costs.some((c) => c.axis === a && c.amount > 0)) ??
-  "関係";
-
-const stationeryOf = (job: Job) =>
-  job.person === "count" || job.person === "guillaume"
-    ? "noble"
-    : job.person === "claire" || job.person === "herbalist"
-      ? "academy"
-      : "commerce";
-
 /** The family's rose is separate from the three resource emblems. */
 function FamilyStamp() {
   return (
@@ -220,274 +98,6 @@ function FamilyStamp() {
       <path d="M32 14c5-4 10 0 10 5 7-1 10 5 6 10 6 5 3 12-4 13-1 7-9 9-13 4-6 4-12 0-12-6-7-2-8-10-2-14-3-6 2-12 8-10 1-4 5-5 7-2Z" />
       <path d="M32 22c8-2 14 6 10 12-2 6-10 9-15 4-6-2-7-11-1-14 5-3 12 1 10 6-1 5-7 5-9 1m4 10-1 10m-1-4c-5 0-8-3-8-6 5 0 8 2 8 6m2-1c5-1 8-4 8-7-5 1-7 3-8 7" />
     </svg>
-  );
-}
-
-/**
- * 今日の1件。ボタンではなく**依頼状**として出す。
- * 種別の札、地の紋（透かし）、相手と関係の輪、差し出すものの紋、
- * 受け取る額、そして「残りの体力のどれだけを食うか」を1枚に並べる。
- */
-function OfferCard({
-  job,
-  s,
-  onOpen,
-}: {
-  job: Job;
-  s: DailyState;
-  onOpen: () => void;
-}) {
-  const reason = takeReason(job, s),
-    tired = !!reason && reason.startsWith("体力"),
-    cost = staminaOf(job),
-    bite = Math.min(100, (cost / Math.max(1, s.stamina)) * 100),
-    closed = closingPreview(job, s).length,
-    discounted = fatigueRateOf(job.person, s) < 1;
-  return (
-    <article
-      className={`c-slip c-request-card ${job.costs.length ? "c-paid" : "c-clean"} ${reason ? "c-shut" : ""}`}
-      data-job={job.id}
-      data-stationery={stationeryOf(job)}
-    >
-      <button
-        type="button"
-        className="c-slip-face"
-        onClick={onOpen}
-        aria-label={`${job.title}の依頼状を読む。${personOf(job.person).name}、関係${s.relations[job.person]}／3。受け取る${gold(payOf(job, s))}、体力${cost}消費。${job.costs.length ? job.costs.map((c) => `${c.axis}${s.axes[c.axis]}から${Math.max(0, s.axes[c.axis] - c.amount)}`).join("、") : "三値の低下なし"}。${discounted ? "値引きあり。" : ""}${closed ? `紹介停止${closed}件。` : ""}${reason ?? ""}`}
-      >
-        <Mark name={sealOf(job)} className="c-slip-seal" decorative />
-        <span className="c-slip-head">
-          <span className="c-slip-kind">{job.kind}</span>
-          <span className={`c-wax c-wax-person c-wax-${job.person}`}>
-            <img src={personSrc(job.person)} alt="" />
-          </span>
-        </span>
-        <span className="c-slip-main">
-          <small>
-            {personOf(job.person).name}
-          </small>
-          <b>{job.title}</b>
-        </span>
-        <span className="c-slip-terms">
-          <span
-            className="c-slip-pay"
-            aria-label={`受け取る ${gold(payOf(job, s))}${discounted ? "、通い詰めによる値引きあり" : ""}`}
-          >
-            <i className="c-coin" aria-hidden="true" />
-            <b>
-              {payOf(job, s).toLocaleString()}
-              <small>G</small>
-            </b>
-            {discounted && (
-              <span className="c-discount" aria-hidden="true">
-                ▼
-              </span>
-            )}
-          </span>
-          <span
-            className="c-slip-stamina"
-            aria-label={`体力 ${cost}消費、${s.stamina}から${Math.max(0, s.stamina - cost)}${tired ? "、体力不足" : ""}`}
-          >
-            <span>
-              <Mark name="体力" label="体力" />−{cost}
-            </span>
-            <span className="c-gauge">
-              <i
-                className={tired ? "c-over" : ""}
-                style={{ width: `${bite}%` }}
-              />
-            </span>
-          </span>
-        </span>
-        <span className="c-slip-costline">
-          <Costs job={job} s={s} compact />
-        </span>
-        <span className="c-slip-foot">
-          {job.growthHint && <span className="adv-card-growth">成長・選択あり</span>}
-          <span className="c-slip-warnings">
-            {reason && (
-              <span className="c-unavailable">
-                {tired ? "体力不足" : "受諾不可"}
-              </span>
-            )}
-            {closed > 0 && (
-              <span className="c-consequence">紹介停止 {closed}件</span>
-            )}
-          </span>
-          <span>手に取る →</span>
-        </span>
-      </button>
-    </article>
-  );
-}
-
-/** 開いた一枚の手紙に本文・条件・返事をまとめる。 */
-function LetterSheet({
-  job,
-  s,
-  onAccept,
-  onBack,
-  signing = false,
-}: {
-  job: Job;
-  s: DailyState;
-  onAccept: () => void;
-  onBack: () => void;
-  signing?: boolean;
-}) {
-  const reason = takeReason(job, s);
-  const closing = closingPreview(job, s);
-  return (
-    <section
-      className={`c-screen c-sheet c-reading-sheet r-unfolded-letter ${signing ? "c-ritual-sign" : ""}`}
-      data-stationery={stationeryOf(job)}
-      data-paper-state={signing ? "signing" : "reading"}
-      aria-label={`${job.title}の依頼状`}
-    >
-      <div className="c-letter-story">
-        <span
-          className={`c-wax c-wax-person c-wax-${job.person} c-letter-sender-seal`}
-          aria-hidden="true"
-        >
-          <img src={personSrc(job.person)} alt="" />
-        </span>
-        <div className="c-letter-address">
-          {personOf(job.person).name}からの便り <span>{job.kind}</span>
-        </div>
-        <h2 className="c-letter-heading" tabIndex={-1}>
-          {job.title}
-        </h2>
-        <p className="c-letter-body">{job.description}</p>
-        {job.growthHint && <p className="adv-growth-hint">成長・次の機会：{job.growthHint}</p>}
-      </div>
-      {signing && (
-        <div className="c-letter-response" aria-hidden="true">
-          <span className="c-response-caption">承りました</span>
-          <span className="c-response-signature">Éléonore</span>
-          <span className="c-response-stamp">
-            <FamilyStamp />
-          </span>
-        </div>
-      )}
-      <div className="c-letter-conditions">
-        <div className="c-letter-terms">
-          <div>
-            <small>受け取る</small>
-            <b>
-              <i className="c-coin" aria-hidden="true" />
-              {gold(payOf(job, s))}
-            </b>
-            {fatigueCount(job.person, s) > 0 && (
-              <em>
-                ▼ {Math.round((1 - fatigueRateOf(job.person, s)) * 100)}%引き ·
-                定価 {gold(listPriceOf(job, s))}
-              </em>
-            )}
-            {materialCostOf(job) > 0 && (
-              <em>素材費 {materialCostOf(job)}G 差引済</em>
-            )}
-          </div>
-          <div>
-            <small>使う体力</small>
-            <b>
-              <Mark name="体力" decorative />−{staminaOf(job)}
-            </b>
-            <em>
-              {s.stamina} → {Math.max(0, s.stamina - staminaOf(job))}
-            </em>
-          </div>
-          <div>
-            <small>差し出すもの</small>
-            <Costs job={job} s={s} />
-          </div>
-        </div>
-        {closing.length > 0 && (
-          <div className="c-letter-closing">
-            <b>紹介停止 {closing.length}件</b>
-            <span>{closing.join("、")}</span>
-          </div>
-        )}
-      </div>
-      <footer className="c-footer c-letter-footer">
-        <Button onClick={onBack}>← 机に戻す</Button>
-        <Button primary disabled={!!reason} onClick={onAccept}>
-          <span>この依頼を受ける</span>
-          <small>{reason ?? "1日が過ぎる"}</small>
-        </Button>
-      </footer>
-    </section>
-  );
-}
-
-function RestSheet({
-  s,
-  onAccept,
-  onBack,
-}: {
-  s: DailyState;
-  onAccept: () => void;
-  onBack: () => void;
-}) {
-  return (
-    <section className="c-screen c-sheet c-reading-sheet c-rest-sheet">
-      <div className="c-letter-story">
-        <div className="c-letter-address">ラティエ邸</div>
-        <h2 className="c-letter-heading" tabIndex={-1}>
-          今日は受けない
-        </h2>
-        <p className="c-letter-body">手紙を置いて、身体を休める。</p>
-      </div>
-      <div className="c-letter-conditions">
-        <div className="c-letter-terms">
-          <div>
-            <small>体力</small>
-            <b>
-              <Mark name="体力" decorative />
-              {s.stamina} → 100
-            </b>
-          </div>
-          <div>
-            <small>過ぎる時間</small>
-            <b>1日</b>
-          </div>
-          <div>
-            <small>受け取る・差し出す</small>
-            <b>なし</b>
-          </div>
-        </div>
-      </div>
-      <footer className="c-footer c-letter-footer">
-        <Button onClick={onBack}>← 机に戻す</Button>
-        <Button primary onClick={onAccept}>
-          <span>今日は休む</span>
-          <small>体力を回復して、翌日へ</small>
-        </Button>
-      </footer>
-    </section>
-  );
-}
-
-/** 3枚の下に置く休養の札。体力回復と1日の消費を短く並べる（§6）。 */
-function RestRow({ s, onPick }: { s: DailyState; onPick: () => void }) {
-  return (
-    <article className="c-slip c-rest">
-      <button type="button" className="c-slip-face" onClick={onPick}>
-        <MoonStar className="c-slip-seal" aria-hidden="true" />
-        <span className="c-slip-main">
-          <b>今日は受けない</b>
-        </span>
-        <span className="c-rest-day">1日</span>
-        <span className="c-slip-pay">
-          <span className="c-slip-stamina">
-            <Mark name="体力" label="体力" />
-            <span className="c-gauge">
-              <i className="c-met" style={{ width: "100%" }} />
-            </span>
-            {s.stamina}→100
-          </span>
-        </span>
-      </button>
-    </article>
   );
 }
 
@@ -570,7 +180,7 @@ export default function DailyApp() {
       );
     lastLetter.current = id;
     const card = document.querySelector<HTMLElement>(
-      `[data-job="${CSS.escape(id)}"]`,
+      `[data-job="${CSS.escape(id)}"] .a-envelope`,
     );
     const stage = document.querySelector<HTMLElement>(".c-manor");
     paperOrigin.current = card && stage ? capturePaper(card, stage) : null;
@@ -587,7 +197,7 @@ export default function DailyApp() {
       patch({ sheet: null });
     };
     const sheet = document.querySelector<HTMLElement>(
-      ".c-manor .c-reading-sheet",
+      ".c-manor .a-open-letter",
     );
     const stage = document.querySelector<HTMLElement>(".c-manor");
     const currentTransform = sheet
@@ -623,7 +233,7 @@ export default function DailyApp() {
   useLayoutEffect(() => {
     if (!ui.sheet) return;
     const sheet = document.querySelector<HTMLElement>(
-      ".c-manor .c-reading-sheet",
+      ".c-manor .a-open-letter",
     );
     const stage = document.querySelector<HTMLElement>(".c-manor");
     if (sheet && stage)
@@ -646,8 +256,8 @@ export default function DailyApp() {
     } else if (returnToDesk.current) {
       returnToDesk.current = false;
       const selector = lastLetter.current
-        ? `[data-job="${CSS.escape(lastLetter.current)}"] .c-slip-face`
-        : ".c-rest .c-slip-face";
+        ? `[data-job="${CSS.escape(lastLetter.current)}"] .a-envelope`
+        : ".a-rest-action";
       document
         .querySelector<HTMLElement>(selector)
         ?.focus({ preventScroll: true });
@@ -658,7 +268,7 @@ export default function DailyApp() {
     returnFromResult.current = false;
     document
       .querySelector<HTMLElement>(
-        ".c-main .c-request-card .c-slip-face, .c-main .c-footer .c-primary, .c-main .c-empty button",
+        ".c-main .a-envelope, .c-main .a-accept, .c-main .c-empty button",
       )
       ?.focus({ preventScroll: true });
   }, [result]);
@@ -930,8 +540,8 @@ export default function DailyApp() {
 
   const offers = s && started ? offersOf(s) : [];
   const sheetJob = ui.sheet ? jobs.find((j) => j.id === ui.sheet) : undefined;
-  const due = s ? quotaOf(s) : 0;
-  const traces = s ? tracesOf(s) : [];
+  
+  
   const showDesk = !!(
     started &&
     s &&
@@ -944,7 +554,7 @@ export default function DailyApp() {
       <div
         /* c-title は `display:block` ＋ 全面の覆い（:before）なので、回想を出すあいだは外す。
            付けたままだと回想が縦に伸びて器からはみ出し、覆いが触りを全部吸ってしまう。 */
-        className={`chapter-app r-game ${gallery ? "r-gallery-stage" : ui.tab === "journal" && started ? "r-journal-stage" : ""} ${result ? "r-night" : ""} ${s?.awaitingSettlement && started ? "r-settlement-stage" : ""} ${s?.ended && started ? "r-ending-stage" : ""} ${
+        className={`chapter-app r-game ${showDesk && ui.tab === "today" ? "a-desk-layout" : ""} ${gallery ? "r-gallery-stage" : ui.tab === "journal" && started ? "r-journal-stage" : ""} ${result ? "r-night" : ""} ${s?.awaitingSettlement && started ? "r-settlement-stage" : ""} ${s?.ended && started ? "r-ending-stage" : ""} ${
           !started
             ? gallery
               ? ""
@@ -1013,55 +623,7 @@ export default function DailyApp() {
           </>
         ) : s ? (
           <>
-            <header className="c-hud">
-              <button
-                className="r-calendar"
-                onClick={openJournal}
-                aria-label={`${s.day}日目 第${s.chapter}章`}
-              >
-                <small>
-                  第{s.chapter}章
-                </small>
-                <b>{s.day}日目</b>
-              </button>
-              <button
-                className="r-goal"
-                onClick={openJournal}
-                aria-label="返済の予定を台帳で確認"
-              >
-                <small>
-                  {s.awaitingSettlement
-                    ? "今日は返済の日"
-                    : `返済まで あと${CHAPTER_DAYS - s.day + 1}日`}
-                </small>
-                <b>
-                  {s.money >= due
-                    ? "必要額を確保"
-                    : `あと ${gold(due - s.money)}`}
-                </b>
-                <span>納入予定 {gold(due)}</span>
-              </button>
-              <div className="r-purse">
-                <small>所持金</small>
-                <b>
-                  <i className="c-coin" aria-hidden="true" />
-                  {s.money.toLocaleString()}
-                  <small>G</small>
-                </b>
-              </div>
-              <div className="r-hud-actions">
-                <Button className="adv-growth-open" onClick={() => setGrowthOpen(true)}>成長</Button>
-                <Button
-                  className="r-gallery-shortcut"
-                  onClick={() => setGallery(true)}
-                >
-                  <BookOpen size={22} aria-hidden="true" /> 回想
-                </Button>
-                <Button aria-label="設定" onClick={() => setSettings(true)}>
-                  <Settings size={19} />
-                </Button>
-              </div>
-            </header>
+            <DeskHeader s={s} onJournal={openJournal} onGallery={() => setGallery(true)} onSettings={() => setSettings(true)} />
             <div className="c-body">
               <aside className="c-portrait">
                 <Art
@@ -1070,7 +632,7 @@ export default function DailyApp() {
                   alt="エレオノール・ラティエ"
                 />
               </aside>
-              {showDesk && <Ledger s={s} onDetails={() => setDignityOpen(true)} />}
+              {showDesk && ui.tab === "today" && <><div className="a-character-name"><small>LATIER</small>エレオノール</div><StatusRibbon s={s} onDignity={() => setDignityOpen(true)} onGrowth={() => setGrowthOpen(true)} /></>}
               <main className="c-main">
                 {gallery ? (
                   <Gallery
@@ -1099,11 +661,6 @@ export default function DailyApp() {
                   />
                 ) : sheetJob ? (
                   <>
-                    <div className="c-offers r-waiting-letters" aria-hidden="true" inert>
-                      {offers.map((job) => (
-                        <div key={job.id} className="r-waiting-letter" data-selected={job.id === sheetJob.id} />
-                      ))}
-                    </div>
                     <LetterSheet
                       job={sheetJob}
                       s={s}
@@ -1125,11 +682,8 @@ export default function DailyApp() {
                   />
                 ) : (
                   <div className="c-today">
-                    <header className="r-desk-heading">
-                      <small>本日の便り</small>
-                      <h2>今日は、どの依頼を。</h2>
-                    </header>
-                    <div className="c-offers">
+                    <header className="a-desk-heading"><span>本日の便り</span><button className="a-rest-action" onClick={() => { lastLetter.current=null; paperSound(ui.volume); setPending("rest"); }}><GameGlyph name="moon"/>今日は受けない</button></header><div className="a-desk-surface" aria-hidden="true"/>
+                    <div className="a-offers">
                       {offers.map((job) => (
                         <OfferCard
                           key={job.id}
@@ -1144,32 +698,7 @@ export default function DailyApp() {
                         </p>
                       )}
                     </div>
-                    <div className="c-desk-actions">
-                      <button
-                        type="button"
-                        className="c-book"
-                        onClick={openJournal}
-                        aria-label={`返済帳・台帳${traces.length ? `、紹介停止 ${traces.length}件` : ""}`}
-                      >
-                        <span className="c-book-pages" aria-hidden="true" />
-                        <span className="c-book-spine" aria-hidden="true" />
-                        <span className="c-book-cover">
-                          <span className="c-book-ribbon" aria-hidden="true" />
-                          <span className="c-book-label">台帳</span>
-                          {traces.length > 0 && (
-                            <small>紹介停止 {traces.length}件</small>
-                          )}
-                        </span>
-                      </button>
-                      <RestRow
-                        s={s}
-                        onPick={() => {
-                          lastLetter.current = null;
-                          paperSound(ui.volume);
-                          setPending("rest");
-                        }}
-                      />
-                    </div>
+                    
                   </div>
                 )}
               </main>

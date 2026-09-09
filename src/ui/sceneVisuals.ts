@@ -27,7 +27,7 @@ export function visualFor(
     background: placeSrc(art.background ?? place),
     portrait: art.portrait ? artAssetSrc(art.portrait) : heroSrc,
     image: art.image ? artAssetSrc(art.image) : undefined,
-    anchor: art.anchor ?? "right",
+    anchor: art.anchor ?? "left",
     fit: art.fit ?? "contain",
     focus: art.focus ?? "50% 50%",
     subtitle: art.subtitle ?? "bottom",

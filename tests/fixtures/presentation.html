@@ -15,6 +15,7 @@ state.axes = { 貞操:88, 品位:45, 威厳:61 };
 state.growthXP = { negotiation:1, knowledge:5, courage:0, charm:9 };
 function apply(command) { const r = transition(state, command); if (r.error) throw new Error(r.error); state = r.state; }
 function step(type, extra = {}) { const s = state.activeSession; apply({ type, sessionId:s.id, nodeId:s.nodeId, revision:s.revision, ...extra }); }
+if (view === 'novel') apply({ type:'begin', jobId:'debug-challenge' });
 if (['choice','result','archive'].includes(view)) {
   apply({ type:'begin', jobId:view === 'choice' ? 'debug-challenge' : 'debug-training' });
   step('advance');
