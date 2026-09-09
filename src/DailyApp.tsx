@@ -30,14 +30,15 @@ import {
 import { clearDaily, loadDaily, saveDaily, UI_KEY, SAVE_KEY } from "./saveV14";
 import { dignityRank, dignityLabel } from "./dignity";
 import { persistTransition, type Command } from "./adv/engine";
-import { AdvSession, GrowthPanel } from "./ui/AdvSession";
+import { AdvSession } from "./ui/AdvSession";
+import { GrowthPanel, DignityPanel } from "./ui/CharacterPanels";
+import { ScreenGuide } from "./ui/ScreenGuide";
 import { ADV_ARCHIVE_KEY, loadArchive, syncArchive } from "./adv/archive";
 import type { ReplayRecord } from "./adv/types";
-import { catalogCounts, type SceneEntry } from "./scenes";
+import { type SceneEntry } from "./scenes";
 import { clearGallery, loadGallery, recordScenes } from "./gallery";
-import { Art, Modal } from "./ui/shell";
+import { Art, Modal, GameButton as Button } from "./ui/shell";
 import { Mark } from "./marks";
-import { Rings } from "./ui/symbols";
 import { Dialogue } from "./ui/scene";
 import { preloadScene } from "./ui/sceneVisuals";
 import { personSrc, manorMaterialStyle } from "./art";
@@ -63,6 +64,7 @@ import {
 import { READ_SCENES_KEY } from "./ui/readScenes";
 import "./reform.css";
 import "./ornaments.css";
+import "./ui/presentation.css";
 
 const gold = (n: number) => `${n.toLocaleString()}G`;
 
@@ -103,27 +105,11 @@ function loadUI(): UI {
   }
 }
 
-function Button({
-  children,
-  primary = false,
-  ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean }) {
-  return (
-    <button
-      {...rest}
-      type="button"
-      className={`c-button ${primary ? "c-primary" : ""} ${rest.className ?? ""}`}
-    >
-      {children}
-    </button>
-  );
-}
-
 /** Emblems lead each row; the state describes the number beside it. */
-function StatusAxis({ axis, s }: { axis: AxisName; s: DailyState }) {
+function StatusAxis({ axis, s, onDetails }: { axis: AxisName; s: DailyState; onDetails: () => void }) {
   const value = s.axes[axis];
   return (
-    <div className="r-status-axis" data-axis={axis}>
+    <button type="button" className="r-status-axis" data-axis={axis} onClick={onDetails} aria-label={`${axis}のランクと回復について`}>
       <Mark name={axis} decorative />
       <div className="r-status-copy">
         <div className="r-status-axis-title">
@@ -143,13 +129,13 @@ function StatusAxis({ axis, s }: { axis: AxisName; s: DailyState }) {
         </div>
         <div className="r-status-axis-note">
           <span>数値 {value}</span>
-          <small>回復は同ランク内</small>
+          <small>帯の詳細 ›</small>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
-function Ledger({ s }: { s: DailyState }) {
+function Ledger({ s, onDetails }: { s: DailyState; onDetails: () => void }) {
   return (
     <section className="r-status-window" aria-label="エレオノールの状態">
       <header className="r-character-name">
@@ -173,7 +159,7 @@ function Ledger({ s }: { s: DailyState }) {
       </div>
       <div className="r-status-axes">
         {axes.map((axis) => (
-          <StatusAxis key={axis} axis={axis} s={s} />
+          <StatusAxis key={axis} axis={axis} s={s} onDetails={onDetails} />
         ))}
       </div>
     </section>
@@ -202,8 +188,9 @@ function Costs({
       {job.costs.map((c) => (
         <span key={c.axis} className={`c-cost c-cost-${c.axis}`}>
           <Mark name={c.axis} label={c.axis} />
-          {!compact && `−${c.amount}`}
-          <small>
+          <span className="cost-name">{c.axis}</span>
+          {compact && <span>−{c.amount}</span>}
+          <small className={compact ? "cost-detail" : ""}>
             {s.axes[c.axis]}→{Math.max(0, s.axes[c.axis] - c.amount)}
             {dignityRank(s.axes[c.axis]) !== dignityRank(Math.max(0, s.axes[c.axis] - c.amount)) && `（ランク${dignityRank(s.axes[c.axis])}→${dignityRank(Math.max(0, s.axes[c.axis] - c.amount))}）`}
           </small>
@@ -317,7 +304,7 @@ function OfferCard({
           <Costs job={job} s={s} compact />
         </span>
         <span className="c-slip-foot">
-          {job.growthHint && <span className="adv-card-growth">成長・選択の機会あり</span>}
+          {job.growthHint && <span className="adv-card-growth">成長・選択あり</span>}
           <span className="c-slip-warnings">
             {reason && (
               <span className="c-unavailable">
@@ -366,16 +353,13 @@ function LetterSheet({
           <img src={personSrc(job.person)} alt="" />
         </span>
         <div className="c-letter-address">
-          エレオノール・ラティエ様 <span>{job.kind}</span>
+          {personOf(job.person).name}からの便り <span>{job.kind}</span>
         </div>
         <h2 className="c-letter-heading" tabIndex={-1}>
           {job.title}
         </h2>
         <p className="c-letter-body">{job.description}</p>
         {job.growthHint && <p className="adv-growth-hint">成長・次の機会：{job.growthHint}</p>}
-        <p className="c-letter-signature">
-          {personOf(job.person).name} <Rings stage={s.relations[job.person]} />
-        </p>
       </div>
       {signing && (
         <div className="c-letter-response" aria-hidden="true">
@@ -415,7 +399,7 @@ function LetterSheet({
           </div>
           <div>
             <small>差し出すもの</small>
-            <Costs job={job} s={s} compact />
+            <Costs job={job} s={s} />
           </div>
         </div>
         {closing.length > 0 && (
@@ -533,6 +517,7 @@ export default function DailyApp() {
   const debugStart = useRef(false);
   const pendingNewSave = useRef(false);
   const [growthOpen, setGrowthOpen] = useState(false);
+  const [dignityOpen, setDignityOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archive, setArchive] = useState(() => loadArchive(localStorage));
   const [advReplay, setAdvReplay] = useState<ReplayRecord | null>(null);
@@ -994,6 +979,7 @@ export default function DailyApp() {
             seen={seenScenes}
             onPlay={openReplay}
             onSettings={() => setSettings(true)}
+            onOpenArchive={openArchive}
             onClose={() => setGallery(false)}
           />
         ) : !started ? (
@@ -1016,27 +1002,13 @@ export default function DailyApp() {
                 <br />
                 問題は、完済するために何を差し出すか。
               </p>
-              <Button primary disabled={!s} onClick={() => setStarted(true)}>
-                続きから
-              </Button>
-              <Button onClick={() => { debugStart.current = false; if (s) setReset("new"); else begin(); }}>
-                はじめから
-              </Button>
-              <Button onClick={() => { debugStart.current = true; if (s) setReset("new"); else begin(); }}>
-                検証シナリオで始める
-              </Button>
-              <Button onClick={openArchive}>選択の回想 {archive.length}</Button>
-              <Button onClick={() => setGallery(true)}>
-                回想{" "}
-                <small>
-                  {
-                    catalogCounts(seenScenes).rows.filter(
-                      (r) => r.written && r.seen,
-                    ).length
-                  }
-                </small>
-              </Button>
-              <Button onClick={() => setSettings(true)}>設定</Button>
+              <nav className="title-actions" aria-label="ゲームメニュー">
+                <Button primary disabled={!s} onClick={() => setStarted(true)}>続きから <span aria-hidden="true">›</span></Button>
+                <Button onClick={() => { debugStart.current = false; if (s) setReset("new"); else begin(); }}>はじめから</Button>
+                <Button onClick={() => setGallery(true)}><BookOpen size={23} aria-hidden="true" />回想</Button>
+                <Button onClick={() => setSettings(true)}><Settings size={23} aria-hidden="true" />設定</Button>
+              </nav>
+              <Button className="title-debug" onClick={() => { debugStart.current = true; if (s) setReset("new"); else begin(); }}>検証シナリオで始める <span aria-hidden="true">↗</span></Button>
               {notice && <p className="c-note">{notice}</p>}
             </div>
           </>
@@ -1099,13 +1071,14 @@ export default function DailyApp() {
                   alt="エレオノール・ラティエ"
                 />
               </aside>
-              {showDesk && <Ledger s={s} />}
+              {showDesk && <Ledger s={s} onDetails={() => setDignityOpen(true)} />}
               <main className="c-main">
                 {gallery ? (
                   <Gallery
                     seen={seenScenes}
                     onPlay={openReplay}
                     onSettings={() => setSettings(true)}
+            onOpenArchive={openArchive}
                     onClose={() => setGallery(false)}
                   />
                 ) : s.awaitingSettlement ? (
@@ -1225,6 +1198,7 @@ export default function DailyApp() {
           </div>
         </div>
       )}
+      <ScreenGuide />
       <span className="c-sr-only" role="status" aria-live="polite">
         {ritual === "sign" ? "返事をしたためる" : ""}
       </span>
@@ -1244,16 +1218,17 @@ export default function DailyApp() {
         />
       )}
 
-      {growthOpen && savedState && <Modal title="主人公の成長" onClose={() => setGrowthOpen(false)}><GrowthPanel state={savedState} /><button onClick={() => { setGrowthOpen(false); openArchive(); }}>選択の回想を開く</button></Modal>}
-      {archiveOpen && <Modal title="選択の回想" onClose={() => setArchiveOpen(false)}>
+      {growthOpen && savedState && <Modal variant="folio" title="主人公の成長" onClose={() => setGrowthOpen(false)}><GrowthPanel state={savedState} /></Modal>}
+      {dignityOpen && savedState && <Modal variant="folio" title="三つの尊厳" onClose={() => setDignityOpen(false)}><DignityPanel state={savedState} /></Modal>}
+      {archiveOpen && <Modal variant="folio" title="選択の回想" onClose={() => setArchiveOpen(false)}>
         <p>到達した本文と選んだ対応を、その時の記録で読み返します。</p>
-        <div className="adv-archive-list">{archive.length ? archive.map(r => <button key={r.id} onClick={() => { setArchiveOpen(false); setAdvReplay(r); }}>{r.title} ／ {r.choices.map(c => c.text).join(" → ") || "本文"}</button>) : <p>まだ記録がありません。</p>}</div>
+        <div className="adv-archive-list">{archive.length ? archive.map((r, i) => <Button key={r.id} onClick={() => { setArchiveOpen(false); setAdvReplay(r); }}><span className="archive-number">{String(i + 1).padStart(2, "0")}</span><span><b>{r.title}</b><small>{r.choices.map(c => c.text).join(" → ") || "本文の記録"}</small></span><BookOpen aria-hidden="true" /></Button>) : <div className="archive-empty"><BookOpen aria-hidden="true" /><h3>まだ綴られていない記憶</h3><p>依頼で選んだ対応が、ここに残ります。</p></div>}</div>
       </Modal>}
-      {advReplay && <Dialogue title={advReplay.title} lines={advReplay.lines} place={personOf(advReplay.person).place} speed={ui.speed} textSize={ui.textSize} strongText={ui.strongText} motion={ui.motion} sceneId={advReplay.id} onSettingsChange={patch} onDone={() => setAdvReplay(null)} />}
+      {advReplay && <Dialogue title={advReplay.title} lines={advReplay.lines} place={personOf(advReplay.person).place} speed={ui.speed} textSize={ui.textSize} strongText={ui.strongText} motion={ui.motion} sceneId={advReplay.id} onSettingsChange={patch} onDone={() => { setAdvReplay(null); setArchiveOpen(true); }} />}
       {activeAdv && savedState && <AdvSession state={savedState} send={sendAdv} error={advError} retry={retryAdv}
         onTitle={() => { if (!pendingAdv.current) { setStarted(false); lock.current = false; } }}
         settings={ui} onSettingsChange={patch} />}
-      {advError && !activeAdv && <Modal title="保存できませんでした" onClose={() => {}}><p role="alert">{advError}</p><button onClick={retryAdv}>保存を再試行</button></Modal>}
+      {advError && !activeAdv && <Modal title="保存できませんでした" onClose={() => {}}><p role="alert">{advError}</p><Button onClick={retryAdv}>保存を再試行</Button></Modal>}
 
       {scene && s && (
         <Dialogue
@@ -1315,11 +1290,6 @@ export default function DailyApp() {
           variant="settings"
           title="設定"
           onClose={() => setSettings(false)}
-          footer={
-            <Button primary onClick={() => setSettings(false)}>
-              閉じる
-            </Button>
-          }
         >
           <GameSettings
             value={ui}

@@ -37,7 +37,7 @@ try {
     assert((await row.innerText()).includes("ランク5"));
     const label = await row.locator(".r-status-axis-title b").boundingBox();
     const meter = await row.locator(".r-status-meter").boundingBox();
-    assert(meter.x + meter.width <= label.x, "rank label does not overlap the meter");
+    assert(meter.y >= label.y + label.height, "rank label sits above the meter");
   }
   await screenshot("desk");
   assert.equal((await saved()).day, 1);
@@ -93,7 +93,7 @@ try {
   await screenshot("growth-result");
   await page.getByRole("button", { name: "翌日へ", exact: true }).click();
   await page.getByRole("button", { name: "成長", exact: true }).click();
-  assert((await page.getByRole("dialog", { name: "主人公の成長" }).innerText()).includes("交渉 1段階"));
+  assert.equal(await page.locator('.growth-card').first().locator('.growth-rank b').innerText(), '1');
   await page.getByRole("dialog", { name: "主人公の成長" }).getByRole("button", { name: "閉じる", exact: true }).click();
   await accept("debug-challenge");
   await skipText();
@@ -104,8 +104,8 @@ try {
   await page.waitForSelector('[data-job="debug-followup-negotiation"]');
   assert.equal(await page.locator('[data-job="debug-followup-charm"]').count(), 0);
   await screenshot("followup");
-  await page.getByRole("button", { name: "成長", exact: true }).click();
-  await page.getByRole("button", { name: "選択の回想を開く" }).click();
+  await page.getByRole("button", { name: "回想", exact: true }).click();
+  await page.getByRole("button", { name: "選択の回想", exact: true }).click();
   const beforeReplay = await saved();
   await page.locator(".adv-archive-list button").last().click();
   for (let i = 0; i < 8 && await page.locator(".scenario-stage").count(); i++) await skipText();

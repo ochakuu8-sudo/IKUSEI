@@ -6,6 +6,10 @@ import { Flower2, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
+export function GameButton({ children, primary = false, className = "", ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean }) {
+  return <button {...props} type="button" className={`c-button ui-button ${primary ? "c-primary" : ""} ${className}`}>{children}</button>;
+}
+
 export function Button({
   children,
   onClick,
@@ -68,7 +72,7 @@ export function Modal({
   children: ReactNode;
   onClose: () => void;
   footer?: ReactNode;
-  variant?: "window" | "scenario" | "result" | "settings";
+  variant?: "window" | "scenario" | "result" | "settings" | "folio";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const close = useRef(onClose);
@@ -85,7 +89,7 @@ export function Modal({
   return createPortal(
     <dialog
       ref={ref}
-      className={`dialog ${variant === "scenario" ? "scenario-dialog" : ""} ${variant === "result" ? "result-dialog" : ""} ${variant === "settings" ? "settings-dialog" : ""}`}
+      className={`dialog ${variant === "scenario" ? "scenario-dialog" : ""} ${variant === "result" ? "result-dialog" : ""} ${variant === "settings" ? "settings-dialog" : ""} ${variant === "folio" ? "folio-dialog" : ""}`}
       onKeyDown={(e) => {
         if (e.key !== "Tab") return;
         const elements = [
@@ -120,7 +124,7 @@ export function Modal({
       {variant !== "scenario" && (
         <header>
           <h2>{title}</h2>
-          {(variant === "window" || variant === "settings") && (
+          {(variant === "window" || variant === "settings" || variant === "folio") && (
             <Button aria-label="閉じる" onClick={onClose}>
               <X size={20} />
             </Button>

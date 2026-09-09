@@ -25,10 +25,10 @@ import {
 } from "../daily";
 import { catalogCounts, type SceneEntry, type SceneKind } from "../scenes";
 import { artAssetSrc, personSrc } from "../art";
-import { Art } from "./shell";
+import { Art, GameButton as Button } from "./shell";
 import { Mark } from "../marks";
 import { dignityLabel } from "../dignity";
-import { growthLabel } from "../adv/growth";
+import { growthOf, rankOf } from "../adv/growth";
 import { Rings } from "./symbols";
 import { visualFor } from "./sceneVisuals";
 import { paperSound } from "./paperAudio";
@@ -50,38 +50,27 @@ export const reformArt = {
   hero: artAssetSrc("ui/reform/hero.png"),
 };
 const gold = (n: number) => `${n.toLocaleString()}G`;
-const Button = ({
-  children,
-  primary,
-  className = "",
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean }) => (
-  <button
-    {...props}
-    type="button"
-    className={`c-button ${primary ? "c-primary" : ""} ${className}`}
-  >
-    {children}
-  </button>
-);
 
 export function ReformGallery({
   seen,
   onPlay,
   onClose,
   onSettings,
+  onOpenArchive,
 }: {
   seen: string[];
   onPlay: (entry: SceneEntry) => void;
   onClose: () => void;
   onSettings: () => void;
+  onOpenArchive: () => void;
 }) {
   const [kind, setKind] = useState<SceneKind | "すべて">("すべて");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<SceneEntry | null>(null);
   const rows = catalogCounts(seen).rows.filter((r) => r.written);
   const shown = rows.filter((r) => kind === "すべて" || r.entry.kind === kind);
-  const pages = Math.max(1, Math.ceil(shown.length / 6));
+  const pageSize = 3;
+  const pages = Math.max(1, Math.ceil(shown.length / pageSize));
   const imageOf = (entry: SceneEntry) => {
     const v = visualFor(entry.id, entry.place);
     return v.image ?? v.background;
@@ -113,6 +102,7 @@ export function ReformGallery({
               {k === "依頼" ? "物語" : k === "関係" ? "交流" : k}
             </Button>
           ))}
+          <Button onClick={onOpenArchive}>選択の回想</Button>
           <small>
             記録 {rows.filter((r) => r.seen).length} / {rows.length}
           </small>
@@ -138,7 +128,7 @@ export function ReformGallery({
           </div>
         ) : (
           <div className="r-memory-grid">
-            {shown.slice(page * 6, page * 6 + 6).map(({ entry, seen: got }) => (
+            {shown.slice(page * pageSize, page * pageSize + pageSize).map(({ entry, seen: got }) => (
               <button
                 type="button"
                 key={entry.id}
@@ -472,7 +462,14 @@ export function DayRecord({
           <h3>
             {result.kind === "settle" ? "受領後の記録" : "今日、残ったこと"}
           </h3>
-          {result.growthGains?.map(g => <p key={g.id}><b>{growthLabel(g.id, g.after)}</b><br /><small>経験 {g.before} → {g.after}（+{g.after - g.before}）</small></p>)}
+          {result.growthGains?.map(g => {
+            const d = growthOf(g.id)!, rank = rankOf(g.id, g.after), previous = rankOf(g.id, g.before);
+            return <div className="result-growth" key={g.id}>
+              <div><b>{d.label} <span>+{g.after - g.before}</span></b><em>{rank > previous ? `${previous} → ${rank}段階に成長` : `${rank}段階`}</em></div>
+              <div className="growth-progress" aria-hidden="true"><i style={{width:`${g.after / d.thresholds.at(-1)! * 100}%`}} /></div>
+              <p><span>経験 {g.before} → {g.after}</span><span>{d.thresholds[rank + 1] === undefined ? "最高段階" : `次まで ${d.thresholds[rank + 1] - g.after}`}</span></p>
+            </div>;
+          })}
           {!!result.bonusMoney && <p>基本報酬 {gold(result.pay - result.bonusMoney)} ／ 選択による追加 {gold(result.bonusMoney)}</p>}
           {result.kind === "settle" ? (
             <>
@@ -594,7 +591,7 @@ export function GameSettings({
       </nav>
       {tab === "文章・演出" ? (
         <div className="r-settings-reading">
-          <div>
+          <div className="r-reading-controls">
             <fieldset>
               <legend>文字の大きさ</legend>
               <div className="r-choice-row">
