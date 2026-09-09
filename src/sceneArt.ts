@@ -1,13 +1,15 @@
 import type { PlaceId } from "./game";
 
-/** 採用済みの素材だけ登録する。image / portrait は public/art/ 内の相対パス。 */
+/** 一枚絵を登録する。image は public/art/ 内の相対パス。既定は全面 cover、字幕は下端。 */
 export type SceneArtwork = {
   image?: string;
   background?: PlaceId;
+  /** @deprecated 旧データ互換用。ノベルでは立ち絵を描画しない。 */
   portrait?: string;
   anchor?: "left" | "center" | "right";
   fit?: "contain" | "cover";
   focus?: string;
+  /** @deprecated 字幕は下端へ固定。 */
   subtitle?: "bottom" | "top";
 };
 

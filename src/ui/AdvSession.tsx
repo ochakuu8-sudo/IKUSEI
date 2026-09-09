@@ -26,7 +26,7 @@ function ChoiceScenery({ session }: { session: ActiveSession }) {
     void prepareVisual(visual).then(value => { if (alive) setArt(value); });
     return () => { alive = false; };
   }, [session.id, session.nodeId]);
-  return <div className="adv-scenery" data-anchor={art?.anchor} aria-hidden="true" style={{"--scene-fit":art?.image?art.fit:"cover","--scene-focus":art?.image?art.focus:"center"} as CSSProperties}>{art && <><Art src={art.image ?? art.background} className="adv-background" />{!art.image && <Art src={art.portrait} className={"scenario-portrait scenario-anchor-"+art.anchor} />}</>}</div>;
+  return <div className="adv-scenery" aria-hidden="true" style={{"--scene-fit":art?.image?art.fit:"cover","--scene-focus":art?.image?art.focus:"center"} as CSSProperties}>{art && <><Art src={art.image ?? art.background} className="adv-background" /></>}</div>;
 }
 export function AdvSession({ state, send, error, retry, onTitle, settings, onSettingsChange }: {
   state: DailyState;

@@ -249,11 +249,11 @@ try {
     await page
       .locator(".scenario-cg")
       .evaluate((e) => getComputedStyle(e).objectFit),
-    "contain",
+    "cover",
   );
   assert.equal(
     await page.locator(".scenario-stage").getAttribute("data-subtitle"),
-    "top",
+    "bottom",
   );
   await next();
   assert.equal(await page.locator(".scenario-cg").getAttribute("src"), cg);
@@ -271,7 +271,7 @@ try {
     .locator(".scenario-dialog")
     .screenshot({ path: resolve(out, "novel-cg-fixture.png") });
   await next();
-  await page.locator(".scenario-anchor-left").waitFor();
+  await page.locator('.scenario-background[src*="guild.webp"]').waitFor();
   assert.equal(await page.locator(".scenario-cg").count(), 0);
   assert(
     (await page.locator(".scenario-background").getAttribute("src")).includes(
@@ -285,7 +285,7 @@ try {
   );
   await show({ image: base + "missing-scene.webp" });
   assert.equal(await page.locator(".scenario-cg").count(), 0);
-  assert.equal(await page.locator(".scenario-portrait").count(), 1);
+  assert.equal(await page.locator(".scenario-portrait").count(), 0);
   /* 現在の全45場面を実フォントで送る。 */
   const catalog = await page.evaluate(() =>
     novelHarness.catalog.filter((s) => s.lines.length),

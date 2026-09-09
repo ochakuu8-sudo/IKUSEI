@@ -1,13 +1,11 @@
-import { artAssetSrc, backgroundSrc, heroSrc, placeSrc } from "../art";
+import { artAssetSrc, backgroundSrc, placeSrc } from "../art";
 import type { PlaceId, SceneLine } from "../game";
 import { sceneArtwork, type SceneArtwork } from "../sceneArt";
 
 export type SceneVisual = {
   place: PlaceId;
   background: string;
-  portrait: string;
   image?: string;
-  anchor: "left" | "center" | "right";
   fit: "contain" | "cover";
   focus: string;
   subtitle: "bottom" | "top";
@@ -25,12 +23,10 @@ export function visualFor(
   return {
     place: art.background ?? place,
     background: placeSrc(art.background ?? place),
-    portrait: art.portrait ? artAssetSrc(art.portrait) : heroSrc,
     image: art.image ? artAssetSrc(art.image) : undefined,
-    anchor: art.anchor ?? "left",
-    fit: art.fit ?? "contain",
+    fit: art.fit ?? "cover",
     focus: art.focus ?? "50% 50%",
-    subtitle: art.subtitle ?? "bottom",
+    subtitle: "bottom",
   };
 }
 
@@ -60,23 +56,14 @@ function loadImage(src: string): Promise<boolean> {
   return task;
 }
 
-/** 壊れたCGは背景＋立ち絵へ戻す。読み込みを終えてから画面を切り替える。 */
+/** 一枚絵を全面表示。未登録・読込失敗時は背景一枚で代替する。 */
 export async function prepareVisual(visual: SceneVisual): Promise<SceneVisual> {
-  const [cg, bg, portrait] = await Promise.all([
-    visual.image ? loadImage(visual.image) : false,
-    loadImage(visual.background),
-    loadImage(visual.portrait),
-  ]);
+  const cg = visual.image ? await loadImage(visual.image) : false;
+  if (cg) return visual;
+  const bg = await loadImage(visual.background);
   const background = bg ? visual.background : backgroundSrc("study-v1");
-  const portraitSrc = portrait ? visual.portrait : heroSrc;
-  if (!bg || !portrait)
-    await Promise.all([loadImage(background), loadImage(portraitSrc)]);
-  return {
-    ...visual,
-    background,
-    portrait: portraitSrc,
-    image: cg ? visual.image : undefined,
-  };
+  if (!bg) await loadImage(background);
+  return { ...visual, background, image: undefined };
 }
 
 export function preloadScene(

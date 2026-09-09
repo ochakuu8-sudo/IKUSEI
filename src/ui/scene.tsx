@@ -364,13 +364,7 @@ export function Dialogue({
                 }}
                 alt={title}
               />
-              {!art.image && (
-                <img
-                  src={art.portrait}
-                  className={`scenario-portrait scenario-anchor-${art.anchor}`}
-                  alt="エレオノール"
-                />
-              )}
+
             </>
           )}
         </div>
