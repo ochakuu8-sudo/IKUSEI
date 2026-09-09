@@ -32,7 +32,6 @@ import { dignityRank, dignityLabel } from "./dignity";
 import { persistTransition, type Command } from "./adv/engine";
 import { AdvSession } from "./ui/AdvSession";
 import { GrowthPanel, DignityPanel } from "./ui/CharacterPanels";
-import { ScreenGuide } from "./ui/ScreenGuide";
 import { ADV_ARCHIVE_KEY, loadArchive, syncArchive } from "./adv/archive";
 import type { ReplayRecord } from "./adv/types";
 import { type SceneEntry } from "./scenes";
@@ -1198,7 +1197,6 @@ export default function DailyApp() {
           </div>
         </div>
       )}
-      <ScreenGuide />
       <span className="c-sr-only" role="status" aria-live="polite">
         {ritual === "sign" ? "返事をしたためる" : ""}
       </span>

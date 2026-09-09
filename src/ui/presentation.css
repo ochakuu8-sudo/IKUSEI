@@ -236,12 +236,4 @@
 .adv-reading-panel .r-reading-controls { display:block; }
 .adv-reading-panel .r-settings-reading { grid-template-columns:1fr; }
 .adv-reading-panel .r-reading-preview { display:none; }
-/* Outside the game canvas: readable orientation guidance, no progress mutation. */
-.screen-guide { position:fixed; inset:0; margin:auto; width:min(440px,calc(100vw - 40px)); max-height:calc(100dvh - 32px); padding:28px; border:1px solid #b69767; border-radius:8px; background:linear-gradient(130deg,#453047,#281f30); color:#fff0d8; text-align:center; box-shadow:0 15px 60px #0e071e88; }
-.screen-guide::backdrop { background:#1f1929f5; }
-.screen-guide > svg { width:48px; height:48px; stroke-width:1; color:#d5b47f; }
-.screen-guide h2 { font:25px/1.4 var(--serif); margin:18px 0 12px; }
-.screen-guide p { font:16px/1.8 var(--serif); }
-.screen-guide small { font:14px/1.6 var(--serif); color:#e0cbb8; }
-.screen-guide .ui-button { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:48px; margin-top:20px; background:#f0dfc3; color:#493247; border:1px solid #d4b889; border-radius:4px; font-size:17px; }
 @media (prefers-reduced-motion:reduce) { .ui-button { transition:none; } }

@@ -37,10 +37,10 @@ try {
   assert.equal((await page.locator('.r-pagination > span').innerText()).trim(),'2 / 15');
   assert.equal(await saved(), before, 'detail and replay leave the main save untouched');
   await page.setViewportSize({width:390,height:844});
-  await page.getByRole('dialog',{name:'画面サイズの案内'}).waitFor();
+  assert.equal(await page.locator('.screen-guide').count(), 0);
   assert.equal(await saved(), before);
   await page.setViewportSize({width:844,height:390});
-  await page.getByRole('dialog',{name:'画面サイズの案内'}).waitFor({state:'hidden'});
+  assert.equal(await page.locator('.screen-guide').count(), 0);
   assert.equal(await saved(), before);
   assert.deepEqual(errors, []);
   console.log('PASS: dignity detail; archive replay and page restoration; orientation preserves save; 44px rank target.');
