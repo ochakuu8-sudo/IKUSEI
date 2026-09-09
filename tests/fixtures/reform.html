@@ -19,7 +19,9 @@
         staminaOf,
         takeReason,
       } from "../../src/daily.ts";
-      import { jobs, capDropOf } from "../../src/game.ts";
+      import { jobs as allJobs, capDropOf } from "../../src/game.ts";
+      import { SAVE_KEY } from "../../src/saveV14.ts";
+      const jobs = allJobs.filter(j => !j.debugOnly);
       import { catalogCounts } from "../../src/scenes.ts";
       import "../../src/styles.css";
       const cases = [],
@@ -28,6 +30,7 @@
         for (let i = 0; i < 500; i++) {
           const s = freshDaily("reform-qa-" + i);
           s.unlocked.push("herbalist");
+          s.capabilities = ["garden-orders"];
           s.money = 700;
           s.axes = {
             貞操: level,
@@ -82,7 +85,7 @@
         ),
       );
       localStorage.setItem(
-        "ikusei-prototype-save-v14",
+        SAVE_KEY,
         JSON.stringify(cases[index].s),
       );
       localStorage.setItem(
@@ -99,7 +102,7 @@
         const original = Storage.prototype.setItem;
         let writes = 0;
         Storage.prototype.setItem = function (key, value) {
-          if (key === "ikusei-prototype-save-v14" && ++writes === 2) {
+          if (key === SAVE_KEY && ++writes === 2) {
             throw new Error("検証用の一時保存失敗");
           }
           return original.call(this, key, value);

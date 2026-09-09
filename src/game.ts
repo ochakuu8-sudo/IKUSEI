@@ -1,6 +1,8 @@
 // ゲームのルールとデータ。画面(App.tsx)からは、ここが返す値を表示するだけにする。
 // 数値の根拠は GAME_DESIGN.md。変更するときは企画書側と必ず揃える。
 
+import { debugJobs } from "./content/debug";
+import type { Condition } from "./adv/types";
 export type Axis = "貞操" | "品位" | "威厳";
 export type PlaceId =
   | "estate"
@@ -489,6 +491,14 @@ export type JobKind =
   | "裏";
 
 export type Job = {
+  scenarioId?: string;
+  debugOnly?: boolean;
+  offerPriority?: number;
+  growthHint?: string;
+  growthRewards?: Record<string, number>;
+  requiresStoryFlags?: string[];
+  forbidsStoryFlags?: string[];
+  entryCondition?: Condition;
   id: string;
   title: string;
   kind: JobKind;
@@ -557,6 +567,7 @@ function makeJob(
 // 最後には底辺の仕事しか残らない。
 // costs が空の依頼が「何も差し出さずに済む道」。報酬は低い。
 export const jobs: Job[] = [
+  ...debugJobs,
   makeJob(
     "ord-vernet-tisane",
     "商会へ薬湯を届ける",

@@ -1,5 +1,6 @@
 /**
- * v14 の保存。1日1行動へ戻したので状態の形が変わり、版番号を上げた。
+ * v15 の保存。成長・物語フラグ・ADVの途中状態を一括保存する。
+ * ファイル名は既存の参照との互換のため維持。v14は報酬を再実行せず移行する。
  *
  * v13（生産ラインの版）からは、続けられるぶんだけを引き継ぐ。素材・在庫・処方・
  * 品質・契約は新しい仕組みに対応する概念が無いので捨てる。**元の保存は消さない**ので、
@@ -7,9 +8,12 @@
  */
 import { axes, people, type Axis, type PersonId } from "./game";
 import { freshDaily, SAVE_VERSION, type DailyState } from "./daily";
+import { growthDefinitions, initialGrowth, rankOf } from "./adv/growth";
+import type { ActiveSession, ReplayRecord, Snapshot } from "./adv/types";
 
-export const SAVE_KEY = "ikusei-prototype-save-v14";
+export const SAVE_KEY = "ikusei-prototype-save-v15";
 export const UI_KEY = "ikusei-prototype-ui-v14";
+const V14_KEY = "ikusei-prototype-save-v14";
 const V13_KEY = "ikusei-prototype-save-v13";
 
 const int = (v: unknown, lo: number, hi: number, fallback: number) =>
@@ -18,7 +22,7 @@ const int = (v: unknown, lo: number, hi: number, fallback: number) =>
     : fallback;
 
 /** 壊れた保存を黙って読み込まない。足りない欄は新規の値で埋める。 */
-export function parseDaily(text: string): DailyState | null {
+function parseBase(text: string): DailyState | null {
   let raw: Record<string, unknown>;
   try {
     raw = JSON.parse(text);
@@ -62,9 +66,70 @@ export function parseDaily(text: string): DailyState | null {
     state[key] = Array.isArray(raw[key])
       ? (raw[key] as unknown[])
           .filter((x) => typeof x === "string")
-          .slice(0, 64)
       : [];
   return state;
+}
+
+const object = (x: unknown): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x);
+const strings = (x: unknown): x is string[] => Array.isArray(x) && x.every(s => typeof s === "string");
+const whole = (x: unknown, max = 9_999_999): x is number => typeof x === "number" && Number.isInteger(x) && x >= 0 && x <= max;
+const safeId = (id: string) => /^[a-zA-Z0-9_.:-]+$/.test(id) && !["__proto__", "constructor", "prototype"].includes(id);
+function lines(x: unknown): boolean {
+  return Array.isArray(x) && x.every(l => object(l) && typeof l.text === "string" && typeof l.sceneId === "string" && (l.speaker === undefined || typeof l.speaker === "string") && (l.visual === undefined || typeof l.visual === "string"));
+}
+function choices(x: unknown): boolean {
+  return Array.isArray(x) && x.every(c => object(c) && typeof c.nodeId === "string" && typeof c.choiceId === "string" && typeof c.text === "string");
+}
+export function validReplay(x: unknown): x is ReplayRecord {
+  return object(x) && typeof x.id === "string" && typeof x.title === "string" && people.some(p => p.id === x.person) && typeof x.scenarioId === "string" && whole(x.version) && lines(x.lines) && choices(x.choices);
+}
+function parseSnapshot(raw: unknown): Snapshot | null {
+  if (!object(raw) || raw.activeSession !== undefined || raw.saveVersion !== SAVE_VERSION) return null;
+  const s = parseBase(JSON.stringify(raw));
+  if (!s || !object(raw.growthXP) || !object(raw.storyFlags) || !strings(raw.capabilities) || typeof raw.debugMode !== "boolean" || !Array.isArray(raw.recordings) || !raw.recordings.every(validReplay)) return null;
+  if (Object.keys(raw.growthXP).some(id => !growthDefinitions.some(d => d.id === id))) return null;
+  try {
+    for (const d of growthDefinitions) {
+      rankOf(d.id, raw.growthXP[d.id] as number);
+      s.growthXP[d.id] = raw.growthXP[d.id] as number;
+    }
+  } catch { return null; }
+  if (Object.entries(raw.storyFlags).some(([id, v]) => !safeId(id) || typeof v !== "boolean") || !raw.capabilities.every(safeId)) return null;
+  s.storyFlags = { ...raw.storyFlags } as Record<string, boolean>;
+  s.capabilities = [...raw.capabilities];
+  s.debugMode = raw.debugMode;
+  s.recordings = structuredClone(raw.recordings);
+  return s;
+}
+function parseSession(raw: unknown): ActiveSession | null {
+  if (!object(raw) || typeof raw.id !== "string" || !whole(raw.revision) || !object(raw.job) || typeof raw.job.id !== "string" || typeof raw.job.title !== "string" || !people.some(p => p.id === (raw.job as Record<string, unknown>).person) || !object(raw.quote) || ![raw.quote.pay, raw.quote.listPrice].every(n => whole(n)) || typeof raw.quote.fatigueRate !== "number" || raw.quote.fatigueRate < 0 || raw.quote.fatigueRate > 1 || !Number.isFinite(raw.quote.fatigueRate)) return null;
+  const entry = parseSnapshot(raw.entrySnapshot), working = parseSnapshot(raw.working);
+  if (!entry || !working || !object(raw.scenario) || typeof raw.nodeId !== "string" || !object(raw.cursor) || ![raw.cursor.line, raw.cursor.offset, raw.cursor.chars].every(n => whole(n)) || !["playing", "result"].includes(raw.phase as string) || !choices(raw.choices) || !lines(raw.transcript) || !strings(raw.visited) || typeof raw.lostPrestige !== "boolean") return null;
+  if (raw.phase === "result" && (!object(raw.outcome) || !Array.isArray(raw.outcome.drops) || !Array.isArray(raw.outcome.gains) || !Array.isArray(raw.outcome.closedNow) || !strings(raw.outcome.notices) || typeof raw.outcome.pay !== "number")) return null;
+  // An unavailable scenario can still carry a valid pre-entry snapshot for explicit recovery.
+  return { ...structuredClone(raw), entrySnapshot: entry, working } as unknown as ActiveSession;
+}
+export function parseDaily(text: string): DailyState | null {
+  try {
+    const raw = JSON.parse(text);
+    if (!object(raw)) return null;
+    const { activeSession, ...plain } = raw;
+    const state: DailyState | null = parseSnapshot(plain);
+    if (!state) return null;
+    if (activeSession !== undefined) {
+      const session = parseSession(activeSession);
+      if (!session) return null;
+      state.activeSession = session;
+    }
+    return state;
+  } catch { return null; }
+}
+export function migrateFromV14(text: string): DailyState | null {
+  try {
+    const raw = JSON.parse(text);
+    if (!object(raw) || raw.saveVersion !== 14) return null;
+    return parseDaily(JSON.stringify({ ...raw, saveVersion: SAVE_VERSION, growthXP: initialGrowth(), storyFlags: {}, capabilities: [], recordings: [], debugMode: false, activeSession: undefined }));
+  } catch { return null; }
 }
 
 /** v13の保存から、新しい仕組みでも意味が変わらないものだけを引き継ぐ。 */
@@ -110,6 +175,13 @@ export function loadDaily(store: Storage): LoadResult {
           notice: "保存が読めませんでした。新しく始めてください。",
         };
   }
+  const v14 = store.getItem(V14_KEY);
+  if (v14) {
+    const state = migrateFromV14(v14);
+    return state
+      ? { state, notice: "以前の記録を引き継ぎました。成長は初期値から始まります。完了済みの報酬は再実行しません。" }
+      : { state: null, notice: "以前の保存が読めません。元の記録は保持しています。" };
+  }
   const old = store.getItem(V13_KEY);
   if (old) {
     const state = migrateFromV13(old);
@@ -129,4 +201,6 @@ export function saveDaily(store: Storage, state: DailyState) {
 
 export function clearDaily(store: Storage) {
   store.removeItem(SAVE_KEY);
+  store.removeItem(V14_KEY);
+  store.removeItem(V13_KEY);
 }

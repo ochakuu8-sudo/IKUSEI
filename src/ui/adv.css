@@ -1,0 +1,27 @@
+.adv-stage { width: 1200px; height: 500px; box-sizing: border-box; padding: 22px 30px; color: #f5eee2; background: #211e29; display: flex; flex-direction: column; gap: 12px; font-family: var(--serif); }
+.adv-stage header { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-shrink: 0; }
+.adv-stage h2 { margin: 3px 0; font-size: 1.15em; }
+.adv-stage header small { font-size: 15px; color: #cbbb9e; }
+.adv-stage nav { display: flex; gap: 8px; }
+.adv-stage button { color: inherit; background: #39313d; border: 1px solid #aa9772; border-radius: 5px; padding: 9px 12px; cursor: pointer; font: inherit; }
+.adv-stage nav button { font-size: 16px; }
+.adv-content { display: grid; grid-template-columns: 300px 1fr; gap: 22px; flex: 1; min-height: 0; }
+.adv-content aside, .adv-options { overflow: auto; min-height: 0; overscroll-behavior: contain; padding-right: 8px; }
+.adv-content aside { font-size: 16px; }
+.adv-options { display: flex; flex-direction: column; gap: 12px; }
+.adv-options > button { text-align: left; display: block; flex-shrink: 0; width: 100%; }
+.adv-options button[aria-disabled=true] { background: #29252d; border-style: dashed; }
+.adv-options strong { font-size: 1em; font-weight: 500; }
+.adv-options small { display: block; font-size: .75em; margin-top: 6px; color: #ead9b4; }
+.adv-met, .adv-unmet { font-size: .8em; margin-top: 5px; }
+.adv-met { color: #bde2c1; }
+.adv-unmet { color: #edc1af; }
+.adv-met > div, .adv-unmet > div { margin-left: 12px; font-size: inherit; }
+.adv-stage button:focus-visible { outline: 3px solid #eed397; outline-offset: 2px; }
+.adv-growth article { padding: 9px 0; border-bottom: 1px solid #9f8a6740; }
+.adv-growth p { margin: 5px 0; font-size: 16px; }
+.adv-growth small { font-size: 14px; }
+.adv-growth-hint { font-size: 14px; color: #654c31; display: block; line-height: 1.35; }
+.adv-archive-list { max-height: 310px; overflow: auto; display: grid; gap: 8px; }
+.adv-archive-list button { text-align: left; padding: 10px; }
+.adv-stage [role=alert] { font-size: 16px; padding: 6px; background: #622b24; }

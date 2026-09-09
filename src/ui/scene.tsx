@@ -36,6 +36,10 @@ export function Dialogue({
   strongText = false,
   motion = false,
   onSettingsChange,
+  initialCursor,
+  onCursor,
+  onExit,
+  paused = false,
 }: {
   title: string;
   lines: SceneLine[];
@@ -48,9 +52,13 @@ export function Dialogue({
   strongText?: boolean;
   motion?: boolean;
   onSettingsChange?: (settings: Partial<ReadingSettings>) => void;
+  initialCursor?: { line: number; offset: number; chars: number };
+  onCursor?: (cursor: { line: number; offset: number; chars: number }) => void;
+  onExit?: () => void;
+  paused?: boolean;
 }) {
-  const [position, setPosition] = useState({ line: 0, offset: 0 });
-  const [chars, setChars] = useState(0),
+  const [position, setPosition] = useState({ line: initialCursor?.line ?? 0, offset: initialCursor?.offset ?? 0 });
+  const [chars, setChars] = useState(initialCursor?.chars ?? 0),
     [view, setView] = useState<View>("reading");
   const [reader, setReader] = useState({ speed, textSize, strongText, motion });
   const [systemMotion, setSystemMotion] = useState(
@@ -68,7 +76,20 @@ export function Dialogue({
     tapRef = useRef<HTMLButtonElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const finished = useRef(false),
-    blockedUntil = useRef(0);
+    blockedUntil = useRef(performance.now() + (onCursor ? 350 : 0));
+  const renderedPosition = useRef(`${position.line}:${position.offset}`);
+  const checkpoint = useRef<() => void>(() => {});
+  checkpoint.current = () => {
+    if (!finished.current && !paused) onCursor?.({ ...position, chars });
+  };
+  useEffect(() => {
+    if (!onCursor) return;
+    const flush = () => checkpoint.current();
+    const timer = window.setInterval(flush, 200);
+    window.addEventListener("pagehide", flush);
+    return () => { clearInterval(timer); window.removeEventListener("pagehide", flush); };
+  }, [!!onCursor]);
+  useEffect(() => { if (!paused) finished.current = false; }, [paused]);
   const hold = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const gesture = useRef<{
     x: number;
@@ -172,10 +193,13 @@ export function Dialogue({
   const letters = useMemo(() => graphemes(page.text), [page.text]),
     full = chars >= letters.length;
   useLayoutEffect(() => {
-    setChars(reader.speed === 0 ? letters.length : 0);
+    const key = `${position.line}:${position.offset}`;
+    const samePosition = renderedPosition.current === key;
+    setChars(n => reader.speed === 0 ? letters.length : Math.min(samePosition ? n : 0, letters.length));
+    renderedPosition.current = key;
   }, [position.line, page.start, page.text]);
   useEffect(() => {
-    if (!ready || view !== "reading") return;
+    if (!ready || view !== "reading" || paused) return;
     if (reader.speed === 0) {
       setChars(letters.length);
       return;
@@ -186,7 +210,7 @@ export function Dialogue({
       reader.speed,
     );
     return () => clearInterval(timer);
-  }, [ready, view, reader.speed, letters.length, full]);
+  }, [ready, view, reader.speed, letters.length, full, paused]);
   useEffect(() => {
     const selector =
       view === "menu"
@@ -201,7 +225,7 @@ export function Dialogue({
       ?.focus({ preventScroll: true });
   }, [view]);
   function finish() {
-    if (finished.current) return;
+    if (finished.current || paused) return;
     finished.current = true;
     clearTimeout(hold.current);
     onDone();
@@ -211,7 +235,7 @@ export function Dialogue({
     blockedUntil.current = performance.now() + 160;
   }
   function tap() {
-    if (finished.current || performance.now() < blockedUntil.current) return;
+    if (paused || finished.current || performance.now() < blockedUntil.current) return;
     if (view !== "reading") {
       restore();
       return;
@@ -231,6 +255,7 @@ export function Dialogue({
     }
   }
   function skipCurrent(readOnly = false) {
+    if (paused) return;
     const read = loadReadScenes(localStorage);
     let range = sceneRange(lines, position.line, sceneId);
     if (readOnly && (!range.id || !read.includes(range.id))) return;
@@ -444,6 +469,7 @@ export function Dialogue({
             <button type="button" onClick={restore}>
               本文に戻る
             </button>
+            {onExit && <button type="button" disabled={paused} onClick={() => { checkpoint.current(); onExit(); }}>保存してタイトルへ</button>}
           </nav>
         )}
         {view === "log" && (

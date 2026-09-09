@@ -28,7 +28,11 @@ import {
   type DailyState,
   type DayOutcome,
 } from "./daily";
-import { clearDaily, loadDaily, saveDaily, UI_KEY } from "./saveV14";
+import { clearDaily, loadDaily, saveDaily, UI_KEY, SAVE_KEY } from "./saveV14";
+import { persistTransition, type Command } from "./adv/engine";
+import { AdvSession, GrowthPanel } from "./ui/AdvSession";
+import { ADV_ARCHIVE_KEY, loadArchive, syncArchive } from "./adv/archive";
+import type { ReplayRecord } from "./adv/types";
 import { catalogCounts, type SceneEntry } from "./scenes";
 import { clearGallery, loadGallery, recordScenes } from "./gallery";
 import { Art, Modal } from "./ui/shell";
@@ -325,6 +329,7 @@ function OfferCard({
           )}
         </span>
         <span className="c-slip-foot">
+          {job.growthHint && <span className="adv-card-growth">成長・選択の機会あり</span>}
           <span className="c-slip-warnings">
             {reason && (
               <span className="c-unavailable">
@@ -380,6 +385,7 @@ function LetterSheet({
           {job.title}
         </h2>
         <p className="c-letter-body">{job.description}</p>
+        {job.growthHint && <p className="adv-growth-hint">成長・次の機会：{job.growthHint}</p>}
         <p className="c-letter-signature">
           {personOf(job.person).name} <Rings stage={s.relations[job.person]} />
         </p>
@@ -541,6 +547,27 @@ export default function DailyApp() {
     ),
     [gallery, setGallery] = useState(false),
     [replay, setReplay] = useState<SceneEntry | null>(null);
+  const [advError, setAdvError] = useState("");
+  const pendingAdv = useRef<Command | null>(null);
+  const debugStart = useRef(false);
+  const pendingNewSave = useRef(false);
+  const [growthOpen, setGrowthOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archive, setArchive] = useState(() => loadArchive(localStorage));
+  const [advReplay, setAdvReplay] = useState<ReplayRecord | null>(null);
+  const activeAdv = started && savedState?.activeSession;
+  useEffect(() => {
+    if (!savedState) return;
+    try { setArchive(syncArchive(localStorage, savedState.recordings)); }
+    catch { setNotice("回想を保存できませんでした。本編の記録は保存済みです。「選択の回想」を開くと保存を再試行します。"); }
+  }, [savedState?.recordings.length]);
+  function preserveArchive() {
+    try { setArchive(syncArchive(localStorage, stateRef.current?.recordings ?? [])); return true; }
+    catch { setNotice("回想を保存できませんでした。本編の記録は残っています。容量などを確認して再試行してください。"); return false; }
+  }
+  function openArchive() {
+    if (preserveArchive()) setArchiveOpen(true);
+  }
   /* The action is saved before animation; its new day stays hidden until the result. */
   const s = deskSnapshot ?? savedState;
   /* 場面を閉じた指が、そのまま下の札を押して次の場面を開いてしまわないようにする。
@@ -569,7 +596,7 @@ export default function DailyApp() {
     patch = (p: Partial<UI>) => setUI((u) => ({ ...u, ...p }));
 
   function openLetter(id: string) {
-    if (lock.current || paperReturning.current) return;
+    if (stateRef.current?.activeSession || lock.current || paperReturning.current) return;
     const job = jobs.find((j) => j.id === id);
     if (job)
       void preloadScene(
@@ -771,14 +798,53 @@ export default function DailyApp() {
   }, []);
 
   function persist(next: DailyState) {
-    stateRef.current = next;
-    setS(next);
     try {
       saveDaily(localStorage, next);
+      stateRef.current = next;
+      setS(next);
       setSaveError("");
+      return true;
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "保存に失敗しました");
+      return false;
     }
+  }
+
+  function sendAdv(command: Command) {
+    const before = stateRef.current;
+    if (!before || (pendingAdv.current && command.type === "cursor")) return;
+    if (command.type === "cursor") {
+      const old = before.activeSession;
+      if (!old || old.id !== command.sessionId || old.nodeId !== command.nodeId || old.phase !== "playing") return;
+      if (JSON.stringify(old.cursor) === JSON.stringify(command.cursor)) return;
+    }
+    const out = persistTransition(localStorage, SAVE_KEY, before, command);
+    if (out.error) {
+      if (out.error.startsWith("保存")) { pendingAdv.current = command; setAdvError(out.error); }
+      else if (command.type !== "cursor") setNotice(out.error);
+      return;
+    }
+    pendingAdv.current = null;
+    setAdvError("");
+    stateRef.current = out.state;
+    setS(out.state);
+    if (command.type === "begin") {
+      patch({ sheet: null });
+      setDeskSnapshot(null);
+      setNotice("");
+    }
+    if (out.state.activeSession?.phase === "result") {
+      setSeenScenes(seen => recordScenes(localStorage, seen, out.state.activeSession!.outcome!.sceneIds));
+    }
+    if (command.type === "acknowledge" || command.type === "restore") {
+      lock.current = false;
+      setDeskSnapshot(null);
+    }
+  }
+  function retryAdv() {
+    const command = pendingAdv.current;
+    pendingAdv.current = null;
+    if (command) sendAdv(command);
   }
 
   /* 裏に描かれた翌日の札は、結果などを閉じて実際に提示されるまでは未見。 */
@@ -799,6 +865,7 @@ export default function DailyApp() {
     !settings &&
     !reset &&
     !notice
+    && !activeAdv
   );
   useEffect(() => {
     if (!s || !offersVisible) return;
@@ -808,6 +875,7 @@ export default function DailyApp() {
   }, [s?.revision, s?.day, s?.chapter, offersVisible]);
 
   function commit(action: Parameters<typeof dailyAction>[1]) {
+    if (action.type === "take") { sendAdv({ type: "begin", jobId: action.job }); return; }
     if (
       lock.current ||
       ritual ||
@@ -825,8 +893,9 @@ export default function DailyApp() {
       setNotice(out.error);
       lock.current = false;
     } else {
-      setDeskSnapshot(stateRef.current);
-      persist(out.state);
+      const before = stateRef.current;
+      if (!persist(out.state)) { lock.current = false; return; }
+      setDeskSnapshot(before);
       if (out.outcome?.sceneIds.length)
         setSeenScenes((seen) =>
           recordScenes(localStorage, seen, out.outcome!.sceneIds),
@@ -845,8 +914,8 @@ export default function DailyApp() {
       if (action.type === "settle") reveal();
       else {
         const reduce = reduceMotion();
-        paperSound(ui.volume, action.type === "take" ? "sign" : "rest");
-        setRitual(action.type === "take" ? "sign" : "rest");
+        paperSound(ui.volume, "rest");
+        setRitual("rest");
         const ready = out.outcome?.scene.length
           ? preloadScene(
               out.outcome.scene,
@@ -858,13 +927,14 @@ export default function DailyApp() {
           () => {
             void ready.then(reveal, reveal);
           },
-          reduce ? 0 : action.type === "take" ? 520 : 380,
+          reduce ? 0 : 380,
         );
       }
     }
   }
 
   function begin() {
+    if (!preserveArchive()) return;
     paperMotion.current?.cancel();
     paperReturning.current = false;
     setDeskSnapshot(null);
@@ -872,7 +942,13 @@ export default function DailyApp() {
     patch({ tab: "today", sheet: null });
     setNotice("");
     setSaveError("");
-    persist(freshDaily());
+    const fresh = freshDaily();
+    fresh.debugMode = debugStart.current;
+    if (!persist(fresh)) { pendingNewSave.current = true; return; }
+    pendingNewSave.current = false;
+    debugStart.current = false;
+    pendingAdv.current = null;
+    setAdvError("");
     setStarted(true);
     setReset(null);
     lock.current = false;
@@ -912,7 +988,7 @@ export default function DailyApp() {
               ? `c-home c-manor ${sheetJob || pending ? "c-reading" : ""} ${ui.tab === "journal" ? "c-journal" : ""} ${ritual ? "c-ritual" : ""}`
               : ""
         }`}
-        inert={!!ritual || !!scene || !!result || undefined}
+        inert={!!ritual || !!scene || !!result || !!activeAdv || undefined}
         aria-busy={!!ritual || undefined}
         style={
           {
@@ -962,9 +1038,13 @@ export default function DailyApp() {
               <Button primary disabled={!s} onClick={() => setStarted(true)}>
                 続きから
               </Button>
-              <Button onClick={() => (s ? setReset("new") : begin())}>
+              <Button onClick={() => { debugStart.current = false; if (s) setReset("new"); else begin(); }}>
                 はじめから
               </Button>
+              <Button onClick={() => { debugStart.current = true; if (s) setReset("new"); else begin(); }}>
+                検証シナリオで始める
+              </Button>
+              <Button onClick={openArchive}>選択の回想 {archive.length}</Button>
               <Button onClick={() => setGallery(true)}>
                 回想{" "}
                 <small>
@@ -1018,6 +1098,7 @@ export default function DailyApp() {
                 </b>
               </div>
               <div className="r-hud-actions">
+                <Button className="adv-growth-open" onClick={() => setGrowthOpen(true)}>成長</Button>
                 <Button
                   className="r-gallery-shortcut"
                   onClick={() => setGallery(true)}
@@ -1182,6 +1263,17 @@ export default function DailyApp() {
         />
       )}
 
+      {growthOpen && savedState && <Modal title="主人公の成長" onClose={() => setGrowthOpen(false)}><GrowthPanel state={savedState} /><button onClick={() => { setGrowthOpen(false); openArchive(); }}>選択の回想を開く</button></Modal>}
+      {archiveOpen && <Modal title="選択の回想" onClose={() => setArchiveOpen(false)}>
+        <p>到達した本文と選んだ対応を、その時の記録で読み返します。</p>
+        <div className="adv-archive-list">{archive.length ? archive.map(r => <button key={r.id} onClick={() => { setArchiveOpen(false); setAdvReplay(r); }}>{r.title} ／ {r.choices.map(c => c.text).join(" → ") || "本文"}</button>) : <p>まだ記録がありません。</p>}</div>
+      </Modal>}
+      {advReplay && <Dialogue title={advReplay.title} lines={advReplay.lines} place={personOf(advReplay.person).place} speed={ui.speed} textSize={ui.textSize} strongText={ui.strongText} motion={ui.motion} sceneId={advReplay.id} onSettingsChange={patch} onDone={() => setAdvReplay(null)} />}
+      {activeAdv && savedState && <AdvSession state={savedState} send={sendAdv} error={advError} retry={retryAdv}
+        onTitle={() => { if (!pendingAdv.current) { setStarted(false); lock.current = false; } }}
+        settings={ui} onSettingsChange={patch} />}
+      {advError && !activeAdv && <Modal title="保存できませんでした" onClose={() => {}}><p role="alert">{advError}</p><button onClick={retryAdv}>保存を再試行</button></Modal>}
+
       {scene && s && (
         <Dialogue
           title={scene.title}
@@ -1304,12 +1396,17 @@ export default function DailyApp() {
                 onClick={() => {
                   if (reset === "new") begin();
                   else if (reset === "gallery") {
+                    localStorage.removeItem(ADV_ARCHIVE_KEY);
+                    setArchive([]);
+                    if (stateRef.current && !persist({ ...stateRef.current, recordings: [] })) return;
                     clearGallery(localStorage);
                     localStorage.removeItem(READ_SCENES_KEY);
                     setSeenScenes([]);
                     setReset(null);
                   } else {
+                    if (!preserveArchive()) return;
                     clearDaily(localStorage);
+                    stateRef.current = null;
                     setS(null);
                     setStarted(false);
                     setSettings(false);
@@ -1331,13 +1428,14 @@ export default function DailyApp() {
         </Modal>
       )}
 
-      {saveError && started && !result && !scene && (
+      {saveError && !result && !scene && (
         <div className="r-save-error" role="alert">
           <b>保存できませんでした</b>
-          <span>再読込すると最後の保存時点に戻ります。</span>
+          <span>操作は確定していません。保存を再試行してから、もう一度操作してください。</span>
           <Button
             onClick={() => {
-              if (stateRef.current) persist(stateRef.current);
+              if (pendingNewSave.current) begin();
+              else if (stateRef.current) persist(stateRef.current);
             }}
           >
             保存を再試行

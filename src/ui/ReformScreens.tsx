@@ -27,6 +27,7 @@ import { catalogCounts, type SceneEntry, type SceneKind } from "../scenes";
 import { artAssetSrc, personSrc } from "../art";
 import { Art } from "./shell";
 import { Mark } from "../marks";
+import { growthLabel } from "../adv/growth";
 import { Rings } from "./symbols";
 import { visualFor } from "./sceneVisuals";
 import { paperSound } from "./paperAudio";
@@ -447,8 +448,11 @@ export function DayRecord({
             value={`${gold(before.money)} → ${gold(after.money)}`}
           />
           <Amount label="体力" value={`${before.stamina} → ${after.stamina}`} />
-          {result.drops.map((d) => (
-            <p className="r-warning" key={d.axis}>
+          {result.choiceAxisMoves?.map(d => (
+            <p key={d.axis}>選択による{d.axis} {d.before} → {d.after}</p>
+          ))}
+          {result.drops.map((d, i) => (
+            <p className="r-warning" key={d.axis + i}>
               <Mark name={d.axis} decorative /> {d.axis} {d.before} → {d.after}
             </p>
           ))}
@@ -473,6 +477,8 @@ export function DayRecord({
           <h3>
             {result.kind === "settle" ? "受領後の記録" : "今日、残ったこと"}
           </h3>
+          {result.growthGains?.map(g => <p key={g.id}><b>{growthLabel(g.id, g.after)}</b><br /><small>経験 {g.before} → {g.after}（+{g.after - g.before}）</small></p>)}
+          {!!result.bonusMoney && <p>基本報酬 {gold(result.pay - result.bonusMoney)} ／ 選択による追加 {gold(result.bonusMoney)}</p>}
           {result.kind === "settle" ? (
             <>
               <span className="r-received">受領</span>

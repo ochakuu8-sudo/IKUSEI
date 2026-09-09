@@ -46,7 +46,9 @@ function compile(dir, target) {
 try {
   compile("src", out);
   const entry =
-    process.argv[2] === "daily"
+    process.argv[2] === "adv"
+      ? "tests/adv.test.mjs"
+      : process.argv[2] === "daily"
       ? "tests/daily.test.mjs"
       : process.argv[2] === "scenes"
         ? "tests/scenes.test.mjs"

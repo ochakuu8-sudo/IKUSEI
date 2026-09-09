@@ -84,6 +84,8 @@ export async function checkReform(page, setViewport, base) {
         .getAttribute("aria-label");
       must(part.split("\n").length <= 2, "At most two subtitle lines");
       portions.push(part);
+      // Intentional page turns are distinct gestures; the reader ignores rapid repeats for 100ms.
+      await page.waitForTimeout(120);
       await button("画面をタップして次へ").click();
     }
     must(

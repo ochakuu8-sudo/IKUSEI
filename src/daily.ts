@@ -39,7 +39,10 @@ import {
   type SceneLine,
 } from "./game";
 
-export const SAVE_VERSION = 14;
+import { initialGrowth } from "./adv/growth";
+import { evaluateCondition } from "./adv/conditions";
+import type { ActiveSession, ReplayRecord, Quote } from "./adv/types";
+export const SAVE_VERSION = 15;
 /** 休んだ翌朝の回復。品位は上限まで、威厳はその日に削っていなければ。 */
 export const DAILY_DIGNITY_RECOVERY = 6;
 export const DAILY_PRESTIGE_RECOVERY = 2;
@@ -48,6 +51,12 @@ const FATIGUE_RATE = [1, 0.82, 0.68, 0.58];
 export const OFFERS_PER_DAY = 3;
 
 export type DailyState = {
+  growthXP: Record<string, number>;
+  storyFlags: Record<string, boolean>;
+  capabilities: string[];
+  debugMode: boolean;
+  recordings: ReplayRecord[];
+  activeSession?: ActiveSession;
   saveVersion: number;
   runId: string;
   chapter: number;
@@ -84,6 +93,9 @@ export type AxisMove = {
 
 /** 1日の結果。結果画面がそのまま読める形で持つ（§10）。 */
 export type DayOutcome = {
+  growthGains?: { id: string; before: number; after: number }[];
+  bonusMoney?: number;
+  choiceAxisMoves?: AxisMove[];
   kind: "job" | "rest" | "settle";
   title: string;
   person?: PersonId;
@@ -142,6 +154,11 @@ export function cadenceReason(job: Job, s: DailyState): string | null {
 /** いま紹介されるか。上の仕事は尊厳で閉じ、裏の仕事は落ちて初めて開く。 */
 export function isOpen(job: Job, s: DailyState): boolean {
   return (
+    (!!job.debugOnly === s.debugMode) &&
+    (!job.requiresCapability || s.capabilities.includes(job.requiresCapability)) &&
+    (job.requiresStoryFlags ?? []).every(id => s.storyFlags[id] === true) &&
+    (job.forbidsStoryFlags ?? []).every(id => s.storyFlags[id] !== true) &&
+    evaluateCondition(job.entryCondition, s).ok &&
     personReady(job, s) &&
     meetsNeeds(job, s) &&
     !notYetFallen(job, s) &&
@@ -199,9 +216,13 @@ export function offersOf(s: DailyState): Job[] {
     .map((x) => x.job);
   /* 同じ相手ばかりの日にならないよう、先に相手を散らしてから足りない分を足す。 */
   const picked: Job[] = [];
+  // Explicitly scheduled follow-ups precede ordinary random offers.
+  for (const job of [...shuffled].filter(j => (j.offerPriority ?? 0) > 0).sort((a, b) => (b.offerPriority ?? 0) - (a.offerPriority ?? 0)))
+    if (picked.length < OFFERS_PER_DAY) picked.push(job);
   for (const job of shuffled)
     if (
       picked.length < OFFERS_PER_DAY &&
+      !picked.includes(job) &&
       !picked.some((p) => p.person === job.person)
     )
       picked.push(job);
@@ -253,6 +274,7 @@ export const hasStaminaFor = (job: Job, s: DailyState) =>
 
 /** 受けられない理由。無ければ null。 */
 export function takeReason(job: Job, s: DailyState): string | null {
+  if (s.activeSession) return "進行中の依頼を終えてください";
   if (s.ended || s.awaitingSettlement) return "今日はもう動けません";
   if (!isOpen(job, s))
     return (
@@ -274,6 +296,11 @@ export const quotaOf = (s: DailyState) =>
 
 export function freshDaily(runId = `run-${Date.now()}`): DailyState {
   return {
+    growthXP: initialGrowth(),
+    storyFlags: {},
+    capabilities: [],
+    debugMode: false,
+    recordings: [],
     saveVersion: SAVE_VERSION,
     runId,
     chapter: 1,
@@ -339,8 +366,8 @@ export function dailyAction(
   action: DailyAction,
 ): DailyResult {
   const s: DailyState = structuredClone(state);
+  if (s.activeSession) return { state, error: "進行中の依頼を終えてください" };
   const openBefore = jobs.filter((j) => isOpen(j, state));
-  const notices: string[] = [];
 
   if (action.type === "settle") {
     if (!s.awaitingSettlement)
@@ -445,9 +472,19 @@ export function dailyAction(
   const reason = takeReason(job, s);
   if (reason) return { state, error: reason };
 
-  const listPrice = listPriceOf(job, s);
-  const rate = fatigueRateOf(job.person, s);
-  const pay = payOf(job, s);
+  return settleJob(s, job);
+}
+
+/** Internal finalization primitive. The ADV engine owns eligibility and exactly-once execution. */
+export function settleJob(state: DailyState, job: Job, quote?: Quote, lostPrestige = false): DailyResult {
+  const s = structuredClone(state);
+  delete s.activeSession;
+  const openBefore = jobs.filter(j => isOpen(j, state));
+  const notices: string[] = [];
+
+  const listPrice = quote?.listPrice ?? listPriceOf(job, s);
+  const rate = quote?.fatigueRate ?? fatigueRateOf(job.person, s);
+  const pay = quote?.pay ?? payOf(job, s);
   const drops: AxisMove[] = [];
   for (const c of job.costs) {
     const before = s.axes[c.axis];
@@ -505,7 +542,7 @@ export function dailyAction(
     sceneIds.push(`bond:${job.person}:${s.relations[job.person]}`);
   const gains = recover(
     s,
-    job.costs.some((c) => c.axis === "威厳"),
+    lostPrestige || job.costs.some((c) => c.axis === "威厳"),
   );
   advance(s);
   s.log = [
@@ -551,7 +588,7 @@ export function closingPreview(job: Job, s: DailyState) {
 }
 
 /** その行動のせいで閉じた依頼。取り返しのつかなさを、その場で見せる（§5）。 */
-function closedSince(openBefore: Job[], after: DailyState) {
+export function closedSince(openBefore: Job[], after: DailyState) {
   return openBefore
     .filter((j) => !isOpen(j, after) && !cadenceReason(j, after))
     .map((j) => ({ title: j.title, axis: closedBy(j, after)[0] }))
