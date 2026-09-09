@@ -10,7 +10,7 @@ import { parseDaily, migrateFromV15, migrateFromV14, loadDaily, SAVE_KEY, clearD
 import { syncArchive, loadArchive, ADV_ARCHIVE_KEY } from "@game/adv/archive";
 let count = 0;
 const check = (name, fn) => { fn(); count++; console.log("PASS " + name); };
-const fresh = () => ({ ...freshDaily("adv-test"), debugMode: true });
+const fresh = () => freshDaily("adv-test");
 const issue = (s, extra) => ({ ...extra, sessionId: s.activeSession.id, revision: s.activeSession.revision, nodeId: s.activeSession.nodeId });
 function step(s, extra) {
   const out = transition(s, extra.type === "begin" ? extra : issue(s, extra));
@@ -41,9 +41,10 @@ check("content definitions and all authored scenarios validate", () => {
   for (const s of scenarios) assert.deepEqual(validateScenario(s), [], s.id);
   for (const j of jobs) assert.deepEqual(validateJob(j), [], j.id);
 });
-check("debug requests are isolated; growth opportunities recur; follow-ups have priority", () => {
-  assert(offersOf(freshDaily()).every(j => !j.debugOnly));
-  assert(offersOf(fresh()).every(j => j.debugOnly));
+check("main game shares prototype scenarios; growth recurs; follow-ups have priority", () => {
+  assert.deepEqual(offersOf(fresh()).map(j => j.id), ["debug-training", "debug-challenge", "debug-axes"]);
+  assert.deepEqual(offersOf({ ...fresh(), debugMode: true }).map(j => j.id), offersOf(fresh()).map(j => j.id));
+  assert(offersOf(freshDaily()).every(j => j.scenarioId));
   let s = fresh();
   for (let i = 0; i < 8; i++) {
     assert(offersOf(s).some(j => j.id === "debug-training"));
@@ -230,11 +231,11 @@ check("new format rejects missing/NaN growth, malformed sessions and invalid fla
     s => s.capabilities = ["__proto__"],
   ]) { const copy = structuredClone(s); mutate(copy); assert.equal(parseDaily(JSON.stringify(copy)), null); }
 });
-check("A14: linear legacy jobs end with the same core state as the previous engine", () => {
+check("A14: main scenario without extra rewards keeps the same daily settlement", () => {
   for (const seed of ["reg1", "reg2", "reg3"]) {
-    const before = freshDaily(seed), job = offersOf(before)[0];
+    const before = freshDaily(seed), job = jobs.find(j => j.id === "debug-challenge");
     const expected = dailyAction(before, { type: "take", job: job.id }).state;
-    const actual = ack(throughText(begin(before, job.id)));
+    const actual = ack(choose(begin(before, job.id), "normal"));
     for (const key of ["money", "day", "chapter", "axes", "stamina", "relations", "unlocked", "doneOnce", "doneChapter", "recent", "awaitingSettlement", "debt"]) assert.deepEqual(actual[key], expected[key], key);
   }
 });

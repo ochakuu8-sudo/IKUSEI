@@ -54,6 +54,7 @@ export type DailyState = {
   growthXP: Record<string, number>;
   storyFlags: Record<string, boolean>;
   capabilities: string[];
+  /** 旧セーブ互換用。依頼・シナリオの振り分けには使用しない。 */
   debugMode: boolean;
   recordings: ReplayRecord[];
   activeSession?: ActiveSession;
@@ -151,7 +152,6 @@ export function cadenceReason(job: Job, s: DailyState): string | null {
 /** いま紹介されるか。上の仕事は尊厳で閉じ、裏の仕事は落ちて初めて開く。 */
 export function isOpen(job: Job, s: DailyState): boolean {
   return (
-    (!!job.debugOnly === s.debugMode) &&
     (!job.requiresCapability || s.capabilities.includes(job.requiresCapability)) &&
     (job.requiresStoryFlags ?? []).every(id => s.storyFlags[id] === true) &&
     (job.forbidsStoryFlags ?? []).every(id => s.storyFlags[id] !== true) &&

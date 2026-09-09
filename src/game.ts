@@ -493,6 +493,7 @@ export type JobKind =
 
 export type Job = {
   scenarioId?: string;
+  /** @deprecated 旧資料・検証データとの互換用。本編の振り分けには使用しない。 */
   debugOnly?: boolean;
   offerPriority?: number;
   growthHint?: string;

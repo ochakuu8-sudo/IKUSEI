@@ -30,7 +30,7 @@ async function accept(id) {
 }
 try {
   await page.goto(url);
-  await page.getByRole("button", { name: "検証シナリオで始める", exact: true }).click();
+  await page.getByRole("button", { name: "はじめから", exact: true }).click();
   await page.waitForSelector('[data-job="debug-training"]');
   for (const axis of ["貞操", "品位", "威厳"]) {
     const row = page.locator(`[data-axis="${axis}"]`);

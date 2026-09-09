@@ -1,3 +1,4 @@
+/** 検証用に作成した仮台本を現在の本編として共用。IDは既存セーブのため維持する。 */
 import type { Job } from "../game";
 import type { Scenario, Condition, AdvNode } from "../adv/types";
 import { growthDefinitions } from "../adv/growth";
@@ -89,13 +90,13 @@ export const debugScenarios: Scenario[] = [training, challenge, axesScenario, ..
 }))];
 const job = (id: string, title: string, scenarioId: string, person: Job["person"], extra: Partial<Job> = {}): Job => ({
   id, title, scenarioId, person, kind: "実務", category: "ordinary", cadence: "repeat",
-  pay: 80, stamina: 10, needs: {}, costs: [], debugOnly: true, description: "検証用の仮依頼。人物・本文・報酬は後から差し替えられます。",
+  pay: 80, stamina: 10, needs: {}, costs: [], description: "検証用の仮依頼。人物・本文・報酬は後から差し替えられます。",
   ...extra,
 });
 export const debugJobs: Job[] = [
   job("debug-training", "共同作業で経験を積む", training.id, "vernet", { offerPriority: 90, growthHint: "選んだ役割の経験 +2（交渉・知見・胆力・魅力）" }),
   job("debug-challenge", "経験を使って役割を選ぶ", challenge.id, "claire", { offerPriority: 80, growthHint: "各成長1段階で専用の役割。選択すると続きの依頼が届く" }),
-  job("debug-axes", "状態と複合条件を確かめる", axesScenario.id, "marc", { growthHint: "尊厳・関係の変化、以上・以下・範囲・かつ・またはを確認" }),
+  job("debug-axes", "状態と複合条件を確かめる", axesScenario.id, "marc", { offerPriority: 70, growthHint: "尊厳・関係の変化、以上・以下・範囲・かつ・またはを確認" }),
   ...growthDefinitions.map(d => job("debug-followup-" + d.id, d.label + "を使った仕事の続き", "debug.followup." + d.id, "vernet", {
     offerPriority: 100, growthHint: "完了する役割： " + d.label + "経験 +3",
     requiresStoryFlags: ["route." + d.id], forbidsStoryFlags: ["completed." + d.id],

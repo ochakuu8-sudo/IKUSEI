@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { sceneCatalog, sceneOf, catalogCounts, routeOfJob, routes } from "@game/scenes";
 import { loadGallery, recordScenes, clearGallery, GALLERY_KEY } from "@game/gallery";
 import { jobs as allJobs, people } from "@game/game";
-const jobs = allJobs.filter(j => !j.debugOnly);
+const jobs = allJobs.filter(j => !j.scenarioId);
 import { dailyAction, freshDaily, offersOf } from "@game/daily";
 
 let passed = 0;

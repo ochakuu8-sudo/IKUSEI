@@ -64,8 +64,8 @@ const jobHint = (job: Job) =>
         .join("・")}）`
     : `${personOf(job.person).name}の依頼を受ける`;
 
-/** 依頼の場面。24件それぞれが1つの場面であり、1枚のCGの発注単位。 */
-const jobScenes: SceneEntry[] = jobs.filter(job => !job.debugOnly).map((job) => ({
+/** 旧一本道の場面目録。分岐シナリオは実際に通った会話をADV記録で回想する。 */
+const jobScenes: SceneEntry[] = jobs.filter(job => !job.scenarioId).map((job) => ({
   id: `job:${job.id}`,
   kind: "依頼",
   title: job.title,

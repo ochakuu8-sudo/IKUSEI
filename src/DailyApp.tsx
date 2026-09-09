@@ -123,7 +123,6 @@ export default function DailyApp() {
     [replay, setReplay] = useState<SceneEntry | null>(null);
   const [advError, setAdvError] = useState("");
   const pendingAdv = useRef<Command | null>(null);
-  const debugStart = useRef(false);
   const pendingNewSave = useRef(false);
   const [growthOpen, setGrowthOpen] = useState(false);
   const [dignityOpen, setDignityOpen] = useState(false);
@@ -518,10 +517,8 @@ export default function DailyApp() {
     setNotice("");
     setSaveError("");
     const fresh = freshDaily();
-    fresh.debugMode = debugStart.current;
     if (!persist(fresh)) { pendingNewSave.current = true; return; }
     pendingNewSave.current = false;
-    debugStart.current = false;
     pendingAdv.current = null;
     setAdvError("");
     setStarted(true);
@@ -613,11 +610,10 @@ export default function DailyApp() {
               </p>
               <nav className="title-actions" aria-label="ゲームメニュー">
                 <Button primary disabled={!s} onClick={() => setStarted(true)}>続きから <span aria-hidden="true">›</span></Button>
-                <Button onClick={() => { debugStart.current = false; if (s) setReset("new"); else begin(); }}>はじめから</Button>
+                <Button onClick={() => { if (s) setReset("new"); else begin(); }}>はじめから</Button>
                 <Button onClick={() => setGallery(true)}><BookOpen size={23} aria-hidden="true" />回想</Button>
                 <Button onClick={() => setSettings(true)}><Settings size={23} aria-hidden="true" />設定</Button>
               </nav>
-              <Button className="title-debug" onClick={() => { debugStart.current = true; if (s) setReset("new"); else begin(); }}>検証シナリオで始める <span aria-hidden="true">↗</span></Button>
               {notice && <p className="c-note">{notice}</p>}
             </div>
           </>
