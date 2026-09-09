@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="850" viewBox="0 0 1440 850">
+<defs><style>text{font-family:'Yu Gothic','Meiryo',sans-serif;fill:#443541}.label{font-size:19px}.small{font-size:16px;fill:#786a6c}.number{font-size:21px;fill:#fff8ed;font-weight:bold}.white{fill:#f7edde}.fine{stroke:#b69c7a;stroke-width:1;fill:none}</style><linearGradient id="room" x2="1" y2="1"><stop stop-color="#4c4550"/><stop offset="1" stop-color="#29232e"/></linearGradient><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6" fill="none" stroke="#e4bb7c"/></marker></defs>
+<rect width="1440" height="850" fill="#f3eee5"/>
+<text x="120" y="48" font-size="16" letter-spacing="3">IKUSEI / ART DIRECTION</text>
+<text x="120" y="91" font-size="32" font-weight="bold">私室と便り — メイン画面の構図設計</text>
+<text x="1320" y="88" text-anchor="end" class="small">配置と視線の設計図 · 完成品質の見本ではありません</text>
+<g transform="translate(120 128)">
+<rect width="1200" height="500" fill="url(#room)"/>
+<path d="M460 122L1190 106V484H452Z" fill="#7f6457" opacity=".34"/>
+<path d="M475 134L1175 120M476 425L1175 415" stroke="#ae8c6a" opacity=".25"/>
+<rect x="16" y="14" width="446" height="468" rx="4" fill="#e7d6c6" opacity=".07"/>
+<path d="M130 354C126 275 160 214 185 199C166 174 164 106 196 84C218 67 259 71 283 95C310 124 300 183 281 204C322 231 339 296 348 368Z" fill="#d8c1ac" opacity=".38"/>
+<ellipse cx="235" cy="143" rx="43" ry="57" fill="#f6e6ce" opacity=".66"/>
+<path d="M155 103Q133 211 125 255M297 97Q326 184 347 257" stroke="#d8c1ac" stroke-width="30" opacity=".4" fill="none"/>
+<text x="236" y="295" text-anchor="middle" class="label white">① 人物を大きな一つの形に</text>
+<text x="236" y="323" text-anchor="middle" class="small white">顔と衣装上半身に窓を重ねない</text>
+<rect x="32" y="24" width="120" height="60" fill="#e2cfb1"/>
+<text x="92" y="49" text-anchor="middle" class="small">第1章</text><text x="92" y="73" text-anchor="middle" class="label">1日目</text>
+<text x="492" y="44" class="small white">② 返済と所持金 · 囲いを抑えた組版</text>
+<text x="492" y="80" font-size="28" class="white">あと 930 G</text><text x="705" y="80" class="label white">手元 120 G</text>
+<path d="M492 101H855" stroke="#b49b7a" opacity=".55"/>
+<text x="940" y="48" class="label white">成長　回想　設定</text>
+<text x="494" y="134" class="small white">③ 同じ重さで提示する3通の依頼</text>
+<g transform="translate(494 150)">
+<rect x="4" y="7" width="210" height="258" fill="#1e1922" opacity=".4"/>
+<rect width="210" height="258" fill="#eee2cb"/>
+<circle cx="177" cy="26" r="13" fill="#895264"/>
+<text x="18" y="34" class="small">差出人の印と名前</text>
+<text x="18" y="97" font-size="24">伯爵家の</text><text x="18" y="129" font-size="24">臨時秘書</text>
+<path d="M18 180H190" class="fine"/>
+<text x="18" y="214" font-size="29">340 G</text><text x="18" y="241" class="small">貞操 −16　体力 −34</text>
+</g>
+<g transform="translate(722 150)"><rect x="4" y="7" width="210" height="258" fill="#1e1922" opacity=".4"/><rect width="210" height="258" fill="#ece0c9"/><circle cx="177" cy="26" r="13" fill="#7d5c47"/><text x="18" y="34" class="small">差出人の印と名前</text><text x="18" y="113" font-size="24">商会倉庫の荷造り</text><path d="M18 180H190" class="fine"/><text x="18" y="214" font-size="29">95 G</text><text x="18" y="241" class="small">品位 −10　体力 −38</text></g>
+<g transform="translate(950 150)"><rect x="4" y="7" width="210" height="258" fill="#1e1922" opacity=".4"/><rect width="210" height="258" fill="#f3e8d4"/><circle cx="177" cy="26" r="13" fill="#78566c"/><text x="18" y="34" class="small">差出人の印と名前</text><text x="18" y="113" font-size="24">夜会への同伴</text><path d="M18 180H190" class="fine"/><text x="18" y="214" font-size="29">265 G</text><text x="18" y="241" class="small">威厳 −12　貞操 −8</text></g>
+<rect x="28" y="372" width="424" height="100" fill="#3e2d3d" stroke="#a58b6a"/>
+<text x="48" y="398" class="small white">④ 人物記録を下辺に集約　　　体力 100</text>
+<text x="50" y="433" class="label white">貞操 5　　品位 5　　威厳 5</text>
+<path d="M50 449H163M182 449H295M314 449H427" stroke="#b9a080" stroke-width="3"/>
+<text x="505" y="461" class="label white">⑤ 台帳</text><text x="1158" y="461" text-anchor="end" class="label white">今日は受けない →</text>
+<path d="M290 142C361 105 420 99 473 168" stroke="#e4bb7c" stroke-width="2" stroke-dasharray="7 7" marker-end="url(#arrow)" fill="none"/>
+<path d="M1171 312Q1190 386 1160 433" stroke="#e4bb7c" stroke-width="2" stroke-dasharray="7 7" marker-end="url(#arrow)" fill="none"/>
+</g>
+<text x="120" y="661" class="small">1200 × 500 固定　／　顔 → 便り → 選択の流れ　／　文字面は水平、奥行きは外形と接地影で表現</text>
+<g transform="translate(120 701)"><rect width="38" height="38" fill="#382b39"/><text x="51" y="25" class="label">葡萄色の革</text><rect x="260" width="38" height="38" fill="#efe2cc" stroke="#cbb798"/><text x="311" y="25" class="label">象牙色の紙</text><rect x="520" width="38" height="38" fill="#b79b6b"/><text x="571" y="25" class="label">控えめな古金</text><rect x="780" width="38" height="38" fill="#875567"/><text x="831" y="25" class="label">封蝋の深い赤紫</text></g>
+<text x="120" y="795" class="label">次に作るもの：この配置を土台に、人物・背景・紙・金具を同じ描き込みで仕上げた完成見本。</text>
+<text x="120" y="825" class="small">この図の平坦な色面・仮の人物形・文字サイズを、そのまま製品の外観として採用しない。</text>
+</svg>
