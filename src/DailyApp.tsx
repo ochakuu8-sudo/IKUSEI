@@ -179,7 +179,7 @@ export default function DailyApp() {
       );
     lastLetter.current = id;
     const card = document.querySelector<HTMLElement>(
-      `[data-job="${CSS.escape(id)}"] .a-envelope`,
+      `[data-job="${CSS.escape(id)}"] .a-envelope-face`,
     );
     const stage = document.querySelector<HTMLElement>(".c-manor");
     paperOrigin.current = card && stage ? capturePaper(card, stage) : null;
@@ -678,7 +678,7 @@ export default function DailyApp() {
                   />
                 ) : (
                   <div className="c-today">
-                    <header className="a-desk-heading"><span>本日の便り</span><button className="a-rest-action" onClick={() => { lastLetter.current=null; paperSound(ui.volume); setPending("rest"); }}><GameGlyph name="moon"/>今日は受けない</button></header><div className="a-desk-surface" aria-hidden="true"/>
+                    <header className="a-desk-heading"><span>本日の便り</span><button className="a-rest-action" onClick={() => { lastLetter.current=null; paperSound(ui.volume); setPending("rest"); }}><GameGlyph name="moon"/>今日は受けない</button></header>
                     <div className="a-offers">
                       {offers.map((job) => (
                         <OfferCard

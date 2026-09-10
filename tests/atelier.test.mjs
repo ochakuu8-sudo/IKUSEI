@@ -16,7 +16,7 @@ try{
   const envelope=page.locator('[data-job="debug-challenge"] .a-envelope');
   await envelope.click();await page.waitForFunction(()=>!document.querySelector('[data-paper-motion]'));
   assert.equal(await page.locator('.a-open-letter .a-condition').count(),0);
-  await page.getByRole('button',{name:'机に戻す',exact:true}).click();await page.waitForSelector('.a-open-letter',{state:'hidden'});
+  await page.getByRole('button',{name:'手紙一覧へ',exact:true}).click();await page.waitForSelector('.a-open-letter',{state:'hidden'});
   assert(await envelope.evaluate(e=>e===document.activeElement));assert.deepEqual(await saved(),initial);
   await envelope.click();await page.waitForFunction(()=>!document.querySelector('[data-paper-motion]'));
   await page.getByRole('button',{name:'この依頼を受ける',exact:true}).click();await ready();

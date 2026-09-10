@@ -38,7 +38,7 @@ export const reformArt = {
   plaque: artAssetSrc("ui/portrait/status-notebook.svg"),
   binding: artAssetSrc("ui/portrait/header.svg"),
   window: artAssetSrc("ui/portrait/header.svg"),
-  room: artAssetSrc("ui/portrait/study-furnished.png"),
+  room: artAssetSrc("ui/correspondence/room.webp"),
   foldedPaper: artAssetSrc("ui/portrait/folded-letter.svg"),
   openPaper: artAssetSrc("ui/portrait/unfolded-letter.svg"),
   paper: artAssetSrc("ui/portrait/letter.svg"),
