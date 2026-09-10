@@ -40,6 +40,26 @@ try {
     assert(meter.y >= label.y + label.height, "rank label sits above the meter");
   }
   await screenshot("desk");
+  assert((await page.locator('.a-goal').innerText()).includes('今章あと'));
+  assert((await page.locator('.a-goal').getAttribute('aria-label')).includes('930G'));
+  await page.locator('[data-job="debug-training"] button').click();
+  for (const size of [{ width: 1280, height: 720 }, { width: 844, height: 390 }]) {
+    await page.setViewportSize(size);
+    const hint = page.locator('.a-letter-growth');
+    assert((await hint.innerText()).includes('選んだ役割の経験 +2'));
+    const measured = await hint.evaluate(e => {
+      const r=e.getBoundingClientRect(), p=e.parentElement.getBoundingClientRect();
+      return { width:r.width, height:r.height, inside:r.top>=p.top && r.bottom<=p.bottom, font:parseFloat(getComputedStyle(e).fontSize)*r.width/e.offsetWidth };
+    });
+    assert(measured.inside, 'growth hint visible without scrolling before acceptance');
+    assert(measured.font >= 14, 'growth hint readable at the supported landscape sizes');
+    const stage = await page.locator('.r-game').evaluate(e => ({ width:e.clientWidth, height:e.clientHeight, scroll:e.scrollWidth }));
+    assert.deepEqual(stage, { width:1200, height:500, scroll:1200 });
+    console.log('LETTER', size.width, measured);
+    await screenshot('letter-' + size.width);
+  }
+  await page.getByRole('button', { name:'手紙一覧へ', exact:true }).click();
+  await page.setViewportSize({ width:1440, height:800 });
   assert.equal((await saved()).day, 1);
   await accept("debug-challenge");
   const accepted = await saved();
@@ -145,6 +165,7 @@ try {
   await page.evaluate(() => window.__restoreStorage());
   await page.getByRole("button", { name: "保存を再試行", exact: true }).click();
   await skipText();
+  await page.getByRole("button", { name: "翌日へ", exact: true }).waitFor();
   assert.equal((await saved()).axes.威厳, 60);
   assert.equal((await saved()).activeSession.choices.length, 2);
   await page.evaluate(async k => {

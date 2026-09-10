@@ -21,16 +21,20 @@
       } from "../../src/daily.ts";
       import { jobs as allJobs } from "../../src/game.ts";
       import { SAVE_KEY } from "../../src/saveV14.ts";
-      const jobs = allJobs.filter(j => !j.debugOnly);
+      const jobs = allJobs;
+      // Catalog rendering fixture, including legacy save content. Temporarily remove
+      // scheduling priority in this isolated page; production scheduling is covered by adv tests.
+      for (const job of jobs) job.offerPriority = 0;
       import { catalogCounts } from "../../src/scenes.ts";
       import "../../src/styles.css";
       const cases = [],
         covered = new Set();
-      for (const level of [100, 70, 40])
+      for (const level of [100, 70, 40, 20, 0])
         for (let i = 0; i < 500; i++) {
           const s = freshDaily("reform-qa-" + i);
           s.unlocked.push("herbalist");
           s.capabilities = ["garden-orders"];
+          s.storyFlags = Object.fromEntries(jobs.flatMap(j => j.requiresStoryFlags ?? []).map(id => [id, true]));
           s.money = 700;
           s.axes = {
             貞操: level,
@@ -52,6 +56,7 @@
                 closing: closingPreview(j, s),
                 blocked: !!takeReason(j, s),
                 stamina: staminaOf(j),
+                growthHint: j.growthHint,
               })),
             });
             offers.forEach((j) => covered.add(j.id));

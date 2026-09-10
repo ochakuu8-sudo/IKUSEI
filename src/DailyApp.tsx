@@ -13,6 +13,7 @@ import {
   type DayOutcome,
 } from "./daily";
 import { clearDaily, loadDaily, saveDaily, UI_KEY, SAVE_KEY } from "./saveV14";
+import { createSaveAccess, SaveConflict } from "./saveAccess";
 import { persistTransition, type Command } from "./adv/engine";
 import { AdvSession } from "./ui/AdvSession";
 import { GrowthPanel, DignityPanel } from "./ui/CharacterPanels";
@@ -103,7 +104,10 @@ function FamilyStamp() {
 }
 
 export default function DailyApp() {
-  const [loaded] = useState(() => loadDaily(localStorage)),
+  const [loaded] = useState(() => {
+      const access = createSaveAccess(localStorage);
+      return { ...loadDaily(localStorage), access };
+    }),
     [savedState, setS] = useState<DailyState | null>(loaded.state),
     [deskSnapshot, setDeskSnapshot] = useState<DailyState | null>(null),
     [ui, setUI] = useState<UI>(loadUI),
@@ -123,6 +127,9 @@ export default function DailyApp() {
     [gallery, setGallery] = useState(false),
     [replay, setReplay] = useState<SceneEntry | null>(null);
   const [advError, setAdvError] = useState("");
+  const [saveConflict, setSaveConflict] = useState(false);
+  const conflictRef = useRef(false);
+  const pendingWrite = useRef<(() => void) | null>(null);
   const pendingAdv = useRef<Command | null>(null);
   const pendingNewSave = useRef(false);
   const [growthOpen, setGrowthOpen] = useState(false);
@@ -372,6 +379,33 @@ export default function DailyApp() {
     };
   }, []);
 
+  function write(operation: () => void) {
+    if (conflictRef.current) return;
+    void loaded.access.run(() => {
+      if (conflictRef.current || !mounted.current) return;
+      setSaveError("");
+      operation();
+      pendingWrite.current = null;
+    }).catch(error => {
+      if (!mounted.current) return;
+      if (error instanceof SaveConflict) {
+        conflictRef.current = true;
+        pendingAdv.current = null;
+        pendingWrite.current = null;
+        setSaveConflict(true);
+      } else {
+        pendingWrite.current = operation;
+        setSaveError("保存できませんでした。ブラウザーの保存設定を確認して再試行してください。");
+      }
+    });
+  }
+  function retrySave() {
+    if (pendingWrite.current) write(pendingWrite.current);
+    else if (pendingNewSave.current) begin();
+    else write(() => { if (stateRef.current) persist(stateRef.current); });
+  }
+
+  // Called only inside write(), including starts, resets and retry operations.
   function persist(next: DailyState) {
     try {
       saveDaily(localStorage, next);
@@ -386,6 +420,9 @@ export default function DailyApp() {
   }
 
   function sendAdv(command: Command) {
+    write(() => sendAdvNow(command));
+  }
+  function sendAdvNow(command: Command) {
     const before = stateRef.current;
     if (!before || (pendingAdv.current && command.type === "cursor")) return;
     if (command.type === "cursor") {
@@ -460,13 +497,16 @@ export default function DailyApp() {
     if (!s || !offersVisible) return;
     const ids = offersOf(s).map((j) => j.id);
     const next = markSeen(s, ids);
-    if (next !== s) persist(next);
+    if (next !== s) write(() => { if (stateRef.current === s) persist(next); });
   }, [s?.revision, s?.day, s?.chapter, offersVisible]);
 
   function commit(action: Parameters<typeof dailyAction>[1]) {
+    write(() => commitNow(action));
+  }
+  function commitNow(action: Parameters<typeof dailyAction>[1]) {
     if (action.type === "take") {
       if (lock.current || ritual || paperReturning.current || stateRef.current?.activeSession) return;
-      sendAdv({ type: "begin", jobId: action.job });
+      sendAdvNow({ type: "begin", jobId: action.job });
       return;
     }
     if (
@@ -527,6 +567,9 @@ export default function DailyApp() {
   }
 
   function begin() {
+    write(beginNow);
+  }
+  function beginNow() {
     if (!preserveArchive()) return;
     paperMotion.current?.cancel();
     paperReturning.current = false;
@@ -805,9 +848,7 @@ export default function DailyApp() {
               </small>
               {saveError && (
                 <Button
-                  onClick={() => {
-                    if (stateRef.current) persist(stateRef.current);
-                  }}
+                  onClick={retrySave}
                 >
                   保存を再試行
                 </Button>
@@ -887,8 +928,8 @@ export default function DailyApp() {
               <Button onClick={() => setReset(null)}>戻る</Button>
               <Button
                 primary
-                onClick={() => {
-                  if (reset === "new") begin();
+                onClick={() => write(() => {
+                  if (reset === "new") beginNow();
                   else if (reset === "gallery") {
                     localStorage.removeItem(ADV_ARCHIVE_KEY);
                     setArchive([]);
@@ -906,7 +947,7 @@ export default function DailyApp() {
                     setSettings(false);
                     setReset(null);
                   }
-                }}
+                })}
               >
                 確定する
               </Button>
@@ -927,10 +968,7 @@ export default function DailyApp() {
           <b>保存できませんでした</b>
           <span>操作は確定していません。保存を再試行してから、もう一度操作してください。</span>
           <Button
-            onClick={() => {
-              if (pendingNewSave.current) begin();
-              else if (stateRef.current) persist(stateRef.current);
-            }}
+            onClick={retrySave}
           >
             保存を再試行
           </Button>
@@ -949,6 +987,13 @@ export default function DailyApp() {
           <p>{notice}</p>
         </Modal>
       )}
+      {saveConflict && <Modal title="記録が更新されています" dismissible={false} onClose={() => {}}>
+        <div className="save-conflict">
+        <p>ほかのタブで記録が更新されました。この画面からは上書きしていません。</p>
+        <p>最新の記録を読み込んでから続きを遊んでください。</p>
+        <Button primary onClick={() => window.location.reload()}>最新の記録を読み込む</Button>
+        </div>
+      </Modal>}
     </>
   );
 }

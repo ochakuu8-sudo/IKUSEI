@@ -53,9 +53,9 @@ check("依頼と関係の場面には本文がある", () => {
     assert(e.lines.length > 0, e.id);
 });
 
-check("行動すると、見た場面のidが結果に載る", () => {
+check("旧一本道の行動は、見た場面のidを旧目録に記録する", () => {
   const s = freshDaily("g1");
-  const job = offersOf(s)[0];
+  const job = jobs.find(j => j.id === "ledger");
   const out = dailyAction(s, { type: "take", job: job.id });
   assert(out.outcome.sceneIds.includes(`job:${job.id}`));
   for (const id of out.outcome.sceneIds) assert(sceneOf(id), id);

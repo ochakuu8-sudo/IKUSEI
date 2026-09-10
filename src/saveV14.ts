@@ -17,6 +17,7 @@ export const UI_KEY = "ikusei-prototype-ui-v14";
 const V15_KEY = "ikusei-prototype-save-v15";
 const V14_KEY = "ikusei-prototype-save-v14";
 const V13_KEY = "ikusei-prototype-save-v13";
+export const SAVE_SOURCE_KEYS = [SAVE_KEY, V15_KEY, V14_KEY, V13_KEY];
 
 const int = (v: unknown, lo: number, hi: number, fallback: number) =>
   typeof v === "number" && Number.isFinite(v)

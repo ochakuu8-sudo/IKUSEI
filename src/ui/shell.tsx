@@ -67,12 +67,14 @@ export function Modal({
   onClose,
   footer,
   variant = "window",
+  dismissible = true,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   footer?: ReactNode;
   variant?: "window" | "scenario" | "result" | "settings" | "folio";
+  dismissible?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const close = useRef(onClose);
@@ -118,13 +120,13 @@ export function Modal({
       aria-label={title}
       onCancel={(e) => {
         e.preventDefault();
-        close.current();
+        if (dismissible) close.current();
       }}
     >
       {variant !== "scenario" && (
         <header>
           <h2>{title}</h2>
-          {(variant === "window" || variant === "settings" || variant === "folio") && (
+          {dismissible && (variant === "window" || variant === "settings" || variant === "folio") && (
             <Button aria-label="閉じる" onClick={onClose}>
               <X size={20} />
             </Button>

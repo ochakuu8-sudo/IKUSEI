@@ -110,6 +110,10 @@
 .a-desk-layout .a-letter-address{font-size:11px;letter-spacing:.12em;color:#85745c;margin:0 0 12px}
 .a-desk-layout .a-open-letter .c-letter-heading{font:400 20px/1.5 var(--serif);letter-spacing:.06em;margin:0 0 10px;color:#514a3c;flex-shrink:0}
 .a-desk-layout .a-letter-copy>p{font:13px/1.9 var(--serif);letter-spacing:.03em;margin:0;flex-shrink:0}
+.a-desk-layout .a-letter-growth{display:flex;align-items:flex-start;gap:9px;margin-top:10px;padding-top:8px;border-top:1px solid #a3957855;font:22px/1.4 var(--serif);color:#514a3c;flex-shrink:0}
+.a-desk-layout .a-letter-growth>.game-glyph{width:22px;height:26px;flex-shrink:0;color:#756550}
+.dialog .save-conflict p{font:22px/1.6 var(--serif)}
+.dialog .save-conflict .ui-button{font-size:22px;min-height:64px}
 .a-desk-layout .a-signature{gap:17px;font-size:12px;letter-spacing:.13em;color:#756550;margin-top:auto;padding-top:12px;flex-shrink:0}
 .a-desk-layout .a-signature>.game-glyph{width:22px;height:28px;stroke-width:1}
 .a-desk-layout .a-letter-side{top:210px;height:51px;align-items:start;gap:20px}

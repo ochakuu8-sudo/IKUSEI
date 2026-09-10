@@ -33,12 +33,19 @@ export async function checkReform(page, setViewport, base) {
         `${offer.title}: availability`,
       );
       must(!detail.includes("品位上限"), "Removed cap must not be displayed");
+      if (offer.growthHint) {
+        must(detail.includes(offer.growthHint), `${offer.title}: growth hint before acceptance`);
+        must(await page.locator('.a-letter-growth').evaluate(e => {
+          const r=e.getBoundingClientRect(), p=e.parentElement.getBoundingClientRect();
+          return r.top>=p.top && r.bottom<=p.bottom && e.scrollWidth<=e.clientWidth;
+        }), `${offer.title}: growth hint is not clipped`);
+      }
       if (offer.closing.length)
         must(label.includes("紹介停止"), `${offer.title}: closing warning`);
       stats.offers++;
       stats.jobs.add(offer.id);
       if (offer.blocked) stats.blocked++;
-      await button("机に戻す").click();
+      await button("手紙一覧へ").click();
     }
   }
   for (const [index, short, money, debt] of [
