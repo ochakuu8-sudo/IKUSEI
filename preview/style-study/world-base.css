@@ -1,0 +1,58 @@
+/* Four complete visual languages on the same 1200 x 500 composition. */
+html,body{margin:0!important;padding:0!important;width:100%!important;height:100%!important;overflow:hidden;background:#181b24}
+.art-viewport{position:absolute;left:50%;top:50%;width:1200px;height:500px;transform:translate(-50%,-50%) scale(var(--art-scale,1));transform-origin:center}
+.art-viewport .r-game{position:absolute!important;inset:0!important;margin:0!important;width:1200px!important;height:500px!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;transform:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:hidden!important;isolation:isolate;background-image:none!important;background:#202528}
+.art-viewport .r-game:before,.art-viewport .r-game:after{display:none!important}
+.art-backdrop,.art-frame{position:absolute;inset:0;width:1200px;height:500px;pointer-events:none}.art-backdrop{z-index:0}.art-frame{z-index:1}
+.art-viewport .c-main{z-index:2}.art-viewport .c-portrait{z-index:2}
+.a-envelope-face{transform:none!important;filter:none!important;width:159px;height:85px}
+.art-envelope{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(1px 4px 4px #0003)}
+.a-envelope:hover .a-envelope-face{transform:none!important;filter:none!important}
+.a-hud{isolation:isolate;text-shadow:none}.a-hud:before{content:'';position:absolute;inset:-7px -9px -5px;z-index:-1;pointer-events:none}
+.a-hud b{font-size:28px}.a-hud .a-menu button{position:relative;isolation:isolate}
+.a-desk-heading{font-size:17px;letter-spacing:.1em}.a-rest-action{font-size:13px}
+.a-offer-title{position:relative!important;z-index:1}.a-offer-copy{position:relative;isolation:isolate;gap:7px}
+.art-offer-index{position:absolute;pointer-events:none;right:12px;top:-10px;z-index:-1;font:74px/.9 Georgia,serif;opacity:.055}
+.a-row-arrow{width:18px;height:18px;padding:5px;box-sizing:content-box;opacity:1}
+.a-status-ribbon section{background:none;border:0;box-shadow:none;padding:10px 8px 5px;isolation:isolate}
+.a-band-label{font-size:10px;top:-10px;padding:0 6px;letter-spacing:.2em;background:none}
+.art-stat{position:relative;isolation:isolate}.a-growth .a-growth-item{border:0;padding:0 14px}
+.art-stat:before{content:'';position:absolute;z-index:-1;pointer-events:none}
+.a-axis-title{font-size:12px;gap:3px}.a-axis-title b{font-size:23px}.a-growth-name{font-size:16px}.a-growth-name>b{font-size:23px}
+.a-medallion{box-shadow:none}.a-rank-marks{gap:3px}.a-axis-value{font-size:11px}.a-growth-progress>small{font-size:11px}
+.a-character-name{top:320px;left:29px;width:232px;padding:8px 13px 9px;text-shadow:none;font-size:21px;letter-spacing:.15em}.a-character-name small{font-size:9px;margin-bottom:6px;letter-spacing:.3em}
+/* A | Gilded court. Carved frame, embroidered panels, foil and wax. */
+[data-art=a]{--art-gold:#d1b57a;--art-light:#ede0bd}
+[data-art=a] .art-backdrop{background:linear-gradient(90deg,#071a1888,#0c2524dc 34%,#112c2af2 60%),url('/IKUSEI/art/ui/correspondence/room.webp') center/cover}
+[data-art=a] .art-backdrop:after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent 0 4px,#d0ae5b05 4px 5px);opacity:.7}
+[data-art=a] .a-hud{color:#eadbb5}
+[data-art=a] .a-hud:before{background:linear-gradient(#2c3d33,#192f2a);border:1px solid #9a814b;border-radius:18px 2px 18px 2px;box-shadow:inset 0 0 0 3px #122622,inset 0 0 0 4px #b2924d4a,0 4px 7px #06141077}
+[data-art=a] .a-hud small{color:#baa986}
+[data-art=a] .a-hud .game-glyph{color:#d5b879;stroke-width:1.35}
+[data-art=a] .a-calendar>.game-glyph{background:radial-gradient(circle,#74644044,transparent);padding:5px;border-radius:50%;width:43px;height:43px;border:1px solid #b5995c77}
+[data-art=a] .a-hud .a-menu{gap:9px}
+[data-art=a] .a-hud .a-menu button{height:39px;min-height:39px;padding:0 8px!important;border:1px solid #a3864a70;border-radius:3px;color:#e1cca0;background:linear-gradient(#69704a22,#070e141a);box-shadow:inset 0 0 0 2px #173129}
+[data-art=a] .a-meter{height:4px;background:#b2ad8533;border-radius:3px}
+[data-art=a] .a-meter>i{background:linear-gradient(0deg,#93804c,#e4d29a);border-radius:3px}
+[data-art=a] .a-hud .a-goal .a-deadline{border-color:#ae915c55}
+[data-art=a] .a-desk-heading{color:#d9c396;font-weight:500}
+[data-art=a] .a-rest-action{color:#b5b69a}
+[data-art=a] .a-offer:not(:last-child):after{display:none}
+[data-art=a] .a-offer-copy:before{content:'';position:absolute;inset:-13px -18px -11px -17px;z-index:-1;background:linear-gradient(100deg,#4a5c402e,#5668440a);border:1px solid #bea16633;clip-path:polygon(0 10px,10px 0,calc(100% - 10px) 0,100% 10px,100% calc(100% - 10px),calc(100% - 10px) 100%,10px 100%,0 calc(100% - 10px))}
+[data-art=a] .r-game .a-offer-title{color:#f2e5c3;font-size:20px;text-shadow:0 1px 2px #071b19;letter-spacing:.08em}
+[data-art=a] .a-pay{color:#dcc285}[data-art=a] .a-energy,[data-art=a] .a-growth-reward{color:#aebf9a}[data-art=a] .a-bonds .game-glyph{color:#c2a59f}
+[data-art=a] .a-row-arrow{border-radius:50%;border:1px solid #b293506e;color:#ddc283;background:radial-gradient(circle,#6e6b373d,#122624);box-shadow:0 0 0 3px #b5a16b14}
+[data-art=a] .a-character-name{color:#e6d2a6;background:linear-gradient(100deg,#142a26ee,#17352dd9);border:1px solid #a1875077;box-shadow:inset 0 0 0 3px #061c243f,inset 0 0 0 4px #a9955926;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px))}
+[data-art=a] .a-character-name small{color:#af9f76}
+[data-art=a] .a-status-ribbon{color:#e4d6b1}
+[data-art=a] .a-band-label{color:#c1ab77;background:#172e29;left:11px;border:1px solid #bba15d40;font-size:9px}
+[data-art=a] .a-status-ribbon section:before{content:'';position:absolute;inset:0;z-index:-2;background:linear-gradient(#273e31f5,#172d29f5);border:1px solid #a0864e;box-shadow:inset 0 0 0 3px #0c2420,inset 0 0 0 4px #bea06b38}
+[data-art=a] .a-dignity{gap:12px}
+[data-art=a] .a-growth .a-growth-item+.a-growth-item{border-left:1px solid #bb9d6030}
+[data-art=a] .a-medallion{width:31px;height:31px;border-radius:50%;transform:none;border:2px solid #a79156;background:radial-gradient(circle at 30% 25%,#697044,#263930 72%);outline:1px solid #cbb97440;outline-offset:2px}
+[data-art=a] .a-medallion .game-glyph{transform:none;width:22px;height:22px;color:#ddcb94;stroke-width:1.3}
+[data-art=a] .a-axis{--axis-ink:#c9999e}[data-art=a] .a-axis[data-axis=品位]{--axis-ink:#c6b27e}[data-art=a] .a-axis[data-axis=威厳]{--axis-ink:#91b5b8}
+[data-art=a] .a-rank-marks i{height:4px;border-radius:3px}
+[data-art=a] .a-growth-name>b,[data-art=a] .a-growth-progress{color:#e2c793}
+[data-art=a] .a-growth-marks i{border-radius:50%;background:#d2b87a;width:5px;height:5px;transform:none}
+[data-art=a] .a-axis-value{color:#bbbc9a}
