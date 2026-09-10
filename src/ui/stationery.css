@@ -136,3 +136,30 @@
 .a-desk-layout .a-offer-warning{font:11px var(--serif);color:#c4a99d}
 .a-desk-layout .a-offer-terms .a-job-costs:empty{display:none}
 @media(prefers-reduced-motion:reduce){.a-desk-layout :is(.a-offer,.a-envelope-paper,.a-sender,.a-open-cue,.a-open-cue small,.a-offer-title){transition:none!important}}
+
+/* Short, playful responses. The clickable rows and their text remain stationary. */
+@media(prefers-reduced-motion:no-preference){
+  html:not([data-motion="reduced"]) .a-desk-layout .a-envelope-face{animation:a-letter-hop-in 380ms both;animation-delay:var(--arrival-delay,0ms);transform-origin:50% 70%;transition:transform 270ms cubic-bezier(.2,1.55,.4,1)}
+  html:not([data-motion="reduced"]) .a-desk-layout .a-offer:nth-child(2){--arrival-delay:45ms}
+  html:not([data-motion="reduced"]) .a-desk-layout .a-offer:nth-child(3){--arrival-delay:90ms}
+  html:not([data-motion="reduced"]) .r-game.a-desk-layout .a-envelope:is(:hover,:focus-visible) .a-envelope-face{transform:translateY(-5px) rotate(-2deg) scale(1.035)}
+  html:not([data-motion="reduced"]) .r-game.a-desk-layout .a-envelope:active .a-envelope-face{transform:translateY(-1px) rotate(-.6deg) scale(.98);transition-duration:75ms}
+  html:not([data-motion="reduced"]) .a-desk-layout .a-envelope:is(:hover,:focus-visible) :is(.a-envelope-paper,.a-sender){transform:none}
+  html:not([data-motion="reduced"]) .a-desk-layout .a-open-cue{transition:transform 250ms cubic-bezier(.2,1.7,.4,1),color 150ms}
+  html:not([data-motion="reduced"]) .a-desk-layout .a-envelope:is(:hover,:focus-visible) .a-open-cue{transform:translateX(5px) scale(1.12)}
+  html:not([data-motion="reduced"]) .a-desk-layout .a-envelope-face:after{content:'';position:absolute;right:4px;top:8px;width:12px;height:12px;background:#f1d2aa;clip-path:polygon(50% 0,63% 37%,100% 50%,63% 63%,50% 100%,37% 63%,0 50%,37% 37%);opacity:0;pointer-events:none}
+  html:not([data-motion="reduced"]) .a-desk-layout .a-envelope:is(:hover,:focus-visible) .a-envelope-face:after{animation:a-paper-twinkle 410ms ease-out}
+  html:not([data-motion="reduced"]) .a-desk-layout :is(.a-medallion,.a-axis-title>.game-glyph){transition:transform 240ms cubic-bezier(.2,1.6,.4,1)}
+  html:not([data-motion="reduced"]) .a-desk-layout .a-growth-item:is(:hover,:focus-visible) .a-medallion{transform:translateY(-2px) rotate(-5deg)}
+  html:not([data-motion="reduced"]) .a-desk-layout .a-axis:is(:hover,:focus-visible) .a-axis-title>.game-glyph{transform:translateY(-2px) scale(1.08)}
+  html:not([data-motion="reduced"]) .a-desk-layout :is(.a-accept,.a-rest-action,.a-hud .a-menu button){transition:transform 200ms cubic-bezier(.2,1.5,.4,1),filter 120ms}
+  html:not([data-motion="reduced"]) .a-desk-layout :is(.a-accept,.a-rest-action,.a-hud .a-menu button):hover:not(:disabled){transform:translateY(-2px)}
+  html:not([data-motion="reduced"]) .a-desk-layout :is(.a-accept,.a-rest-action,.a-hud .a-menu button):active:not(:disabled){transform:translateY(1px) scale(.97);transition-duration:60ms}
+  html:not([data-motion="reduced"]) .a-desk-layout .a-signed{transform-origin:15% 65%;animation:a-sign-pop 240ms both}
+  html:not([data-motion="reduced"]) .a-desk-layout .a-signed>.game-glyph{animation:a-sign-seal 230ms both}
+}
+@keyframes a-letter-hop-in{0%{opacity:.35;translate:0 10px;rotate:-3deg;scale:.97}65%{opacity:1;translate:0 -3px;rotate:.6deg;scale:1.015}100%{opacity:1;translate:0 0;rotate:0deg;scale:1}}
+@keyframes a-paper-twinkle{0%{opacity:0;transform:translateY(4px) rotate(-25deg) scale(.3)}40%{opacity:.85;transform:translateY(-2px) rotate(12deg) scale(1)}100%{opacity:0;transform:translateY(-6px) rotate(35deg) scale(.45)}}
+@keyframes a-sign-pop{0%{opacity:0;clip-path:inset(0 100% 0 0);transform:translateY(3px) rotate(-7deg) scale(.9)}65%{opacity:1;clip-path:inset(0 0 0 0);transform:translateY(-2px) rotate(-3deg) scale(1.06)}100%{opacity:1;clip-path:inset(0 0 0 0);transform:rotate(-4deg) scale(1)}}
+@keyframes a-sign-seal{0%,35%{opacity:0;transform:scale(1.5) rotate(-15deg)}70%{opacity:1;transform:scale(.9) rotate(4deg)}100%{opacity:1;transform:none}}
+html[data-motion="reduced"] .a-desk-layout :is(.a-envelope-face,.a-envelope-paper,.a-sender,.a-open-cue,.a-open-cue small,.a-medallion,.a-axis-title>.game-glyph,.a-accept,.a-rest-action,.a-hud .a-menu button){animation:none!important;transition:none!important}

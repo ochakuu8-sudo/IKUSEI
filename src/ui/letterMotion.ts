@@ -66,12 +66,17 @@ export function animatePaper(
     direction === "open"
       ? [
           { transform: folded, offset: 0 },
-          { transform: "translateY(14px) scale(1, .55)", offset: .5 },
+          { transform: "translateY(-8px) rotate(-1.2deg) scale(1.025, .88)", offset: .58 },
+          { transform: "translateY(2px) rotate(.35deg) scale(.995, 1.015)", offset: .8 },
           { transform: "none", offset: 1 },
         ]
-      : [{ transform: currentTransform || "none" }, { transform: folded }],
+      : [
+          { transform: currentTransform || "none", offset: 0 },
+          { transform: "translateY(-4px) scale(1.015, .98)", offset: .2 },
+          { transform: folded, offset: 1 },
+        ],
     {
-      duration: direction === "open" ? 380 : 240,
+      duration: direction === "open" ? 360 : 210,
       easing:
         direction === "open"
           ? "cubic-bezier(.2,.8,.25,1)"

@@ -404,8 +404,22 @@ export default function DailyApp() {
     stateRef.current = out.state;
     setS(out.state);
     if (command.type === "begin") {
-      patch({ sheet: null });
-      setDeskSnapshot(null);
+      // Persist first: reloads during the short signature resume the accepted story.
+      paperMotion.current?.finish();
+      const reveal = () => {
+        if (!mounted.current) return;
+        setRitual(null);
+        lock.current = false;
+        patch({ sheet: null });
+        setDeskSnapshot(null);
+      };
+      if (ui.sheet && !reduceMotion()) {
+        lock.current = true;
+        setDeskSnapshot(before);
+        setRitual("sign");
+        paperSound(ui.volume, "sign");
+        transitionTimer.current = window.setTimeout(reveal, 260);
+      } else reveal();
       setNotice("");
     }
     if (out.state.activeSession?.phase === "result") {
@@ -450,7 +464,11 @@ export default function DailyApp() {
   }, [s?.revision, s?.day, s?.chapter, offersVisible]);
 
   function commit(action: Parameters<typeof dailyAction>[1]) {
-    if (action.type === "take") { sendAdv({ type: "begin", jobId: action.job }); return; }
+    if (action.type === "take") {
+      if (lock.current || ritual || paperReturning.current || stateRef.current?.activeSession) return;
+      sendAdv({ type: "begin", jobId: action.job });
+      return;
+    }
     if (
       lock.current ||
       ritual ||
@@ -750,7 +768,7 @@ export default function DailyApp() {
         <div className="adv-archive-list">{archive.length ? archive.map((r, i) => <Button key={r.id} onClick={() => { setArchiveOpen(false); setAdvReplay(r); }}><span className="archive-number">{String(i + 1).padStart(2, "0")}</span><span><b>{r.title}</b><small>{r.choices.map(c => c.text).join(" → ") || "本文の記録"}</small></span><BookOpen aria-hidden="true" /></Button>) : <div className="archive-empty"><BookOpen aria-hidden="true" /><h3>まだ綴られていない記憶</h3><p>依頼で選んだ対応が、ここに残ります。</p></div>}</div>
       </Modal>}
       {advReplay && <Dialogue title={advReplay.title} lines={advReplay.lines} place={personOf(advReplay.person).place} speed={ui.speed} textSize={ui.textSize} strongText={ui.strongText} motion={ui.motion} sceneId={advReplay.id} onSettingsChange={patch} onDone={() => { setAdvReplay(null); setArchiveOpen(true); }} />}
-      {activeAdv && savedState && <AdvSession state={savedState} send={sendAdv} error={advError} retry={retryAdv}
+      {activeAdv && savedState && ritual !== "sign" && <AdvSession state={savedState} send={sendAdv} error={advError} retry={retryAdv}
         onTitle={() => { if (!pendingAdv.current) { setStarted(false); lock.current = false; } }}
         settings={ui} onSettingsChange={patch} />}
       {advError && !activeAdv && <Modal title="保存できませんでした" onClose={() => {}}><p role="alert">{advError}</p><Button onClick={retryAdv}>保存を再試行</Button></Modal>}
