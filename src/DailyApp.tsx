@@ -48,7 +48,8 @@ import "./reform.css";
 import "./ornaments.css";
 import "./ui/presentation.css";
 import "./ui/atelier.css";
-import { DeskHeader, StatusRibbon, EnvelopeOffer as OfferCard, OpenLetter as LetterSheet, DeskRest as RestSheet } from "./ui/DeskPresentation";
+import "./ui/stationery.css";
+import { DeskBinding, DeskHeader, StatusRibbon, EnvelopeOffer as OfferCard, OpenLetter as LetterSheet, DeskRest as RestSheet } from "./ui/DeskPresentation";
 import { GameGlyph } from "./ui/GameGlyph";
 
 
@@ -628,8 +629,9 @@ export default function DailyApp() {
                   alt="エレオノール・ラティエ"
                 />
               </aside>
-              {showDesk && ui.tab === "today" && <><div className="a-character-name"><small>LATIER</small>エレオノール</div><StatusRibbon s={s} onDignity={() => setDignityOpen(true)} onGrowth={() => setGrowthOpen(true)} /></>}
+              {showDesk && ui.tab === "today" && <><DeskBinding/><div className="a-character-name"><small>LATIER</small>エレオノール</div><StatusRibbon s={s} onDignity={() => setDignityOpen(true)} onGrowth={() => setGrowthOpen(true)} /></>}
               <main className="c-main">
+                {showDesk && ui.tab === "today" && (sheetJob || pending) && <header className="a-desk-heading"><span>本日の便り</span></header>}
                 {gallery ? (
                   <Gallery
                     seen={seenScenes}

@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 const shapes: Record<string, string> = {
+ quill:'<path d="M4 21 18 4m-9 9c-3-5 4-10 11-11-1 7-5 14-11 11ZM8 17h8"/>',
  rose:'<path d="M12 3c2-3 6 0 4 3 4-1 6 4 2 6 2 4-3 7-6 4-3 3-8 0-6-4-4-2-2-7 2-6-2-3 2-6 4-3Z"/><path d="m9 8 3-2 3 3-2 4-4-2Z M12 17v6m0-2c3 0 5-2 6-4-4 0-6 1-6 4"/>',
  dignity:'<ellipse cx="12" cy="12" rx="9" ry="11"/><circle cx="12" cy="8" r="3"/><path d="M6 18c0-7 12-7 12 0H6Z"/>',
  crown:'<path d="m3 7 4 4 5-7 5 7 4-4-2 11H5L3 7Zm2 14h14"/><circle cx="12" cy="3" r="1"/>',
