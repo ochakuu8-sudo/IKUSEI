@@ -2,8 +2,8 @@
   "name": "没落令嬢の返済録",
   "short_name": "返済録",
   "description": "借金返済と三つの尊厳を管理する育成シミュレーション",
-  "start_url": "/IKUSEI/",
-  "scope": "/IKUSEI/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#302737",
@@ -11,13 +11,13 @@
   "lang": "ja",
   "icons": [
     {
-      "src": "/IKUSEI/favicon.svg",
+      "src": "./favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/IKUSEI/og.png",
+      "src": "./og.png",
       "sizes": "1200x630",
       "type": "image/png",
       "purpose": "any"
