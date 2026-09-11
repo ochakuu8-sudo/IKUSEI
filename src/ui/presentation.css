@@ -8,11 +8,11 @@
 .ui-button svg { flex-shrink:0; }
 /* The title menu has its own allocated area; supplementary entries never push it out. */
 .r-game .c-title-panel { inset:25px auto 24px 80px; width:485px; display:flex; flex-direction:column; gap:8px; }
-.r-game .c-title-panel .c-eyebrow { font-size:14px; letter-spacing:.22em; color:#e0c193; }
+.r-game .c-title-panel .c-eyebrow { font-size:20px; letter-spacing:.06em; color:#e0c193; }
 .r-game .r-title-crest { position:absolute; top:25px; right:35px; width:48px; height:48px; }
 .r-game .c-title-panel h1 { font:500 29px/1.45 var(--serif); letter-spacing:.14em; }
 .r-game .c-title-panel h1 > span { display:block; font-size:59px; line-height:1.25; letter-spacing:.18em; }
-.r-game .c-title-panel p { font:18px/1.65 var(--serif); color:#e7d5bd; margin:5px 0 7px; }
+.r-game .c-title-panel p { font:20px/1.65 var(--serif); color:#e7d5bd; margin:5px 0 7px; }
 .r-game .title-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0; width:100%; }
 .r-game .title-actions .ui-button { display:flex; align-items:center; justify-content:center; gap:12px; min-height:63px; font-size:23px; background:#2c2232d9; color:#f5e7d2; border-color:#ab8a5f85; }
 .r-game .title-actions .ui-button.c-primary { background:linear-gradient(120deg,#ae8553,#70543e); border-color:#e5c390; }

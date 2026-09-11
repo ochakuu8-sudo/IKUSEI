@@ -42,15 +42,19 @@ import { changeDignity, dignityRank } from "./dignity";
 import { initialGrowth } from "./adv/growth";
 import { evaluateCondition } from "./adv/conditions";
 import type { ActiveSession, ReplayRecord, Quote } from "./adv/types";
+import { campaignChapters, chapterAvailable, chapterJobIds, pendingStoryEvent } from "./campaign";
 export const SAVE_VERSION = 16;
 /** 休んだ翌朝の回復。尊厳は同ランク内のみ。威厳はその日に削っていなければ。 */
 export const DAILY_DIGNITY_RECOVERY = 6;
 export const DAILY_PRESTIGE_RECOVERY = 2;
 const FATIGUE_RATE = [1, 0.82, 0.68, 0.58];
-/** 毎日の提示数（§5「毎日、3件がランダムに提示される」）。 */
+/** 一日の提示上限。現在の体験版は基礎2件＋日替わり/約束の1件。 */
 export const OFFERS_PER_DAY = 3;
 
+export type ChapterResult = { chapter: number; quota: number; paid: number; shortfall: number; interest: number };
 export type DailyState = {
+  /** 精算は一度だけ。続編待機中にも返済明細を保持する。 */
+  chapterResults: ChapterResult[];
   growthXP: Record<string, number>;
   storyFlags: Record<string, boolean>;
   capabilities: string[];
@@ -95,7 +99,7 @@ export type DayOutcome = {
   growthGains?: { id: string; before: number; after: number }[];
   bonusMoney?: number;
   choiceAxisMoves?: AxisMove[];
-  kind: "job" | "rest" | "settle";
+  kind: "job" | "rest" | "settle" | "story";
   title: string;
   person?: PersonId;
   scene: SceneLine[];
@@ -152,6 +156,7 @@ export function cadenceReason(job: Job, s: DailyState): string | null {
 /** いま紹介されるか。上の仕事は尊厳で閉じ、裏の仕事は落ちて初めて開く。 */
 export function isOpen(job: Job, s: DailyState): boolean {
   return (
+    s.day >= (job.availableFromDay ?? 1) && s.day <= (job.availableUntilDay ?? CHAPTER_DAYS) &&
     (!job.requiresCapability || s.capabilities.includes(job.requiresCapability)) &&
     (job.requiresStoryFlags ?? []).every(id => s.storyFlags[id] === true) &&
     (job.forbidsStoryFlags ?? []).every(id => s.storyFlags[id] !== true) &&
@@ -175,7 +180,7 @@ export function closedBy(job: Job, s: DailyState): Axis[] {
 export function tracesOf(s: DailyState) {
   return jobs
     .filter(
-      (j) => s.seen.includes(j.id) && !isOpen(j, s) && !cadenceReason(j, s),
+      (j) => chapterJobIds(s).includes(j.id) && s.seen.includes(j.id) && !isOpen(j, s) && !cadenceReason(j, s),
     )
     .map((j) => ({
       job: j,
@@ -203,9 +208,18 @@ function seeded(seed: string) {
   };
 }
 
-/** その日に提示される依頼。母集団は現在の三軸で決まる（§5）。 */
+/** 公開した章の依頼だけ提示。受付・尊厳などの条件を満たす候補から選ぶ。 */
 export function offersOf(s: DailyState): Job[] {
-  const pool = jobs.filter((j) => isOpen(j, s));
+  if (!chapterAvailable(s) || s.awaitingSettlement || pendingStoryEvent(s)) return [];
+  const definition = campaignChapters[s.chapter];
+  const pool = jobs.filter((j) => definition.jobIds.includes(j.id) && isOpen(j, s));
+  if (definition.alwaysOfferIds) {
+    const fixed = definition.alwaysOfferIds.flatMap(id => pool.filter(j => j.id === id));
+    const rotation = definition.rotatingOfferIds ?? [];
+    const promised = pool.find(j => !definition.alwaysOfferIds!.includes(j.id) && !rotation.includes(j.id));
+    const rotating = pool.find(j => j.id === rotation[(s.day - 1) % Math.max(1, rotation.length)]);
+    return [...fixed, ...((promised ?? rotating) ? [promised ?? rotating!] : [])].slice(0, OFFERS_PER_DAY);
+  }
   const rand = seeded(`${s.runId}:${s.chapter}:${s.day}`);
   const shuffled = pool
     .map((job) => ({ job, k: rand() }))
@@ -272,6 +286,9 @@ export const hasStaminaFor = (job: Job, s: DailyState) =>
 /** 受けられない理由。無ければ null。 */
 export function takeReason(job: Job, s: DailyState): string | null {
   if (s.activeSession) return "進行中の依頼を終えてください";
+  if (!chapterAvailable(s)) return "この先の章は、まだ公開されていません";
+  if (pendingStoryEvent(s)) return "届いた手紙を読んでください";
+  if (!chapterJobIds(s).includes(job.id)) return "この章には収録されていない依頼です";
   if (s.ended || s.awaitingSettlement) return "今日はもう動けません";
   if (!isOpen(job, s))
     return (
@@ -293,6 +310,7 @@ export const quotaOf = (s: DailyState) =>
 
 export function freshDaily(runId = `run-${Date.now()}`): DailyState {
   return {
+    chapterResults: [],
     growthXP: initialGrowth(),
     storyFlags: {},
     capabilities: [],
@@ -363,6 +381,8 @@ export function dailyAction(
 ): DailyResult {
   const s: DailyState = structuredClone(state);
   if (s.activeSession) return { state, error: "進行中の依頼を終えてください" };
+  if (!chapterAvailable(s)) return { state, error: "この先の章は、まだ公開されていません" };
+  if (pendingStoryEvent(s)) return { state, error: "届いた手紙を読んでください" };
   const openBefore = jobs.filter((j) => isOpen(j, state));
 
   if (action.type === "settle") {
@@ -376,6 +396,7 @@ export function dailyAction(
     s.money -= paid;
     s.debt = Math.max(0, s.debt - paid) + interest;
     s.carryOver = shortfall + interest;
+    s.chapterResults = [...s.chapterResults.filter(r => r.chapter !== state.chapter), { chapter: state.chapter, quota, paid, shortfall, interest }];
     if (shortfall > 0)
       for (const p of LATE_PENALTY) {
         const before = s.axes[p.axis];
@@ -565,14 +586,14 @@ export function closingPreview(job: Job, s: DailyState) {
   for (const c of job.costs)
     after.axes[c.axis] = Math.max(0, after.axes[c.axis] - c.amount);
   return jobs
-    .filter((j) => j.id !== job.id && isOpen(j, s) && !isOpen(j, after))
+    .filter((j) => chapterJobIds(s).includes(j.id) && j.id !== job.id && isOpen(j, s) && !isOpen(j, after))
     .map((j) => j.title);
 }
 
 /** その行動のせいで閉じた依頼。取り返しのつかなさを、その場で見せる（§5）。 */
 export function closedSince(openBefore: Job[], after: DailyState) {
   return openBefore
-    .filter((j) => !isOpen(j, after) && !cadenceReason(j, after))
+    .filter((j) => chapterJobIds(after).includes(j.id) && !isOpen(j, after) && !cadenceReason(j, after))
     .map((j) => ({ title: j.title, axis: closedBy(j, after)[0] }))
     .filter((x): x is { title: string; axis: Axis } => !!x.axis);
 }

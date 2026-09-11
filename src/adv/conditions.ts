@@ -77,6 +77,11 @@ export function validateEffects(e?: Effects): string[] {
 export function validateJob(job: Job): string[] {
   if (!job || typeof job !== "object" || !idOK(job.id) || typeof job.title !== "string" || !people.some(p => p.id === job.person) || !["repeat", "once", "chapter"].includes(job.cadence) || !finite(job.pay) || job.pay < 0 || !finite(job.stamina) || job.stamina < 0 || !Array.isArray(job.costs) || !job.needs || typeof job.needs !== "object") return ["不正な依頼"];
   const errors = validateEffects({ growthXP: job.growthRewards });
+  for (const day of [job.availableFromDay, job.availableUntilDay])
+    if (day !== undefined && (!Number.isInteger(day) || day < 1 || day > 14)) errors.push("不正な受付日");
+  if ((job.availableFromDay ?? 1) > (job.availableUntilDay ?? 14)) errors.push("受付期間の逆転");
+  if (job.repeatScenarioId !== undefined && !idOK(job.repeatScenarioId)) errors.push("不正な再訪台本");
+  if (job.storyEvent !== undefined && typeof job.storyEvent !== "boolean") errors.push("不正な物語指定");
   if (job.costs.some(c => !c || !axes.includes(c.axis) || !finite(c.amount) || c.amount < 0 || c.amount > 100)) errors.push("不正な固定代償");
   if (job.entryCondition !== undefined) errors.push(...validateCondition(job.entryCondition));
   for (const field of [job.requiresStoryFlags, job.forbidsStoryFlags])

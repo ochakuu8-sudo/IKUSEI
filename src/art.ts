@@ -6,7 +6,9 @@ import type {
   PlaceId,
   RecipeId,
 } from "./game";
-const base = import.meta.env.BASE_URL;
+// CSS variables containing relative url() resolve against the stylesheet in assets/.
+// Anchor public art to the document so both DOM images and CSS work in nested embeds.
+const base = new URL(import.meta.env.BASE_URL, document.baseURI).href;
 export const artAssetSrc = (path: string) => `${base}art/${path}`;
 /** CSS materials share the same subpath-safe asset resolver as scene art. */
 export const manorMaterialStyle = {

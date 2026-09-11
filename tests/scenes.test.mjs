@@ -4,6 +4,8 @@ import { loadGallery, recordScenes, clearGallery, GALLERY_KEY } from "@game/gall
 import { jobs as allJobs, people } from "@game/game";
 const jobs = allJobs.filter(j => !j.scenarioId);
 import { dailyAction, freshDaily, offersOf } from "@game/daily";
+import { campaignChapters } from "@game/campaign";
+campaignChapters[1] = { title: "旧目録の検証", jobIds: jobs.map(j => j.id), people: ["vernet", "claire"], events: [] };
 
 let passed = 0;
 const check = (name, fn) => { fn(); passed++; console.log("PASS " + name); };

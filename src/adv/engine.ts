@@ -1,13 +1,15 @@
 import { jobs, axes, people, personOf, type Job } from "../game";
-import { dailyAction, closedSince, isOpen, fatigueRateOf, listPriceOf, offersOf, payOf, settleJob, takeReason, type DailyState } from "../daily";
-import { scenarios } from "../content/scenarios";
+import { dailyAction, closedSince, isOpen, fatigueRateOf, listPriceOf, offersOf, payOf, settleJob, takeReason, type DailyState, type DailyResult } from "../daily";
+import { resolveScenario } from "../content/scenarios";
 import { changeDignity } from "../dignity";
 import { growthDefinitions, growthOf, rankOf } from "./growth";
 import { evaluateCondition, validateEffects, validateScenario, validateJob } from "./conditions";
 import type { ActiveSession, Effects, ReplayRecord, Scenario, Snapshot } from "./types";
+import { pendingStoryEvent } from "../campaign";
 
 export type Command =
   | { type: "begin"; jobId: string }
+  | { type: "begin-event" }
   | { type: "advance"; sessionId: string; nodeId: string; revision: number }
   | { type: "choose"; sessionId: string; nodeId: string; choiceId: string; revision: number }
   | { type: "cursor"; sessionId: string; nodeId: string; revision: number; cursor: ActiveSession["cursor"] }
@@ -22,9 +24,10 @@ export function snapshot(s: DailyState): Snapshot {
 /** Existing linear scripts use the same persisted session as authored branches. */
 export function scenarioFor(job: Job, state: DailyState): Scenario {
   if (job.scenarioId) {
-    const scenario = scenarios.find(s => s.id === job.scenarioId);
+    const id = job.repeatScenarioId && state.storyFlags[job.scenarioId + ".seen"] ? job.repeatScenarioId : job.scenarioId;
+    const scenario = resolveScenario(id, state);
     if (!scenario) throw new Error("シナリオが登録されていません: " + job.scenarioId);
-    return structuredClone(scenario);
+    return scenario;
   }
   const preview = dailyAction(snapshot(state), { type: "take", job: job.id });
   if (preview.error || !preview.outcome) throw new Error(preview.error ?? "依頼の定義が不正です");
@@ -64,7 +67,11 @@ function complete(state: DailyState, session: ActiveSession): DailyState {
   if (node.kind !== "end") return state;
   apply(session, node.effects);
   apply(session, { growthXP: session.job.growthRewards });
-  const settled = settleJob(session.working, session.job, session.quote, session.lostPrestige);
+  const settled: DailyResult = session.job.storyEvent ? {
+    state: structuredClone(session.working) as DailyState,
+    outcome: { kind: "story" as const, title: session.job.title, scene: [], sceneIds: [], listPrice: 0, pay: 0, fatigueRate: 1, drops: [], gains: [], staminaDelta: 0, closedNow: [], notices: ["手紙と返事を記録しました。日数は進みません。"] },
+    error: undefined,
+  } : settleJob(session.working, session.job, session.quote, session.lostPrestige);
   if (settled.error || !settled.outcome) throw new Error(settled.error ?? "精算できません");
   const result = settled.state;
   const outcome = settled.outcome;
@@ -80,7 +87,8 @@ function complete(state: DailyState, session: ActiveSession): DailyState {
     before: session.entrySnapshot.axes[axis], after: session.working.axes[axis],
   }));
   outcome.closedNow = closedSince(jobs.filter(j => isOpen(j, session.entrySnapshot)), result);
-  result.log[0] = `${session.entrySnapshot.day}日目。${session.job.title}（${outcome.pay.toLocaleString()}G）。`;
+  if (session.job.storyEvent) result.log = [session.job.title + "を記録した。", ...result.log].slice(0, 12);
+  else result.log[0] = `${session.entrySnapshot.day}日目。${session.job.title}（${outcome.pay.toLocaleString()}G）。`;
   const changedRelations = people.filter(p => session.working.relations[p.id] !== session.entrySnapshot.relations[p.id]);
   outcome.notices.push(...changedRelations.map(p => p.name + "との関係 " + session.entrySnapshot.relations[p.id] + " → " + session.working.relations[p.id] + "（選択による変化）"));
   const record: ReplayRecord = {
@@ -115,11 +123,11 @@ export function sessionError(s: ActiveSession): string | undefined {
 }
 export function transition(state: DailyState, command: Command): Transition {
   try {
-    if (command.type === "begin") {
+    if (command.type === "begin" || command.type === "begin-event") {
       if (state.activeSession) throw new Error("進行中の依頼があります");
-      const job = jobs.find(j => j.id === command.jobId);
-      if (!job || !offersOf(state).some(j => j.id === command.jobId)) throw new Error("今日届いた依頼ではありません");
-      const reason = takeReason(job, state);
+      const job = command.type === "begin-event" ? pendingStoryEvent(state) : jobs.find(j => j.id === command.jobId);
+      if (!job || (command.type === "begin" && !offersOf(state).some(j => j.id === command.jobId))) throw new Error("今日届いた依頼ではありません");
+      const reason = job.storyEvent ? null : takeReason(job, state);
       if (reason) throw new Error(reason);
       const scenario = scenarioFor(job, state);
       const errors = [...validateScenario(scenario), ...validateJob(job)];
@@ -129,7 +137,7 @@ export function transition(state: DailyState, command: Command): Transition {
         id: state.runId + ":" + state.revision + ":" + job.id, revision: 0,
         job: structuredClone(job), scenario,
         entrySnapshot: entry, working: structuredClone(entry),
-        quote: { pay: payOf(job, state), listPrice: listPriceOf(job, state), fatigueRate: fatigueRateOf(job.person, state) },
+        quote: job.storyEvent ? { pay: 0, listPrice: 0, fatigueRate: 1 } : { pay: payOf(job, state), listPrice: listPriceOf(job, state), fatigueRate: fatigueRateOf(job.person, state) },
         nodeId: scenario.entry, cursor: { line: 0, offset: 0, chars: 0 },
         phase: "playing", choices: [], transcript: [], visited: [], lostPrestige: false,
       };

@@ -66,7 +66,7 @@ export async function checkReform(page, setViewport, base) {
       "Settlement committed values",
     );
     await button("次章へ").click();
-    await page.goto(base);
+    await page.goto(`${base}tests/fixtures/prototype.html`);
     await button("続きから").click();
     must(await button("1日目 第2章").isVisible(), "Resume after settlement");
   }

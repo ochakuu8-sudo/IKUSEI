@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
-const url = process.env.IKUSEI_TEST_URL ?? "http://127.0.0.1:5174/IKUSEI/";
+const url = (process.env.IKUSEI_TEST_URL ?? "http://127.0.0.1:5174/") + "tests/fixtures/prototype.html";
 const key = "ikusei-prototype-save-v16";
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 800 }, reducedMotion: "reduce" });
@@ -125,14 +125,14 @@ try {
   assert.equal(await page.locator('[data-job="debug-followup-charm"]').count(), 0);
   await screenshot("followup");
   await page.getByRole("button", { name: "回想", exact: true }).click();
-  await page.getByRole("button", { name: "選択の回想", exact: true }).click();
+  await page.getByRole("button", { name: "以前の記録", exact: true }).click();
   const beforeReplay = await saved();
   await page.locator(".adv-archive-list button").last().click();
   for (let i = 0; i < 8 && await page.locator(".scenario-stage").count(); i++) await skipText();
   assert.deepEqual(await saved(), beforeReplay);
   // Seed a debug state to exercise full-width complex conditions, without rewriting content.
   await page.evaluate(async k => {
-    const { freshDaily } = await import("/IKUSEI/src/daily.ts");
+    const { freshDaily } = await import("/src/daily.ts");
     const s = freshDaily("ui-composite"); s.debugMode = true;
     localStorage.setItem(k, JSON.stringify(s));
   }, key);
@@ -169,7 +169,7 @@ try {
   assert.equal((await saved()).axes.威厳, 60);
   assert.equal((await saved()).activeSession.choices.length, 2);
   await page.evaluate(async k => {
-    const { freshDaily } = await import("/IKUSEI/src/daily.ts");
+    const { freshDaily } = await import("/src/daily.ts");
     const s = freshDaily("ui-rank-recovery"); s.debugMode = true;
     s.axes = { 貞操: 0, 品位: 45, 威厳: 61 };
     localStorage.setItem(k, JSON.stringify(s));

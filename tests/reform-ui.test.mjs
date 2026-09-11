@@ -9,7 +9,7 @@ try {
     await checkReform(
       page,
       (size) => page.setViewportSize(size),
-      process.env.IKUSEI_TEST_URL ?? "http://127.0.0.1:5174/IKUSEI/",
+      process.env.IKUSEI_TEST_URL ?? "http://127.0.0.1:5174/",
     ),
   );
   if (errors.length) throw new Error(errors.join("\n"));

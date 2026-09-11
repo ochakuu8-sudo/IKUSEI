@@ -12,6 +12,7 @@ import { prepareVisual, visualFor, type SceneVisual } from "./sceneVisuals";
 import { Check, LockKeyhole } from "lucide-react";
 import { DayRecord, GameSettings } from "./ReformScreens";
 import "./adv.css";
+import { chapterAvailable, pendingStoryEvent } from "../campaign";
 
 function ChoiceScenery({ session }: { session: ActiveSession }) {
   const [art, setArt] = useState<SceneVisual | null>(null);
@@ -46,9 +47,14 @@ export function AdvSession({ state, send, error, retry, onTitle, settings, onSet
   useEffect(() => { nodeRef.current?.focus(); }, [session.nodeId, view]);
   const stamp = { sessionId: session.id, revision: session.revision };
   const issue = sessionError(session);
+  if (session.phase === "result" && session.job.storyEvent)
+    return <Modal title="手紙の記録" onClose={() => !error && send({ type: "acknowledge", ...stamp })}
+      footer={<><small role={error ? "alert" : undefined}>{error || "記録を保存しました。日数は進みません。"}</small>{error && <Button onClick={retry}>保存を再試行</Button>}<Button primary disabled={!!error} onClick={() => send({ type: "acknowledge", ...stamp })}>{chapterAvailable(state) ? "依頼の手紙へ" : "体験版の記録へ"}</Button></>}>
+      <h2>{session.job.title}</h2><p>{session.choices.map(c => c.text).join(" ／ ") || "読んだ手紙は、回想から読み返せます。"}</p>
+    </Modal>;
   if (session.phase === "result" && session.outcome)
     return <Modal variant="result" title="本日の記録" onClose={() => !error && send({ type: "acknowledge", ...stamp })}
-      footer={<><small role={error ? "alert" : undefined}>{error || "成長と選択の結果を保存しました"}</small>{error && <Button onClick={retry}>保存を再試行</Button>}<Button disabled={!!error} onClick={() => send({ type: "acknowledge", ...stamp })}>翌日へ</Button></>}>
+      footer={<><small role={error ? "alert" : undefined}>{error || "成長と選択の結果を保存しました"}</small>{error && <Button onClick={retry}>保存を再試行</Button>}<Button disabled={!!error} onClick={() => send({ type: "acknowledge", ...stamp })}>{pendingStoryEvent({ ...state, activeSession: undefined }) ? "夜の手紙へ" : state.awaitingSettlement ? "返済へ" : "翌日へ"}</Button></>}>
       <DayRecord before={session.entrySnapshot} after={state} result={session.outcome} />
     </Modal>;
   if (issue || !node)

@@ -33,6 +33,7 @@ import { Rings } from "./symbols";
 import { visualFor } from "./sceneVisuals";
 import { paperSound } from "./paperAudio";
 import type { ReadingSettings } from "./scene";
+import { campaignChapters } from "../campaign";
 
 export const reformArt = {
   plaque: artAssetSrc("ui/portrait/status-notebook.svg"),
@@ -67,7 +68,7 @@ export function ReformGallery({
   const [kind, setKind] = useState<SceneKind | "すべて">("すべて");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<SceneEntry | null>(null);
-  const rows = catalogCounts(seen).rows.filter((r) => r.written);
+  const rows = catalogCounts(seen).rows.filter((r) => r.written && r.seen);
   const shown = rows.filter((r) => kind === "すべて" || r.entry.kind === kind);
   const pageSize = 3;
   const pages = Math.max(1, Math.ceil(shown.length / pageSize));
@@ -198,7 +199,7 @@ export function Journal({
 }) {
   const [tab, setTab] = useState("人物");
   const available = people.filter(
-    (p) => !p.requiresUnlock || s.unlocked.includes(p.id),
+    (p) => (campaignChapters[s.chapter]?.people ?? ["vernet", "claire"]).includes(p.id),
   );
   const [person, setPerson] = useState<PersonId>(available[0].id);
   const selected = personOf(person),

@@ -1,3 +1,4 @@
+> 2026-09-11更新：本編は第1章の依頼6件へ移行しました。通常の追加先は `src/content/chapterOne.ts` と `src/campaign.ts` です。下記の「共同作業」「役割」「状態と複合条件」などの例は、旧台本・互換性の検証用です。通常プレイの制作範囲と進行は [第1章体験版の実装](CHAPTER_ONE_DEMO.md) を優先してください。再訪は `repeatScenarioId`、受付期間は `availableFromDay` / `availableUntilDay`、自動の物語は `campaignChapters[].events` で指定します。旧IDを改名して第1章の物語へ使い回さないでください。
 # ADVコンテンツ制作ガイド
 
 2026-09-10。検証用台本を後から本番へ差し替えるためのガイド。設計思想は [条件付き選択の指示書](ADV_CHOICE_CONDITIONS.md) を参照。現在の人物・物語・数値は仮置き。

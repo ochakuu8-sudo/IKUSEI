@@ -3,6 +3,7 @@
 
 import { dignityRank } from "./dignity";
 import { debugJobs } from "./content/debug";
+import { chapterOneJobs } from "./content/chapterOne";
 import type { Condition } from "./adv/types";
 export type Axis = "貞操" | "品位" | "威厳";
 export type PlaceId =
@@ -481,6 +482,11 @@ export type JobKind =
 
 export type Job = {
   scenarioId?: string;
+  repeatScenarioId?: string;
+  availableFromDay?: number;
+  availableUntilDay?: number;
+  /** 自動の物語。依頼一覧には出さず、日数・体力・基本報酬を消費しない。 */
+  storyEvent?: boolean;
   /** @deprecated 旧資料・検証データとの互換用。本編の振り分けには使用しない。 */
   debugOnly?: boolean;
   offerPriority?: number;
@@ -557,6 +563,7 @@ function makeJob(
 // 最後には底辺の仕事しか残らない。
 // costs が空の依頼が「何も差し出さずに済む道」。報酬は低い。
 export const jobs: Job[] = [
+  ...chapterOneJobs,
   ...debugJobs,
   makeJob(
     "ord-vernet-tisane",

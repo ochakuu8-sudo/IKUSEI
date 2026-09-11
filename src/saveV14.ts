@@ -88,6 +88,10 @@ function parseSnapshot(raw: unknown): Snapshot | null {
   if (!object(raw) || raw.activeSession !== undefined || raw.saveVersion !== SAVE_VERSION) return null;
   const s = parseBase(JSON.stringify(raw));
   if (!s || !object(raw.growthXP) || !object(raw.storyFlags) || !strings(raw.capabilities) || typeof raw.debugMode !== "boolean" || !Array.isArray(raw.recordings) || !raw.recordings.every(validReplay)) return null;
+  if (raw.chapterResults !== undefined) {
+    if (!Array.isArray(raw.chapterResults) || !raw.chapterResults.every(r => object(r) && whole(r.chapter, 6) && r.chapter > 0 && whole(r.quota) && whole(r.paid) && whole(r.shortfall) && whole(r.interest) && r.paid + r.shortfall === r.quota) || new Set(raw.chapterResults.map(r => r.chapter)).size !== raw.chapterResults.length) return null;
+    s.chapterResults = structuredClone(raw.chapterResults) as DailyState["chapterResults"];
+  }
   if (Object.keys(raw.growthXP).some(id => !growthDefinitions.some(d => d.id === id))) return null;
   try {
     for (const d of growthDefinitions) {

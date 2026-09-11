@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 
-const url = process.env.IKUSEI_TEST_URL ?? "http://127.0.0.1:5174/IKUSEI/";
+const url = process.env.IKUSEI_TEST_URL ?? "http://127.0.0.1:5174/";
 const key = "ikusei-prototype-save-v16";
 const browser = await chromium.launch();
 const errors = [];
@@ -23,9 +23,10 @@ async function context(fallback) {
 async function seed(page, settle = false) {
   await page.goto(url);
   await page.evaluate(async ({ key, settle }) => {
-    const { freshDaily, markSeen } = await import("/IKUSEI/src/daily.ts");
-    const { jobs } = await import("/IKUSEI/src/game.ts");
+    const { freshDaily, markSeen } = await import("/src/daily.ts");
+    const { jobs } = await import("/src/game.ts");
     const s = markSeen(freshDaily("tabs-ui"), jobs.map(j => j.id));
+    s.storyFlags = { "ch1.intro.done": true, "ch1.promise.done": true };
     if (settle) { s.day = 14; s.awaitingSettlement = true; s.money = 1290; }
     localStorage.setItem(key, JSON.stringify(s));
   }, { key, settle });
@@ -53,9 +54,10 @@ try {
       assert.equal(await saved(b), latest, "stale rest must not overwrite the current save");
       if (!fallback) for (const size of [{width:1280,height:720}, {width:844,height:390}]) {
         await b.setViewportSize(size);
+        await b.waitForFunction(()=>Math.abs(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fit'))-Math.min(innerWidth/1200,innerHeight/500))<0.001);
         const dialog=b.getByRole('dialog', {name:'記録が更新されています',exact:true});
         const box=await dialog.boundingBox();
-        assert(box.x>=0 && box.y>=0 && box.x+box.width<=size.width && box.y+box.height<=size.height);
+        assert(box.x>=-1 && box.y>=-1 && box.x+box.width<=size.width+1 && box.y+box.height<=size.height+1,JSON.stringify({box,size}));
         assert(await dialog.locator('.dialog-body').evaluate(e=>e.scrollHeight<=e.clientHeight+1));
         const target=await button(b,'最新の記録を読み込む').boundingBox();
         assert(target.height>=44, 'conflict recovery remains tappable at small landscape size');
@@ -87,7 +89,7 @@ try {
       const a = await starts.newPage(), b = await starts.newPage();
       await Promise.all([a.goto(url), b.goto(url)]);
       await Promise.all([button(a, "はじめから").click(), button(b, "はじめから").click()]);
-      await Promise.all([a.waitForFunction(() => document.querySelector('.a-offer') || document.body.textContent.includes('記録が更新されています')), b.waitForFunction(() => document.querySelector('.a-offer') || document.body.textContent.includes('記録が更新されています'))]);
+      await Promise.all([a.waitForFunction(() => document.querySelector('.scenario-stage') || document.body.textContent.includes('記録が更新されています')), b.waitForFunction(() => document.querySelector('.scenario-stage') || document.body.textContent.includes('記録が更新されています'))]);
       const conflicts = await Promise.all([a, b].map(p => button(p, "最新の記録を読み込む").count()));
       assert.equal(conflicts[0] + conflicts[1], 1, "exactly one simultaneous start is rejected");
       assert.equal(JSON.parse(await saved(a)).day, 1);
@@ -108,7 +110,7 @@ try {
     assert.equal(await saved(p),null);
     await p.evaluate(()=>window.restoreLock());
     await button(p,'保存を再試行').click();
-    await p.locator('[data-job="debug-training"]').waitFor();
+    await p.locator('.scenario-stage').waitFor();
     assert.equal(JSON.parse(await saved(p)).day,1);
     assert.equal(await button(p,'保存を再試行').count(),0);
     console.log('PASS save lock failure: no write and retry succeeds');

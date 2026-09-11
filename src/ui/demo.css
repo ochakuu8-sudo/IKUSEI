@@ -1,0 +1,16 @@
+.demo-completion { position:relative; width:100%; height:100%; color:#f5e7d2; background:linear-gradient(90deg,#241b2480,#211b26ed 46%,#211b26fa); }
+.demo-hero { position:absolute; height:490px; width:420px; bottom:-24px; left:-20px; object-fit:contain; object-position:bottom; }
+.demo-copy { position:absolute; inset:24px 38px 24px 410px; display:flex; flex-direction:column; gap:12px; }
+.demo-copy > small { color:#e0c193; font:18px/1.4 var(--serif); letter-spacing:.12em; }
+.r-game .demo-copy h1 { margin:0; font:500 34px/1.4 var(--serif); color:#f8e7c9; }
+.demo-copy p { margin:0; font:21px/1.55 var(--serif); }
+.demo-receipt { display:grid; grid-template-columns:repeat(3,1fr); margin:0; padding:14px 0; gap:20px; border-block:1px solid #c4a67970; }
+.demo-receipt dt { font-size:20px; color:#e0cdb4; }
+.demo-receipt dd { margin:4px 0 0; font-size:26px; font-variant-numeric:tabular-nums; }
+.demo-receipt dd small { display:block; font-size:20px; }
+.demo-copy .demo-save-note { font-size:20px; }
+.demo-actions { display:flex; gap:10px; margin-top:auto; }
+.r-game .demo-actions .ui-button { min-height:63px; font-size:23px; padding:8px 16px; }
+.demo-transfer-actions { display:flex; flex-wrap:wrap; gap:12px; margin:12px 0; }
+.demo-transfer-summary { line-height:1.7; }
+.r-game.r-ending-stage > .a-hud .a-menu > button:last-child { min-width:90px; min-height:63px; font-size:23px; }

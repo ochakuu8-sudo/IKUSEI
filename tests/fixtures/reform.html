@@ -8,6 +8,7 @@
   <body>
     <div id="root"></div>
     <script type="module">
+      import "./prototype.ts";
       import React from "react";
       import { createRoot } from "react-dom/client";
       import DailyApp from "../../src/DailyApp.tsx";
@@ -21,7 +22,7 @@
       } from "../../src/daily.ts";
       import { jobs as allJobs } from "../../src/game.ts";
       import { SAVE_KEY } from "../../src/saveV14.ts";
-      const jobs = allJobs;
+      const jobs = allJobs.filter(j => !j.id.startsWith("ch1-"));
       // Catalog rendering fixture, including legacy save content. Temporarily remove
       // scheduling priority in this isolated page; production scheduling is covered by adv tests.
       for (const job of jobs) job.offerPriority = 0;

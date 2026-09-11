@@ -15,6 +15,9 @@ import {
   OFFERS_PER_DAY,
 } from "@game/daily";
 import { jobs } from "@game/game";
+import { campaignChapters } from "@game/campaign";
+// Explicit archived-content fixture. Shipping scope is tested in chapter-one.test.mjs.
+for (let chapter = 1; chapter <= 6; chapter++) campaignChapters[chapter] = { title: "旧版の検証", jobIds: jobs.filter(j => !j.id.startsWith("ch1-")).map(j => j.id), people: ["vernet", "claire"], events: [] };
 import { parseDaily, migrateFromV13 } from "@game/saveV14";
 
 let passed = 0;

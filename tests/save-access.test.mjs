@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createSaveAccess, SaveConflict } from "@game/saveAccess";
-import { freshDaily, dailyAction } from "@game/daily";
+import { freshDaily as initialDaily, dailyAction } from "@game/daily";
+const freshDaily = id => ({ ...initialDaily(id), storyFlags: { "ch1.intro.done": true } });
 import { SAVE_KEY, saveDaily, clearDaily } from "@game/saveV14";
 import { transition } from "@game/adv/engine";
 
@@ -38,7 +39,7 @@ await check("cursor-only changes, legacy migration sources and deletion invalida
   for(const kind of ["cursor","legacy","delete"]){
     const db=store(), lock=mutex();
     if(kind==="legacy")db.setItem("ikusei-prototype-save-v15","old");
-    else saveDaily(db,transition(freshDaily("same-revision"),{type:"begin",jobId:"debug-training"}).state);
+    else saveDaily(db,transition(freshDaily("same-revision"),{type:"begin",jobId:"ch1-ledger"}).state);
     const access=createSaveAccess(db,lock);
     if(kind==="cursor"){
       const before=JSON.parse(db.getItem(SAVE_KEY)), session=before.activeSession;

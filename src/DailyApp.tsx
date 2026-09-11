@@ -52,6 +52,9 @@ import "./ui/atelier.css";
 import "./ui/stationery.css";
 import { DeskBinding, DeskHeader, StatusRibbon, EnvelopeOffer as OfferCard, OpenLetter as LetterSheet, DeskRest as RestSheet } from "./ui/DeskPresentation";
 import { GameGlyph } from "./ui/GameGlyph";
+import { chapterAvailable, isChapterOneRecord, pendingStoryEvent } from "./campaign";
+import { DemoCompletion } from "./ui/DemoCompletion";
+import { exportSave, importSave, MAX_SAVE_FILE_BYTES, type SaveTransfer } from "./saveTransfer";
 
 
 type Tab = "today" | "journal";
@@ -137,6 +140,9 @@ export default function DailyApp() {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archive, setArchive] = useState(() => loadArchive(localStorage));
   const [advReplay, setAdvReplay] = useState<ReplayRecord | null>(null);
+  const [archiveKind, setArchiveKind] = useState<"chapter" | "legacy">("chapter");
+  const [incomingSave, setIncomingSave] = useState<SaveTransfer | null>(null);
+  const importInput = useRef<HTMLInputElement>(null);
   const activeAdv = started && savedState?.activeSession;
   useEffect(() => {
     if (!savedState) return;
@@ -149,6 +155,39 @@ export default function DailyApp() {
   }
   function openArchive() {
     if (preserveArchive()) setArchiveOpen(true);
+  }
+  function downloadSave() {
+    const current = stateRef.current;
+    if (!current) return;
+    const url = URL.createObjectURL(new Blob([exportSave(current, loadArchive(localStorage))], { type: "application/json" }));
+    const anchor = document.createElement("a");
+    anchor.href = url; anchor.download = "ikusei-save.json";
+    document.body.append(anchor); anchor.click(); anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  async function readSaveFile(file?: File) {
+    if (!file) return;
+    try {
+      if (file.size > MAX_SAVE_FILE_BYTES) throw new Error("保存ファイルが大きすぎます（上限16MB）。");
+      setIncomingSave(importSave(await file.text()));
+    } catch (e) { setNotice(e instanceof Error ? e.message : "保存ファイルを読めませんでした。"); }
+  }
+  function acceptImport() {
+    if (!incomingSave) return;
+    write(() => {
+      if (!preserveArchive()) return;
+      const before = localStorage.getItem(SAVE_KEY);
+      if (before) localStorage.setItem(SAVE_KEY + "-import-backup", before);
+      const merged = syncArchive(localStorage, [...incomingSave.archive, ...incomingSave.state.recordings]);
+      if (!persist(incomingSave.state)) throw new Error("記録の保存に失敗しました。");
+      setArchive(merged); setIncomingSave(null); setSettings(false); setStarted(false);
+      setScene(null); setResult(null); setDeskSnapshot(null); setPending(null); setRitual(null);
+      setGallery(false); setReplay(null); setArchiveOpen(false); setAdvReplay(null);
+      pendingAdv.current = null; pendingNewSave.current = false; setAdvError("");
+      lock.current = false; window.clearTimeout(transitionTimer.current);
+      patch({ tab: "today", sheet: null });
+      setNotice("記録を読み込みました。「続きから」で再開できます。");
+    });
   }
   /* The action is saved before animation; its new day stays hidden until the result. */
   const s = deskSnapshot ?? savedState;
@@ -494,6 +533,10 @@ export default function DailyApp() {
     && !activeAdv
   );
   useEffect(() => {
+    if (!started || !savedState || savedState.activeSession || result || scene || ritual || settings || notice || saveError || advError || saveConflict || incomingSave) return;
+    if (pendingStoryEvent(savedState)) sendAdv({ type: "begin-event" });
+  }, [started, savedState, result, scene, ritual, settings, notice, saveError, advError, saveConflict, incomingSave]);
+  useEffect(() => {
     if (!s || !offersVisible) return;
     const ids = offersOf(s).map((j) => j.id);
     const next = markSeen(s, ids);
@@ -605,7 +648,7 @@ export default function DailyApp() {
     started &&
     s &&
     !gallery &&
-    ((!s.awaitingSettlement && !s.ended) || ritual)
+    ((!s.awaitingSettlement && chapterAvailable(s)) || ritual)
   );
 
   return (
@@ -613,7 +656,7 @@ export default function DailyApp() {
       <div
         /* c-title は `display:block` ＋ 全面の覆い（:before）なので、回想を出すあいだは外す。
            付けたままだと回想が縦に伸びて器からはみ出し、覆いが触りを全部吸ってしまう。 */
-        className={`chapter-app r-game ${showDesk && ui.tab === "today" ? "a-desk-layout" : ""} ${gallery ? "r-gallery-stage" : ui.tab === "journal" && started ? "r-journal-stage" : ""} ${result ? "r-night" : ""} ${s?.awaitingSettlement && started ? "r-settlement-stage" : ""} ${s?.ended && started ? "r-ending-stage" : ""} ${
+        className={`chapter-app r-game ${showDesk && ui.tab === "today" ? "a-desk-layout" : ""} ${gallery ? "r-gallery-stage" : ui.tab === "journal" && started && showDesk ? "r-journal-stage" : ""} ${result ? "r-night" : ""} ${s?.awaitingSettlement && started && chapterAvailable(s) ? "r-settlement-stage" : ""} ${s && !chapterAvailable(s) && started ? "r-ending-stage" : ""} ${
           !started
             ? gallery
               ? ""
@@ -658,7 +701,7 @@ export default function DailyApp() {
               alt="エレオノール"
             />
             <div className="c-title-panel">
-              <div className="c-eyebrow">THE LATIER CHRONICLE</div>
+              <div className="c-eyebrow">第1章「最初の返済」 · 無料体験版</div>
               <div className="r-title-crest">
                 <FamilyStamp />
               </div>
@@ -666,14 +709,14 @@ export default function DailyApp() {
                 没落令嬢の<span>返済録</span>
               </h1>
               <p>
-                借金は返せる。
+                最初の返済まで、十四日間。
                 <br />
-                問題は、完済するために何を差し出すか。
+                稼ぐか、学ぶか。今日の返事を選ぶ。
               </p>
               <nav className="title-actions" aria-label="ゲームメニュー">
-                <Button primary disabled={!s} onClick={() => setStarted(true)}>続きから <span aria-hidden="true">›</span></Button>
+                <Button primary disabled={!s} onClick={() => { setNotice(""); setStarted(true); }}>続きから <span aria-hidden="true">›</span></Button>
                 <Button onClick={() => { if (s) setReset("new"); else begin(); }}>はじめから</Button>
-                <Button onClick={() => setGallery(true)}><BookOpen size={23} aria-hidden="true" />回想</Button>
+                <Button onClick={openArchive}><BookOpen size={23} aria-hidden="true" />回想</Button>
                 <Button onClick={() => setSettings(true)}><Settings size={23} aria-hidden="true" />設定</Button>
               </nav>
               {notice && <p className="c-note">{notice}</p>}
@@ -681,7 +724,7 @@ export default function DailyApp() {
           </>
         ) : s ? (
           <>
-            <DeskHeader s={s} onJournal={openJournal} onGallery={() => setGallery(true)} onSettings={() => setSettings(true)} />
+            <DeskHeader s={s} onJournal={openJournal} onGallery={openArchive} onSettings={() => setSettings(true)} />
             <div className="c-body">
               <aside className="c-portrait">
                 <Art
@@ -701,6 +744,9 @@ export default function DailyApp() {
             onOpenArchive={openArchive}
                     onClose={() => setGallery(false)}
                   />
+                ) : !chapterAvailable(s) ? (
+                  s.ended ? <Ending s={s} onTitle={() => setStarted(false)} onGallery={openArchive} /> :
+                  <DemoCompletion state={s} onExport={downloadSave} onGallery={openArchive} onTitle={() => setStarted(false)} />
                 ) : s.awaitingSettlement ? (
                   <Settlement
                     s={s}
@@ -710,7 +756,7 @@ export default function DailyApp() {
                   <Ending
                     s={s}
                     onTitle={() => setStarted(false)}
-                    onGallery={() => setGallery(true)}
+                    onGallery={openArchive}
                   />
                 ) : pending === "rest" ? (
                   <RestSheet
@@ -737,7 +783,7 @@ export default function DailyApp() {
                         document.querySelector<HTMLElement>(".c-book")?.focus(),
                       );
                     }}
-                    onGallery={() => setGallery(true)}
+                    onGallery={openArchive}
                   />
                 ) : (
                   <div className="c-today">
@@ -808,7 +854,9 @@ export default function DailyApp() {
       {dignityOpen && savedState && <Modal variant="folio" title="三つの尊厳" onClose={() => setDignityOpen(false)}><DignityPanel state={savedState} /></Modal>}
       {archiveOpen && <Modal variant="folio" title="選択の回想" onClose={() => setArchiveOpen(false)}>
         <p>到達した本文と選んだ対応を、その時の記録で読み返します。</p>
-        <div className="adv-archive-list">{archive.length ? archive.map((r, i) => <Button key={r.id} onClick={() => { setArchiveOpen(false); setAdvReplay(r); }}><span className="archive-number">{String(i + 1).padStart(2, "0")}</span><span><b>{r.title}</b><small>{r.choices.map(c => c.text).join(" → ") || "本文の記録"}</small></span><BookOpen aria-hidden="true" /></Button>) : <div className="archive-empty"><BookOpen aria-hidden="true" /><h3>まだ綴られていない記憶</h3><p>依頼で選んだ対応が、ここに残ります。</p></div>}</div>
+        {archive.some(r => !isChapterOneRecord(r.scenarioId)) && <nav className="r-tabs" aria-label="回想の範囲"><Button primary={archiveKind === "chapter"} onClick={() => setArchiveKind("chapter")}>第1章</Button><Button primary={archiveKind === "legacy"} onClick={() => setArchiveKind("legacy")}>以前の記録</Button></nav>}
+        <div className="adv-archive-list">{archive.filter(r => isChapterOneRecord(r.scenarioId) === (archiveKind === "chapter")).map((r, i) => <Button key={r.id} onClick={() => { setArchiveOpen(false); setAdvReplay(r); }}><span className="archive-number">{String(i + 1).padStart(2, "0")}</span><span><b>{r.title}</b><small>{r.choices.map(c => c.text).join(" → ") || "本文の記録"}</small></span><BookOpen aria-hidden="true" /></Button>)}{!archive.some(r => isChapterOneRecord(r.scenarioId) === (archiveKind === "chapter")) && <div className="archive-empty"><BookOpen aria-hidden="true" /><h3>まだ綴られていない記憶</h3><p>読んだ手紙と選んだ対応が、ここに残ります。</p></div>}</div>
+        {seenScenes.some(id => !id.startsWith("adv:")) && <Button onClick={() => { setArchiveOpen(false); setGallery(true); }}>以前の場面回想</Button>}
       </Modal>}
       {advReplay && <Dialogue title={advReplay.title} lines={advReplay.lines} place={personOf(advReplay.person).place} speed={ui.speed} textSize={ui.textSize} strongText={ui.strongText} motion={ui.motion} sceneId={advReplay.id} onSettingsChange={patch} onDone={() => { setAdvReplay(null); setArchiveOpen(true); }} />}
       {activeAdv && savedState && ritual !== "sign" && <AdvSession state={savedState} send={sendAdv} error={advError} retry={retryAdv}
@@ -854,7 +902,7 @@ export default function DailyApp() {
                 </Button>
               )}
               <Button primary onClick={closeResult}>
-                {savedState.ended
+                {!chapterAvailable(savedState)
                   ? "結末へ"
                   : savedState.awaitingSettlement
                     ? "返済へ"
@@ -903,6 +951,8 @@ export default function DailyApp() {
               <>
                 <h3>進行の記録</h3>
                 <p>はじめから遊んでも、回想は残ります。</p>
+                <p>別のブラウザーや配信元へ移るときは、ファイルで記録を持ち運べます。</p>
+                <div className="demo-transfer-actions"><Button disabled={!savedState} onClick={downloadSave}>記録を書き出す</Button><Button onClick={() => importInput.current?.click()}>記録を読み込む</Button></div>
                 <Button onClick={() => setReset("delete")}>保存を消す</Button>
                 <h3>回想の記録</h3>
                 <p>解禁した回想と、本文の読了記録を消します。</p>
@@ -962,6 +1012,11 @@ export default function DailyApp() {
           </p>
         </Modal>
       )}
+      <input ref={importInput} type="file" accept=".json,application/json" hidden aria-label="保存ファイル" onChange={e => { void readSaveFile(e.target.files?.[0]); e.target.value = ""; }} />
+      {incomingSave && <Modal title="記録を読み込む" onClose={() => setIncomingSave(null)} footer={<><Button onClick={() => setIncomingSave(null)}>戻る</Button><Button primary onClick={acceptImport}>この記録を読み込む</Button></>}>
+        <p className="demo-transfer-summary">第{incomingSave.state.chapter}章・{incomingSave.state.day}日目 ／ 所持金 {incomingSave.state.money.toLocaleString()}G。{incomingSave.state.chapterResults.some(r => r.chapter === 1) ? "第1章の返済済み。" : ""}</p>
+        <p>現在の進行を、このファイルの記録に置き換えます。回想は両方の記録を残します。</p>
+      </Modal>}
 
       {saveError && !result && !scene && (
         <div className="r-save-error" role="alert">
@@ -974,7 +1029,7 @@ export default function DailyApp() {
           </Button>
         </div>
       )}
-      {notice && started && (
+      {notice && (started || settings) && (
         <Modal
           title="お知らせ"
           onClose={() => setNotice("")}

@@ -14,4 +14,4 @@ export type SceneArtwork = {
 };
 
 /** SceneEntry.image は発注名。ここへの登録で初めて通常再生・回想に採用する。 */
-export const sceneArtwork: Record<string, SceneArtwork> = {};
+export const sceneArtwork: Record<string, SceneArtwork> = { "chapter.home": { background: "estate" } };

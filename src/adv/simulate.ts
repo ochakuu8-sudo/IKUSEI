@@ -2,22 +2,24 @@
 import { transition, applyEffects, type Command } from "./engine";
 import { evaluateCondition } from "./conditions";
 import { dailyAction, freshDaily, offersOf, quotaOf, takeReason, type DailyState, type DayOutcome } from "../daily";
-import { axes, CHAPTER_DAYS, CHAPTERS } from "../game";
+import { axes, CHAPTER_DAYS } from "../game";
+import { campaignChapters, chapterAvailable, pendingStoryEvent } from "../campaign";
 import type { Choice, Snapshot } from "./types";
 
-export type Policy = { name: string; growth: number; story: number; relation: number; preserveAxes?: boolean };
+export type Policy = { name: string; growth: number; story: number; relation: number; preserveAxes?: boolean; trainingWindow?: [number, number] };
 export const policies: Policy[] = [
   { name: "収入優先", growth: 0, story: 0, relation: 0 },
-  { name: "育成・後続依頼優先", growth: 30, story: 35, relation: 10 },
-  { name: "尊厳維持・関係優先", growth: 10, story: 15, relation: 45, preserveAxes: true },
+  { name: "序盤から育成", growth: 90, story: 15, relation: 10, trainingWindow: [1, 4] },
+  { name: "中盤から育成", growth: 90, story: 15, relation: 10, trainingWindow: [6, 9] },
+  { name: "尊厳維持・関係優先", growth: 90, story: 15, relation: 25, preserveAxes: true, trainingWindow: [1, 4] },
 ];
 function step(s: DailyState, command: Command): DailyState {
   const result = transition(s, command);
   if (result.error) throw new Error(result.error);
   return result.state;
 }
-export function playJob(s: DailyState, jobId: string, pick: (choices: Choice[], state: Snapshot) => Choice) {
-  let next = step(s, { type: "begin", jobId });
+export function playJob(s: DailyState, jobId: string | undefined, pick: (choices: Choice[], state: Snapshot) => Choice) {
+  let next = step(s, jobId ? { type: "begin", jobId } : { type: "begin-event" });
   const bound = Object.keys(next.activeSession!.scenario.nodes).length + 1;
   for (let i = 0; i < bound; i++) {
     const session = next.activeSession!;
@@ -41,7 +43,8 @@ function score(before: Snapshot, after: Snapshot, policy: Policy) {
   const xp = Object.keys(before.growthXP).reduce((n, id) => n + after.growthXP[id] - before.growthXP[id], 0);
   const flags = Object.keys(after.storyFlags).filter(id => after.storyFlags[id] && !before.storyFlags[id]).length;
   const relation = Object.keys(before.relations).reduce((n, id) => n + after.relations[id as keyof typeof before.relations] - before.relations[id as keyof typeof before.relations], 0);
-  return after.money - before.money + xp * policy.growth + flags * policy.story + relation * policy.relation;
+  const training = !policy.trainingWindow || (before.day >= policy.trainingWindow[0] && before.day <= policy.trainingWindow[1]);
+  return after.money - before.money + xp * (training ? policy.growth : 0) + flags * policy.story + relation * policy.relation;
 }
 function losesAxes(outcome: DayOutcome) {
   return [...outcome.drops, ...(outcome.choiceAxisMoves ?? [])].some(move => move.after < move.before);
@@ -55,7 +58,10 @@ export function simulate(policy: Policy, seed: string) {
     const safe = policy.preserveAxes ? choices.filter(c => axes.every(axis => (c.effects?.axisDelta?.[axis] ?? 0) >= 0)) : choices;
     return [...(safe.length ? safe : choices)].sort((a, b) => score(before, applyEffects(before, b.effects), policy) - score(before, applyEffects(before, a.effects), policy))[0];
   };
-  for (let guard = 0; guard < CHAPTERS * (CHAPTER_DAYS + 1) + 1 && !state.ended; guard++) {
+  const length = Object.keys(campaignChapters).length;
+  for (let guard = 0; guard < length * (CHAPTER_DAYS + 8) + 1 && !state.ended; guard++) {
+    if (pendingStoryEvent(state)) { const event = playJob(state, undefined, choose); state = event.state; decisions += event.choices; continue; }
+    if (!chapterAvailable(state)) break;
     if (state.awaitingSettlement) {
       const row = { chapter: state.chapter, income, bonus, quota: quotaOf(state), cash: state.money };
       const result = dailyAction(state, { type: "settle" });
@@ -85,6 +91,6 @@ export function simulate(policy: Policy, seed: string) {
       rests++;
     }
   }
-  if (!state.ended || chapters.length !== CHAPTERS) throw new Error("Simulation did not reach the ending");
+  if (chapterAvailable(state) || pendingStoryEvent(state) || chapters.length !== length) throw new Error("Simulation did not reach the release boundary");
   return { chapters, rests, decisions, used: [...used], final: state };
 }

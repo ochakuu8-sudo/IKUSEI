@@ -1,4 +1,4 @@
-/** 検証用に作成した仮台本を現在の本編として共用。IDは既存セーブのため維持する。 */
+/** 旧検証台本。受諾済みの保存と開発用フィクスチャのためIDを維持する。本編には提示しない。 */
 import type { Job } from "../game";
 import type { Scenario, Condition, AdvNode } from "../adv/types";
 import { growthDefinitions } from "../adv/growth";

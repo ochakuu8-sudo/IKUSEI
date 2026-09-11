@@ -6,6 +6,9 @@ import { growthDefinitions, rankOf } from "@game/adv/growth";
 import { scenarios } from "@game/content/scenarios";
 import { freshDaily, offersOf, isOpen, dailyAction, payOf } from "@game/daily";
 import { jobs } from "@game/game";
+import { campaignChapters } from "@game/campaign";
+// Archived scenarios remain executable for accepted saves, using a test-only catalog.
+for (let chapter = 1; chapter <= 6; chapter++) campaignChapters[chapter] = { title: "旧版の検証", jobIds: jobs.filter(j => !j.id.startsWith("ch1-")).map(j => j.id), people: ["vernet", "claire"], events: [] };
 import { parseDaily, migrateFromV15, migrateFromV14, loadDaily, SAVE_KEY, clearDaily } from "@game/saveV14";
 import { syncArchive, loadArchive, ADV_ARCHIVE_KEY } from "@game/adv/archive";
 let count = 0;
