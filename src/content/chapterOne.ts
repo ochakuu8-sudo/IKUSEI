@@ -160,7 +160,73 @@ export function chapterOneEnding(s: Parameters<typeof chapterOneEndingLines>[0])
   return { ...structuredClone(ending), nodes: { intro: text("intro", chapterOneEndingLines(s).map(l => ({ ...l, visual: "chapter.home" }))), end: end({ "ch1.ending.done": true }) } };
 }
 
-export const chapterOneScenarios = [intro, ...basics, ...skilledWork, promise, vernetPromise, clairePromise, ending];
+
+/* ===== 試作：夜会の片付けと給仕（マルク） =====
+   受け取った原稿をそのままノベルへ割り当てた検証用の依頼。
+   報酬・体力・選択の効果はすべて仮値。条件は未設定（全選択が無条件）。
+   本番では尊厳ランクで届く段階を決める想定（旧データの「個室での接待」は
+   opensBelow: { 貞操: 3 } で、貞操が落ちてから初めて届いていた）。 */
+const cleanupChoiceNodes: Record<string, AdvNode> = {
+  intro: text("intro", [
+    line("指定された別邸の奥室に入ると、むっとするような酒と脂、そして精液の生臭い匂いが室内に立ち込めていた。"),
+    line("ソファーには半裸の商人たちが泥酔して転がり、床には倒れたグラスと散らばった料理の残骸が散乱している。"),
+    line("おう、来たな。仕事は簡単な拭き掃除だ。……ただ、奥のソファーにいる旦那の処理が残っててな", "マルク"),
+    line("案内された奥の暗がりでは、腹の出た太った男がズボンを膝まで下ろし、真っ赤に怒張した肉棒を露出させていた。"),
+    line("男は下品な笑みを浮かべ、エレオノールの金髪と整った顔立ちを卑しい視線で舐め回すように見つめてくる。"),
+    line("おい、マルク。この女が噂の没落令嬢か？ 面白え、俺のこのカチカチのナニを気持ちよくさせてみろ", "男"),
+    line("だそうだ。床の清掃だけで終わらせるか、旦那のナニを処理して特別手当てをもらうか、お前が決めな", "マルク"),
+  ], "role"),
+  role: {
+    id: "role", kind: "choice", prompt: "どのような対応を取る？",
+    choices: [
+      { id: "refuse", text: "床の拭き掃除だけを淡々とこなす", next: "refuse" },
+      { id: "hand", text: "男のペニスを手で握り、しごいて吐き出させる",
+        effects: { bonusMoney: 120, axisDelta: { 貞操: -12 } }, next: "hand" },
+      { id: "oral", text: "膝をつき、ペニスを咥え込んで吐き出させる",
+        effects: { bonusMoney: 220, axisDelta: { 貞操: -20 } }, next: "oral" },
+    ],
+  },
+  refuse: text("refuse", [
+    line("エレオノールは男の太い肉棒から視線を逸らし、黙って雑巾をバケツの水に浸した。"),
+    line("床に散らばる酒の汚れと吸い殻を淡々と拭き取り、男の存在など最初から視界に入っていないかのように振る舞う。"),
+    line("ちっ、すました顔しやがって。没落したくせにプライドだけは一人前かよ。失せろ、シケた女だ！", "男"),
+    line("男は苛立ちを露わにして唾を吐き捨て、エレオノールの腰を乱暴に蹴り飛ばすと、別の女を呼ぶために部屋を出て行った。"),
+    line("背中に走る痛みを無視し、エレオノールは汚れた布を絞り直すと、冷ややかな手つきで黙々と掃除を続けた。"),
+  ]),
+  hand: text("hand", [
+    line("エレオノールは男の足元に膝をつき、ドレスの裾を払うと、太く脈打つペニスへと細い手指を伸ばした。"),
+    line("先端から滲み出る生臭い愛液の粘りけが皮膚に伝わり、先端の亀頭は握りきれないほど不恰好に腫れ上がっている。"),
+    line("ひひっ、いい手つきだ。元貴族様の気高い指先で、もっと強く根元から擦り上げてくれよ！", "男"),
+    line("両手で肉棒を包み込み、一定のリズムで上下にしごき立てると、男は歓喜の声を上げてエレオノールの頭を撫でまわした。"),
+    line("親指で亀頭の切れ目を擦り上げるたび、男は腰を跳ねさせ、大量の我慢汁をエレオノールの手首まで滴らせていく。"),
+    line("「くふっ、来るぞ……ッ！ 元令嬢の手の中で出してやる！」"),
+    line("男の全身が激しく強張ると同時に、熱くドロドロとした精液が勢いよく噴出し、エレオノールの手とドレスの袖口を真っ白に汚した。"),
+    line("脈打つ肉棒が萎えていくのを冷ややかに見届けた後、エレオノールは精液塗れの手をぬぐい、差し出された重い金貨を受け取った。"),
+  ]),
+  oral: text("oral", [
+    line("エレオノールは躊躇うことなく男の股間に顔を近づけ、露わになった肉棒にそっと唇を寄せた。"),
+    line("鼻腔を突く強い男臭さと精液の匂いに眉ひとつ動かさず、湿った亀頭の先を舌先で丁寧に舐め回していく。"),
+    line("「うおっ、うまいぞ！ 唇を密着させて、もっと奥までぐっぽりと咥え込め！」"),
+    line("男は興奮のあまりエレオノールの金髪を掴み、喉の奥深くまで太いペニスを強引に突き刺してきた。"),
+    line("息が詰まり、目元に生理的な涙が浮かぶが、エレオノールは舌を複雑に絡め、口腔全体で肉棒を強く絞り上げた。"),
+    line("ジュポ、ジュボと卑しい水音が部屋に響き渡り、男は獣のような喘ぎ声を上げながらエレオノールの頭を激しく前後させる。"),
+    line("「くそっ、最高だ！ 落ちぶれた令嬢の喉奥に直接ぶち込んでやる！」"),
+    line("男の腰が大きく跳ね、爆発的な勢いで熱く濃厚な精液がエレオノールの喉元へ直接噴射された。"),
+    line("何度も喉を鳴らして大量の精液を飲み込み、溢れ出た白濁液が顎を伝って胸元へと滴り落ちていく。"),
+    line("ペニスが吐き出された後も、エレオノールは舌先で残った精液を綺麗に舐め取り、静かに口元を拭って礼をした。"),
+    line("大満足した男から投げつけられた金貨の袋を拾い上げると、何事もなかったかのようにバケツを持ち、次の部屋へと向かった。"),
+  ]),
+  end: end({ "ch1.cleanup.seen": true }),
+};
+const cleanup = scenario("ch1.cleanup", cleanupChoiceNodes);
+const cleanupRepeat = scenario("ch1.cleanup.repeat", {
+  ...cleanupChoiceNodes,
+  intro: text("intro", [
+    line("今日も奥の部屋で宴会の後片付けがある。体を使う準備はできてるな？", "マルク"),
+  ], "role"),
+});
+
+export const chapterOneScenarios = [intro, ...basics, ...skilledWork, promise, vernetPromise, clairePromise, cleanup, cleanupRepeat, ending];
 const job = (id: string, title: string, person: Job["person"], pay: number, stamina: number, extra: Partial<Job>): Job => ({
   id: "ch1-" + id, scenarioId: "ch1." + id, title, person, pay, stamina, kind: "実務", category: "ordinary", cadence: "repeat", needs: {}, costs: [], bond: 0,
   description: "", ...extra,
@@ -171,5 +237,8 @@ export const chapterOneJobs: Job[] = [
   job("negotiation", "取引の最終確認", "vernet", 120, 25, { repeatScenarioId: "ch1.negotiation.repeat", availableFromDay: 3, bond: 1, growthHint: "交渉か胆力1段階で手当 +100G。補助は条件なし", description: "3日目以降、学院の調査と日替わりで受付。交渉か胆力を使う役割なら、受けるたびに追加手当。経験が足りなくても書類の準備を担当できます。" }),
   job("research", "食い違う資料の調査", "claire", 105, 22, { repeatScenarioId: "ch1.research.repeat", availableFromDay: 3, bond: 1, growthHint: "知見か魅力1段階で手当 +105G。補助は条件なし", description: "3日目以降、商会の確認と日替わりで受付。知見か魅力を使う役割なら、受けるたびに追加手当。経験が足りなくても運搬と整理を担当できます。" }),
   job("vernet-promise", "自分の名前で結ぶ契約", "vernet", 255, 28, { cadence: "once", bond: 1, availableFromDay: 10, availableUntilDay: 14, requiresStoryFlags: ["ch1.promise.vernet"], growthHint: "7日目の約束の続き。広告契約は断っても完了可", description: "10〜14日目の一度だけ。商会との約束を仕上げます。追加の広告契約は +100Gと引き換えに威厳の数値が25低下し、失ったランクは戻りません。契約の可否は会話中に選べます。" }),
+  job("cleanup", "夜会の片付けと給仕", "marc", 140, 30, { repeatScenarioId: "ch1.cleanup.repeat", availableFromDay: 3, bond: 1,
+    growthHint: "（仮）特別手当と引き換えに貞操が下がります",
+    description: "商人が集まる夜会のあとの片付けだ。表の奴らには見せられねえ汚れ仕事だが、残業手当はしっかり出す。" }),
   job("claire-promise", "資料に添える一枚", "claire", 230, 22, { cadence: "once", bond: 1, availableFromDay: 10, availableUntilDay: 14, requiresStoryFlags: ["ch1.promise.claire"], growthHint: "7日目の約束の続き。知見か魅力の経験 +1", description: "10〜14日目の一度だけ。学院との約束を仕上げます。相手のために書き添える一枚を選んで、資料を送り出します。経験や尊厳による受諾条件はありません。" }),
 ];

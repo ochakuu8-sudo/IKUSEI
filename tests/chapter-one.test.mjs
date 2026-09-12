@@ -30,10 +30,10 @@ function finish(route="vernet",restOnly=false){
   assert.equal(actions,14);assert.equal(s.chapter,2);assert.equal(s.day,1);assert.equal(s.ended,false);
   assert.equal(s.storyFlags["ch1.ending.done"],true);return {state:s,seen};
 }
-check("shipping catalog has one chapter, six jobs and two supporting people",()=>{
+check("shipping catalog has one chapter, seven jobs and three supporting people",()=>{
   assert.deepEqual(Object.keys(campaignChapters),["1"]);
-  assert.equal(chapterOneJobs.length,6);
-  assert.deepEqual(campaignChapters[1].people,["vernet","claire"]);
+  assert.equal(chapterOneJobs.length,7);
+  assert.deepEqual(campaignChapters[1].people,["vernet","claire","marc"]);
   for(const s of chapterOneScenarios) assert.deepEqual(validateScenario(s),[],s.id);
   assert(!JSON.stringify(chapterOneScenarios).includes("検証用"));
   assert(transition(freshDaily(),{type:"begin",jobId:"debug-training"}).error);
@@ -49,14 +49,21 @@ check("intro and day-seven promise are saved, unavoidable and cost no day or mon
   assert.equal(s.storyFlags["ch1.promise.vernet"],false);assert.equal(pendingStoryEvent(s),undefined);
   assert(transition(s,{type:"begin-event"}).error);
 });
+/* 3枠目は日替わりなので、日数を決め打ちせず提示されるまで待つ。 */
+function restUntilOffered(s,id){
+  for(let i=0;i<8&&!offersOf(s).some(j=>j.id===id);i++)
+    s=pendingStoryEvent(s)?readEvent(s):action(s,{type:"rest"});
+  assert(offersOf(s).some(j=>j.id===id),id+" が提示されない");
+  return s;
+}
 check("all four skills unlock a repeatable role; repeat visits use short text",()=>{
-  for(const [skill,basic,special,day] of [["negotiation","ledger","negotiation",3],["courage","ledger","negotiation",3],["knowledge","library","research",4],["charm","library","research",4]]){
+  for(const [skill,basic,special] of [["negotiation","ledger","negotiation"],["courage","ledger","negotiation"],["knowledge","library","research"],["charm","library","research"]]){
     let s=fresh();
     for(let i=0;i<2;i++)s=playJob(s,"ch1-"+basic,pick(skill)).state;
     assert.equal(s.growthXP[skill],2);
-    if(day===4)s=action(s,{type:"rest"});
+    s=restUntilOffered(s,"ch1-"+special);
     const run=playJob(s,"ch1-"+special,pick(skill));assert(run.outcome.bonusMoney>0);s=run.state;
-    s=action(s,{type:"rest"});
+    s=restUntilOffered(s,"ch1-"+special);
     const again=transition(s,{type:"begin",jobId:"ch1-"+special});assert.equal(again.error,undefined);
     assert(again.state.activeSession.scenario.id.endsWith(".repeat"));
     assert(again.state.activeSession.scenario.nodes.intro.lines[0].text.length<=80);
@@ -64,7 +71,7 @@ check("all four skills unlock a repeatable role; repeat visits use short text",(
 });
 check("both promises finish in exactly fourteen actions; unmet payment also reaches ending",()=>{
   const v=finish("vernet"),c=finish("claire"),r=finish("claire",true);
-  assert.equal(new Set([...v.seen,...c.seen]).size,6);
+  assert.equal(new Set([...v.seen,...c.seen]).size,7);
   assert.equal(v.state.storyFlags["ch1.followup.vernet"],true);
   assert.equal(c.state.storyFlags["ch1.followup.claire"],true);
   assert.equal(v.state.storyFlags["ch1.followup.claire"],undefined);

@@ -14,10 +14,11 @@ export type ChapterDefinition = {
 export const campaignChapters: Record<number, ChapterDefinition> = {
   1: {
     title: "最初の返済",
-    jobIds: ["ch1-ledger", "ch1-library", "ch1-negotiation", "ch1-research", "ch1-vernet-promise", "ch1-claire-promise"],
-    people: ["vernet", "claire"],
+    jobIds: ["ch1-ledger", "ch1-library", "ch1-negotiation", "ch1-research", "ch1-cleanup", "ch1-vernet-promise", "ch1-claire-promise"],
+    people: ["vernet", "claire", "marc"],
     alwaysOfferIds: ["ch1-ledger", "ch1-library"],
-    rotatingOfferIds: ["ch1-negotiation", "ch1-research"],
+    /* 3枠目は日替わり。3日目から ch1-cleanup → 確認 → 調査 の順で回る。 */
+    rotatingOfferIds: ["ch1-negotiation", "ch1-research", "ch1-cleanup"],
     events: [
       { id: "ch1.intro", title: "最初の手紙", person: "vernet", scenarioId: "ch1.intro", afterDay: 0 },
       { id: "ch1.promise", title: "七日目の約束", person: "claire", scenarioId: "ch1.promise", afterDay: 7 },

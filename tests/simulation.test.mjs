@@ -7,13 +7,17 @@ const pick = id => choices => choices.find(c=>c.id===id) ?? choices[0];
 let s=playJob(freshDaily("simulation-path"),undefined,pick("vernet")).state;
 for(let i=0;i<2;i++) s=playJob(s,"ch1-ledger",pick("negotiation")).state;
 assert.equal(s.growthXP.negotiation,2);
+// 3日目の枠は試作の夜会依頼。断る選択は何も動かさない。
+assert(offersOf(s).some(j=>j.id==="ch1-cleanup"));
+s=playJob(s,"ch1-cleanup",pick("refuse")).state;
+assert.equal(s.axes.貞操,100,"断れば貞操は動かない");
 assert(offersOf(s).some(j=>j.id==="ch1-negotiation"));
 const branch=playJob(s,"ch1-negotiation",pick("negotiation"));
 assert.equal(branch.outcome.bonusMoney,100);
 assert.equal(branch.state.money-s.money,branch.outcome.pay-DAILY_UPKEEP);
 assert.equal(branch.outcome.upkeep.due,DAILY_UPKEEP);assert.equal(branch.outcome.upkeep.unpaid,0);
 assert.equal(branch.state.storyFlags["ch1.negotiated"],true);
-assert.equal(branch.state.day,4);
+assert.equal(branch.state.day,5);
 for(const p of policies){
   const run=simulate(p,"simulation-end");
   assert.equal(run.chapters.length,1);
