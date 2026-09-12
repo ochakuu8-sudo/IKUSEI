@@ -435,6 +435,17 @@ export function DayRecord({
               {Math.round((1 - result.fatigueRate) * 100)}%引き
             </small>
           )}
+          {result.upkeep && (
+            <Amount
+              label="屋敷の維持費"
+              value={`−${gold(result.upkeep.due)}`}
+            />
+          )}
+          {!!result.upkeep?.unpaid && (
+            <p className="r-warning">
+              維持費が{gold(result.upkeep.unpaid)}足りず、借金に積まれた
+            </p>
+          )}
           <Amount
             label="所持金"
             value={`${gold(before.money)} → ${gold(after.money)}`}

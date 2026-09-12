@@ -20,6 +20,7 @@ import {
   materialOf,
   CHAPTER_DAYS,
   CHAPTERS,
+  DAILY_UPKEEP,
   jobs,
   LATE_INTEREST,
   LATE_PENALTY,
@@ -94,10 +95,15 @@ export type AxisMove = {
   after: number;
 };
 
+/** その日の屋敷の維持費。払えた額と、払えずに借金へ回った額を分けて持つ。 */
+export type UpkeepCharge = { due: number; paid: number; unpaid: number };
+
 /** 1日の結果。結果画面がそのまま読める形で持つ（§10）。 */
 export type DayOutcome = {
   growthGains?: { id: string; before: number; after: number }[];
   bonusMoney?: number;
+  /** 章末精算の日には無い。1日を使った行動にだけ付く。 */
+  upkeep?: UpkeepCharge;
   choiceAxisMoves?: AxisMove[];
   kind: "job" | "rest" | "settle" | "story";
   title: string;
@@ -369,6 +375,26 @@ function recover(s: DailyState, lostPrestige: boolean): AxisMove[] {
   return moves;
 }
 
+/** 払えなかったときだけ知らせる。払えた額は結果画面が明細で見せる。 */
+function upkeepNotices(upkeep: UpkeepCharge): string[] {
+  return upkeep.unpaid
+    ? [`維持費が${upkeep.unpaid.toLocaleString()}G足りず、借金に積まれた`]
+    : [];
+}
+
+/**
+ * 一日ぶんの維持費。その日の稼ぎで払い、足りない分は借金へ積む。
+ * 尊厳には触れない。未払いの扱いを尊厳へ繋ぐかは、代償のある依頼と併せて別に決める。
+ */
+function chargeUpkeep(s: DailyState): UpkeepCharge {
+  const due = DAILY_UPKEEP;
+  const paid = Math.min(s.money, due);
+  const unpaid = due - paid;
+  s.money -= paid;
+  if (unpaid) s.debt = Math.min(9_999_999, s.debt + unpaid);
+  return { due, paid, unpaid };
+}
+
 /** 日を1つ進める。14日目を終えたら章末精算を待つ。 */
 function advance(s: DailyState) {
   if (s.day >= CHAPTER_DAYS) s.awaitingSettlement = true;
@@ -456,11 +482,12 @@ export function dailyAction(
     s.stamina = MAX_STAMINA;
     s.recent = ["none" as const, ...s.recent].slice(0, RECENT_WINDOW);
     const gains = recover(s, false);
+    const upkeep = chargeUpkeep(s);
     advance(s);
-    s.log = [`${state.day}日目。今日は何も受けなかった。`, ...s.log].slice(
-      0,
-      12,
-    );
+    s.log = [
+      `${state.day}日目。今日は何も受けなかった（維持費 ${upkeep.due.toLocaleString()}G）。`,
+      ...s.log,
+    ].slice(0, 12);
     s.revision++;
     return {
       state: s,
@@ -476,7 +503,11 @@ export function dailyAction(
         gains,
         staminaDelta: s.stamina - staminaBefore,
         closedNow: closedSince(openBefore, s),
-        notices: ["1日を使った。体力は戻った。"],
+        upkeep,
+        notices: [
+          "1日を使った。体力は戻った。",
+          ...upkeepNotices(upkeep),
+        ],
       },
     };
   }
@@ -553,6 +584,8 @@ export function settleJob(state: DailyState, job: Job, quote?: Quote, lostPresti
     s,
     lostPrestige || job.costs.some((c) => c.axis === "威厳"),
   );
+  const upkeep = chargeUpkeep(s);
+  notices.push(...upkeepNotices(upkeep));
   advance(s);
   s.log = [
     `${state.day}日目。${job.title}（${pay.toLocaleString()}G）。`,
@@ -575,6 +608,7 @@ export function settleJob(state: DailyState, job: Job, quote?: Quote, lostPresti
       staminaDelta: -staminaOf(job),
       relationUp,
       closedNow: closedSince(openBefore, s),
+      upkeep,
       notices,
     },
   };

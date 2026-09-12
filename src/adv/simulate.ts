@@ -50,7 +50,7 @@ function losesAxes(outcome: DayOutcome) {
   return [...outcome.drops, ...(outcome.choiceAxisMoves ?? [])].some(move => move.after < move.before);
 }
 export function simulate(policy: Policy, seed: string) {
-  let state = freshDaily(seed), income = 0, bonus = 0, rests = 0, decisions = 0;
+  let state = freshDaily(seed), income = 0, bonus = 0, rests = 0, decisions = 0, arrears = 0;
   const chapters: { chapter: number; income: number; bonus: number; quota: number; cash: number; debt: number; paid: number; interest: number }[] = [];
   const used = new Set<string>();
   // Known effects are evaluated here; these policies are not an optimal solver or a novice model.
@@ -81,16 +81,20 @@ export function simulate(policy: Policy, seed: string) {
     if (chosen) {
       income += chosen.state.money - state.money;
       bonus += chosen.outcome.bonusMoney ?? 0;
+      arrears += chosen.outcome.upkeep?.unpaid ?? 0;
       decisions += chosen.choices;
       used.add(chosen.job.id);
       state = chosen.state;
     } else {
       const result = dailyAction(state, { type: "rest" });
       if (result.error) throw new Error(result.error);
+      // A rest day still pays upkeep, so it belongs in the running balance.
+      income += result.state.money - state.money;
+      arrears += result.outcome?.upkeep?.unpaid ?? 0;
       state = result.state;
       rests++;
     }
   }
   if (chapterAvailable(state) || pendingStoryEvent(state) || chapters.length !== length) throw new Error("Simulation did not reach the release boundary");
-  return { chapters, rests, decisions, used: [...used], final: state };
+  return { chapters, rests, decisions, arrears, used: [...used], final: state };
 }

@@ -70,9 +70,11 @@ check("both promises finish in exactly fourteen actions; unmet payment also reac
   assert.equal(v.state.storyFlags["ch1.followup.claire"],undefined);
   assert.notDeepEqual(chapterOneEndingLines(v.state),chapterOneEndingLines(c.state));
   const receipt=r.state.chapterResults[0];
-  assert.deepEqual(receipt,{chapter:1,quota:1050,paid:120,shortfall:930,interest:233});
-  assert.equal(r.state.carryOver,1163);assert.equal(r.state.debt,11963);
-  assert(chapterOneEndingLines(r.state).some(l=>l.text.includes("233G")));
+  // 14 rest days owe 840G of upkeep against 120G of starting money: nothing is left to repay.
+  assert.deepEqual(receipt,{chapter:1,quota:1050,paid:0,shortfall:1050,interest:263});
+  assert.equal(r.state.money,0);
+  assert.equal(r.state.carryOver,1313);assert.equal(r.state.debt,12833);
+  assert(chapterOneEndingLines(r.state).some(l=>l.text.includes("263G")));
   assert(chapterOneEndingLines(r.state).some(l=>l.text.includes("机の席")),"rest-only play invents no completed promise");
 });
 check("settlement cannot run twice; sequel preserves all progression without starting over",()=>{

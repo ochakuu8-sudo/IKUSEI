@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { axes, CHAPTER_DAYS, personOf, type Job } from "../game";
+import { axes, CHAPTER_DAYS, DAILY_UPKEEP, personOf, type Job } from "../game";
 import { closingPreview, fatigueRateOf, materialCostOf, listPriceOf, payOf, quotaOf, staminaOf, takeReason, type DailyState } from "../daily";
 import { dignityRank } from "../dignity";
 import { growthDefinitions, growthOf, rankOf } from "../adv/growth";
@@ -19,7 +19,7 @@ export function DeskHeader({s,onJournal,onGallery,onSettings}: {s:DailyState;onJ
     <button className="a-calendar" onClick={onJournal} aria-label={`${s.day}日目 第${s.chapter}章`}><Glyph name="calendar"/><span><small>第{s.chapter}章</small><b>{s.day}<em>日目</em></b></span></button>
     <div className="a-stamina" title={`体力 ${s.stamina} / 100`}><Glyph name="energy"/><div><small>体力</small><b>{s.stamina}</b><span className="a-meter"><i style={{width:s.stamina+'%'}}/></span></div></div>
     <button className="a-goal" onClick={onJournal} aria-label={`今章の必要額まであと${n(remaining)}G。返済の予定を台帳で確認`}><Glyph name="ledger"/><span><small>{remaining ? "今章あと":"今章確保済"}</small><b>{n(remaining)}<em>G</em></b><span className="a-meter a-repayment" title={`所持金 ${n(s.money)}G ／ 今章の必要額 ${n(due)}G`}><i style={{width:Math.min(100,s.money/Math.max(1,due)*100)+'%'}}/></span></span><span className="a-deadline"><span className="a-remaining">残り</span><Glyph name="hourglass"/><b>{Math.max(0,CHAPTER_DAYS-s.day+1)}</b><em>日</em></span></button>
-    <div className="a-wallet" title={`所持金 ${n(s.money)} G`}><Glyph name="coin"/><span><small>所持金</small><b>{n(s.money)}</b></span></div>
+    <div className="a-wallet" title={`所持金 ${n(s.money)} G ／ 屋敷の維持費 1日あたり ${n(DAILY_UPKEEP)} G。残り${Math.max(0,CHAPTER_DAYS-s.day+1)}日で ${n(DAILY_UPKEEP*Math.max(0,CHAPTER_DAYS-s.day+1))} G かかる`}><Glyph name="coin"/><span><small>所持金</small><b>{n(s.money)}</b><small className="a-upkeep">維持費 −{n(DAILY_UPKEEP)}／日</small></span></div>
     <nav className="a-menu" aria-label="手帳と設定"><button className="c-book" onClick={onJournal}><Glyph name="ledger"/>台帳</button><button onClick={onGallery}><Glyph name="gallery"/>回想</button><button onClick={onSettings}><Glyph name="gear"/>設定</button></nav>
   </header>;
 }

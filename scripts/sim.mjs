@@ -9,7 +9,7 @@ for (const policy of policies) {
   console.log(`── ${policy.name} ──`);
   for (let c=0;c<results[0].chapters.length;c++) {
     const rows=results.map(r=>r.chapters[c]);
-    console.log(`第${c+1}章 平均収入 ${mean(rows.map(r=>r.income))}G（選択追加 ${mean(rows.map(r=>r.bonus))}G）／必要額 ${mean(rows.map(r=>r.quota))}G／精算前所持金 ${mean(rows.map(r=>r.cash))}G`);
+    console.log(`第${c+1}章 平均収支 ${mean(rows.map(r=>r.income))}G（維持費差引後）（選択追加 ${mean(rows.map(r=>r.bonus))}G）／必要額 ${mean(rows.map(r=>r.quota))}G／精算前所持金 ${mean(rows.map(r=>r.cash))}G`);
   }
   console.log(`平均残債 ${mean(results.map(r=>r.final.debt))}G ／休息 ${mean(results.map(r=>r.rests))}日 ／選択 ${mean(results.map(r=>r.decisions))}回`);
   console.log(`依頼 ${[...new Set(results.flatMap(r=>r.used))].join(", ")}`);

@@ -14,7 +14,7 @@ import {
   materialCostOf,
   OFFERS_PER_DAY,
 } from "@game/daily";
-import { jobs } from "@game/game";
+import { jobs, DAILY_UPKEEP } from "@game/game";
 import { campaignChapters } from "@game/campaign";
 // Explicit archived-content fixture. Shipping scope is tested in chapter-one.test.mjs.
 for (let chapter = 1; chapter <= 6; chapter++) campaignChapters[chapter] = { title: "旧版の検証", jobIds: jobs.filter(j => !j.id.startsWith("ch1-")).map(j => j.id), people: ["vernet", "claire"], events: [] };
@@ -34,7 +34,7 @@ check("1日1行動。仕事を受けると日が進み、体力は戻らない",
   assert.equal(out.error, undefined);
   assert.equal(out.state.day, 2);
   assert.equal(out.state.stamina, 100 - staminaOf(job));
-  assert.equal(out.state.money, s.money + payOf(job, s));
+  assert.equal(out.state.money, s.money + payOf(job, s) - DAILY_UPKEEP);
   assert(out.outcome.scene.length > 0, "納品には必ず場面が入る");
 });
 
@@ -46,7 +46,7 @@ check("休むと体力だけが戻り、1日を失う", () => {
   const out = dailyAction(s, { type: "rest" });
   assert.equal(out.state.stamina, 100);
   assert.equal(out.state.day, 3);
-  assert.equal(out.state.money, s.money);
+  assert.equal(out.state.money, s.money - DAILY_UPKEEP, "休んでも維持費は引かれる");
   assert(tired < 100);
 });
 
@@ -136,10 +136,46 @@ check("同じ相手に通い詰めると買い叩かれる", () => {
   assert(second < first, `${second} < ${first}`);
 });
 
+check("維持費は働いた日も休んだ日も引かれ、払えない分は借金へ積まれる", () => {
+  const base = freshDaily("upkeep");
+
+  const rested = dailyAction({ ...base, money: DAILY_UPKEEP + 10 }, { type: "rest" });
+  assert.equal(rested.state.money, 10, "休んだ日も維持費は引かれる");
+  assert.deepEqual(rested.outcome.upkeep, {
+    due: DAILY_UPKEEP,
+    paid: DAILY_UPKEEP,
+    unpaid: 0,
+  });
+
+  const broke = dailyAction({ ...base, money: 25 }, { type: "rest" });
+  assert.equal(broke.state.money, 0, "所持金は0で止まる");
+  assert.deepEqual(broke.outcome.upkeep, {
+    due: DAILY_UPKEEP,
+    paid: 25,
+    unpaid: DAILY_UPKEEP - 25,
+  });
+  assert.equal(broke.state.debt, base.debt + DAILY_UPKEEP - 25, "不足は借金へ積まれる");
+  assert(broke.outcome.notices.some((n) => n.includes("維持費")), "未払いは結果に出る");
+  assert.deepEqual(broke.state.axes, base.axes, "維持費は尊厳に触れない");
+
+  const job = offersOf(base)[0];
+  const worked = dailyAction({ ...base, money: 500 }, { type: "take", job: job.id });
+  assert.equal(worked.outcome.upkeep.due, DAILY_UPKEEP);
+  assert.equal(worked.state.money, 500 + payOf(job, base) - DAILY_UPKEEP);
+
+  /* 章末精算はそれ自体が1日ではないので、維持費は付かない。 */
+  const eve = dailyAction({ ...base, day: 14, money: 2000 }, { type: "rest" }).state;
+  const settled = dailyAction(eve, { type: "settle" });
+  assert.equal(settled.outcome.upkeep, undefined);
+  assert.equal(settled.state.money, eve.money - quotaOf(eve));
+});
+
 check("章末は不足すると利息と罰が付き、次章へ繰り越す", () => {
   let s = { ...freshDaily("t10"), day: 14, money: 0 };
+  const owed = s.debt;
   s = dailyAction(s, { type: "rest" }).state;
   assert.equal(s.awaitingSettlement, true);
+  assert.equal(s.debt, owed + DAILY_UPKEEP, "払えなかった維持費は借金へ積まれる");
   const quota = quotaOf(s);
   const out = dailyAction(s, { type: "settle" });
   assert.equal(out.state.chapter, 2);

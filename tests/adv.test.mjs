@@ -5,7 +5,7 @@ import { changeDignity, dignityRank } from "@game/dignity";
 import { growthDefinitions, rankOf } from "@game/adv/growth";
 import { scenarios } from "@game/content/scenarios";
 import { freshDaily, offersOf, isOpen, dailyAction, payOf } from "@game/daily";
-import { jobs } from "@game/game";
+import { jobs, DAILY_UPKEEP } from "@game/game";
 import { campaignChapters } from "@game/campaign";
 // Archived scenarios remain executable for accepted saves, using a test-only catalog.
 for (let chapter = 1; chapter <= 6; chapter++) campaignChapters[chapter] = { title: "旧版の検証", jobIds: jobs.filter(j => !j.id.startsWith("ch1-")).map(j => j.id), people: ["vernet", "claire"], events: [] };
@@ -372,7 +372,7 @@ check("v15 mid-choice migration removes caps, preserves applied effects and resu
   const quote = s.activeSession.quote.pay;
   s = choose(s, "normal");
   assert.equal(s.day, old.day + 1);
-  assert.equal(s.money, old.money + quote);
+  assert.equal(s.money, old.money + quote - DAILY_UPKEEP);
   assert.equal(s.axes.品位, 60, "old chosen drop is not repeated; recovery stays in rank 3");
   assert.equal(store.getItem("ikusei-prototype-save-v15"), raw);
   store.setItem(SAVE_KEY, "{}");

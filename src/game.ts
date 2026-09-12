@@ -463,6 +463,15 @@ export const LATE_PENALTY: { axis: Axis; amount: number }[] = [
   { axis: "品位", amount: 10 },
 ];
 
+/**
+ * 屋敷を1日保つ費用。働いた日も、休んだ日も、等しく引かれる。
+ *
+ * これは選択肢ではなく、他のすべての選択に意味を与える土台である。
+ * この費用があると、安い依頼は「受けても増えない」になり、休息は丸損になる。
+ * 無いと、どの依頼を選んでも所持金は単調に増えるだけで、配分の判断が生まれない。
+ */
+export const DAILY_UPKEEP = 60;
+
 export function baseQuota(chapter: number): number {
   return QUOTAS[chapter - 1] ?? QUOTAS[QUOTAS.length - 1];
 }

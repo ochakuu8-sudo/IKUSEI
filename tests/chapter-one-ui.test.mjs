@@ -8,6 +8,7 @@ const browser=await chromium.launch(),errors=[],measurements=[];
 const context=await browser.newContext({viewport:{width:1280,height:720}});
 const page=await context.newPage();page.on("pageerror",e=>errors.push(e.message));
 const key="ikusei-prototype-save-v16";
+const UPKEEP=60;  // src/game.ts DAILY_UPKEEP
 const button=(name,p=page)=>p.getByRole("button",{name,exact:true});
 const saved=(p=page)=>p.evaluate(k=>JSON.parse(localStorage.getItem(k)),key);
 await context.addInitScript(()=>localStorage.setItem("ikusei-prototype-ui-v14",JSON.stringify({speed:0,motion:false,volume:0,textSize:28})));
@@ -61,7 +62,7 @@ try{
   const atChoice=await saved();await page.reload();await button("続きから").click();
   await page.locator('[data-choice="negotiation"]').click();await readToResult();
   const earned=await saved();assert.equal(earned.growthXP.negotiation,1);assert.equal(earned.day,2);
-  assert.equal(earned.money,atChoice.money+95);await page.reload();await button("続きから").click();
+  assert.equal(earned.money,atChoice.money+95-UPKEEP,"報酬から屋敷の維持費が引かれる");await page.reload();await button("続きから").click();
   await button("翌日へ").click();assert.equal((await saved()).money,earned.money);
   // Seed only the start of the last day. Actions, repayment and ending run through the UI.
   await page.evaluate(async key=>{
@@ -74,7 +75,9 @@ try{
   await button("この内容で納める").click();await button("結末へ").click();
   await page.locator(".scenario-stage").waitFor();await readToResult();await button("体験版の記録へ").click();
   await page.locator('.demo-completion').waitFor();await page.waitForFunction(key=>!JSON.parse(localStorage.getItem(key)).activeSession,key);const complete=await saved();
-  assert.equal(complete.chapter,2);assert.equal(complete.ended,false);assert.equal(complete.money,240);assert.equal(complete.debt,10800);
+  assert.equal(complete.chapter,2);assert.equal(complete.ended,false);
+  // 1290 − 維持費60（休んだ14日目） − 返済1050
+  assert.equal(complete.money,1290-UPKEEP-1050);assert.equal(complete.debt,10800);
   assert.equal(complete.chapterResults.length,1);assert.equal(await page.locator('[data-job]').count(),0);
   await captureSizes("completion",".demo-completion");
   const [download]=await Promise.all([page.waitForEvent('download'),button('記録を書き出す').click()]);
